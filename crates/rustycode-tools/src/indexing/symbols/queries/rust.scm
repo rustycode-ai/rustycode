@@ -6,12 +6,6 @@
 ;; Catch functions first
 (function_item name: (identifier) @symbol.name) @symbol.kind.function
 
-;; Override functions inside impl blocks to be methods
-(impl_item 
-  (function_item name: (identifier) @symbol.name) @symbol.kind.method)
-
-(impl_item @symbol.kind.impl)
-
 ;; Support for modules (nested structure)
 (mod_item name: (identifier) @symbol.name) @symbol.kind.module
 

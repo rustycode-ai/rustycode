@@ -12,7 +12,8 @@ use rustycode_tools_api::{Tool, ToolContext};
 use serde_json::json;
 
 fn ctx() -> ToolContext {
-    ToolContext::new(std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))).with_structured_output(true)
+    ToolContext::new(std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")))
+        .with_structured_output(true)
 }
 
 #[test]

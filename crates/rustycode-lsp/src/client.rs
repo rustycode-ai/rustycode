@@ -428,6 +428,11 @@ impl LspClient {
                 stdin.write_all(notification_str.as_bytes()).await?;
                 stdin.flush().await?;
                 debug!("Sent notification: {}", method);
+            } else {
+                warn!(
+                    method = %method,
+                    "Dropping notification — LSP server stdin is not available"
+                );
             }
         }
 

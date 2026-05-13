@@ -1,8 +1,8 @@
 use crate::indexing::symbols::{diff_outlines, extract_file, FileOutline};
-use rustycode_tools_api::{define_tool, ToolOutput, ToolPermission, ToolTag};
-use serde::{Deserialize, Serialize};
-use schemars::JsonSchema;
 use anyhow::Context;
+use rustycode_tools_api::{define_tool, ToolOutput, ToolPermission, ToolTag};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

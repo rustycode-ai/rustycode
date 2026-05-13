@@ -1,8 +1,8 @@
 use crate::providers::symbol_tools::find_symbol::build_code_index;
-use rustycode_tools_api::{define_tool, ToolOutput, ToolPermission, ToolTag};
-use serde::{Deserialize, Serialize};
-use schemars::JsonSchema;
 use anyhow::Context;
+use rustycode_tools_api::{define_tool, ToolOutput, ToolPermission, ToolTag};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 fn rel_path(path: &std::path::Path, cwd: &std::path::Path) -> String {

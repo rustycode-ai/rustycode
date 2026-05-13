@@ -1,6 +1,6 @@
+use crate::indexing::symbols::{collect_source_files, extract_file, renderers, FileOutline};
 use anyhow::Result;
 use std::path::{Path, PathBuf};
-use crate::indexing::symbols::{collect_source_files, extract_file, renderers, FileOutline};
 
 /// A structural map of the codebase, token-budgeted for LLM consumption.
 pub struct RepoMap {
@@ -33,8 +33,8 @@ impl RepoMap {
         // Sort outlines for deterministic rendering (e.g. by path)
         all_outlines.sort_by(|a, b| a.path.cmp(&b.path));
 
-        let map = renderers::render_repo_map(&all_outlines, token_budget, project_root);
-        let total_tokens = map.len() / renderers::CHARS_PER_TOKEN;
+        let map = renderers::render_repo_map(&all_outlines.values().next().unwrap(), token_budget);
+        let total_tokens = map.len() / crate::indexing::symbols::renderers::CHARS_PER_TOKEN;
 
         Ok(Self {
             map,
@@ -94,7 +94,7 @@ impl User {
         .expect("failed to write test file");
 
         let map = RepoMap::build(dir.path(), 10000).expect("failed to build repo map");
-        
+
         // Check that we found the expected symbols
         assert!(map.symbol_count() >= 2);
         assert!(map.to_map_string().contains("User"));
@@ -111,10 +111,10 @@ impl User {
 
         // Build with a very small budget (e.g. 5 tokens = ~20 chars)
         let map = RepoMap::build(dir.path(), 5).expect("failed to build repo map");
-        
+
         assert!(!map.to_map_string().is_empty());
         // The map should contain at most a few files because of the small budget
-        assert!(map.estimated_tokens() < 100); 
+        assert!(map.estimated_tokens() < 100);
     }
 
     #[test]

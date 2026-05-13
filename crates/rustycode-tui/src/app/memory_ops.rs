@@ -2,8 +2,8 @@
 //!
 //! Handles auto-memory injection and context compaction.
 
-use crate::ui::message::Message;
 use super::event_loop::TUI;
+use crate::ui::message::Message;
 
 impl TUI {
     /// Get injection summary for display without modifying message
@@ -327,7 +327,9 @@ impl TUI {
                     .on_failure();
                 tracing::error!("Compaction failed: {}", e);
                 // Direct push to avoid feedback loop.
-                self.session.messages.push(Message::system(format!("⚠ Compaction failed: {}", e)));
+                self.session
+                    .messages
+                    .push(Message::system(format!("⚠ Compaction failed: {}", e)));
                 self.theme
                     .toast_manager
                     .error(format!("Compaction failed: {}", e));

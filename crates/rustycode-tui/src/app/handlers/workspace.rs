@@ -43,7 +43,7 @@ pub fn handle_workspace_update(tui: &mut TUI, update: WorkspaceUpdate) {
 
             // Note: do NOT re-emit to event channel — that creates a
             // feedback loop (event_msg converts back to WorkspaceUpdate).
-            None}
+            None
         }
         WorkspaceUpdate::Notice(message) => {
             tracing::info!("Workspace notice: {}", message);

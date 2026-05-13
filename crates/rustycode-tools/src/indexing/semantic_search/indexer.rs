@@ -101,7 +101,14 @@ impl CodeIndexer {
         }
 
         for child in &symbol.children {
-            self.index_symbol(index, path, full_content, child, language, Some(&symbol.name))?;
+            self.index_symbol(
+                index,
+                path,
+                full_content,
+                child,
+                language,
+                Some(&symbol.name),
+            )?;
         }
 
         Ok(())

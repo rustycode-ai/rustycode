@@ -19,29 +19,59 @@ pub fn render_file_outline(outline: &FileOutline, depth: OutlineDepth) -> String
     buffer
 }
 
-pub fn render_symbol_to_buffer(symbol: &CodeSymbol, indent_level: usize, depth: OutlineDepth, buffer: &mut String) {
+pub fn render_symbol_to_buffer(
+    symbol: &CodeSymbol,
+    indent_level: usize,
+    depth: OutlineDepth,
+    buffer: &mut String,
+) {
     let indent = "  ".repeat(indent_level);
-    
+
     match depth {
         OutlineDepth::Condensed => {
-            let _ = writeln!(buffer, "{indent}{}:{}  {}", symbol.line, symbol.name, symbol.kind);
+            let _ = writeln!(
+                buffer,
+                "{indent}{}:{}  {}",
+                symbol.line, symbol.name, symbol.kind
+            );
         }
         OutlineDepth::Signatures | OutlineDepth::Detailed => {
             // Prefer signature if available, otherwise fallback to "kind name"
             if !symbol.signature.is_empty() {
-                let _ = writeln!(buffer, "{indent}{} :{}", symbol.signature.trim(), symbol.line);
+                let _ = writeln!(
+                    buffer,
+                    "{indent}{} :{}",
+                    symbol.signature.trim(),
+                    symbol.line
+                );
             } else {
-                let _ = writeln!(buffer, "{indent}{} {} :{}", symbol.kind, symbol.name, symbol.line);
+                let _ = writeln!(
+                    buffer,
+                    "{indent}{} {} :{}",
+                    symbol.kind, symbol.name, symbol.line
+                );
             }
-            
+
             if depth == OutlineDepth::Detailed {
                 if let Some(ref doc) = symbol.doc_comment {
-                    let first_line = doc.lines()
+                    let first_line = doc
+                        .lines()
                         .find(|l| !l.trim().is_empty())
-                        .map(|l| l.trim().trim_start_matches("///").trim_start_matches("/**").trim_start_matches("/*").trim_start_matches('*').trim())
+                        .map(|l| {
+                            l.trim()
+                                .trim_start_matches("///")
+                                .trim_start_matches("/**")
+                                .trim_start_matches("/*")
+                                .trim_start_matches('*')
+                                .trim()
+                        })
                         .unwrap_or("");
                     if !first_line.is_empty() {
-                        let truncated = if first_line.len() > 80 { &first_line[..80] } else { first_line };
+                        let truncated = if first_line.len() > 80 {
+                            &first_line[..80]
+                        } else {
+                            first_line
+                        };
                         let _ = writeln!(buffer, "{indent}  // {truncated}");
                     }
                 }

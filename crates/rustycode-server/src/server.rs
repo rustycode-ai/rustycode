@@ -1,12 +1,10 @@
-use std::sync::Arc;
-use tokio::sync::{mpsc, broadcast};
+use anyhow::{Context, Result};
 use dashmap::DashMap;
-use anyhow::{Result, Context};
-use tracing::{info, error, debug, warn};
 use rustycode_runtime::AsyncRuntime;
-use rustycode_server_protocol::{
-    notifications::Notification, ClientMessage, ServerMessage,
-};
+use rustycode_server_protocol::{notifications::Notification, ClientMessage, ServerMessage};
+use std::sync::Arc;
+use tokio::sync::{broadcast, mpsc};
+use tracing::{debug, error, info, warn};
 
 pub type ClientId = String;
 
@@ -22,7 +20,10 @@ pub struct AppServer {
 }
 
 impl AppServer {
-    pub fn new(runtime: Arc<AsyncRuntime>, inbound_rx: mpsc::Receiver<(ClientId, ClientMessage)>) -> Self {
+    pub fn new(
+        runtime: Arc<AsyncRuntime>,
+        inbound_rx: mpsc::Receiver<(ClientId, ClientMessage)>,
+    ) -> Self {
         let (notify_tx, _) = broadcast::channel(256);
         Self {
             runtime,
@@ -34,9 +35,12 @@ impl AppServer {
 
     pub async fn run(&mut self) -> Result<()> {
         info!("AppServer running");
-        
+
         // Subscribe to runtime events
-        let (_id, mut event_rx) = self.runtime.subscribe_events("*").await
+        let (_id, mut event_rx) = self
+            .runtime
+            .subscribe_events("*")
+            .await
             .context("Failed to subscribe to runtime events")?;
 
         loop {

@@ -1,9 +1,11 @@
+use std::collections::HashMap;
 use std::path::Path;
 use tree_sitter::Node;
-use std::collections::HashMap;
 
 use super::node_text;
-use rustycode_protocol::code_symbol::{CodeSymbol, FileOutline, SymbolKind, Visibility, SymbolRange};
+use rustycode_protocol::code_symbol::{
+    CodeSymbol, FileOutline, SymbolKind, SymbolRange, Visibility,
+};
 
 /// Extract Go symbols from a tree-sitter parse tree.
 pub fn extract_go_symbols_ts(
@@ -57,14 +59,16 @@ fn go_fn_symbol(node: &Node, source: &str, kind: SymbolKind) -> Option<CodeSymbo
             start_byte: node.start_byte(),
             end_byte: node.end_byte(),
         },
-        signature: node_text(node, source).map(|s| {
-            s.lines()
-                .next()
-                .unwrap_or("")
-                .trim_end_matches('{')
-                .trim()
-                .to_string()
-        }).unwrap_or_default(),
+        signature: node_text(node, source)
+            .map(|s| {
+                s.lines()
+                    .next()
+                    .unwrap_or("")
+                    .trim_end_matches('{')
+                    .trim()
+                    .to_string()
+            })
+            .unwrap_or_default(),
         doc_comment: extract_go_doc_comment(node, source),
         visibility: Visibility::Public,
         children: Vec::new(),
@@ -88,14 +92,16 @@ fn go_method_symbol(node: &Node, source: &str) -> Option<CodeSymbol> {
             start_byte: node.start_byte(),
             end_byte: node.end_byte(),
         },
-        signature: node_text(node, source).map(|s| {
-            s.lines()
-                .next()
-                .unwrap_or("")
-                .trim_end_matches('{')
-                .trim()
-                .to_string()
-        }).unwrap_or_default(),
+        signature: node_text(node, source)
+            .map(|s| {
+                s.lines()
+                    .next()
+                    .unwrap_or("")
+                    .trim_end_matches('{')
+                    .trim()
+                    .to_string()
+            })
+            .unwrap_or_default(),
         doc_comment: extract_go_doc_comment(node, source),
         visibility: Visibility::Public,
         children: Vec::new(),
@@ -129,14 +135,16 @@ fn extract_go_type_declaration(node: &Node, source: &str, symbols: &mut Vec<Code
                             start_byte: node.start_byte(),
                             end_byte: node.end_byte(),
                         },
-                        signature: node_text(node, source).map(|s| {
-                            s.lines()
-                                .next()
-                                .unwrap_or("")
-                                .trim_end_matches('{')
-                                .trim()
-                                .to_string()
-                        }).unwrap_or_default(),
+                        signature: node_text(node, source)
+                            .map(|s| {
+                                s.lines()
+                                    .next()
+                                    .unwrap_or("")
+                                    .trim_end_matches('{')
+                                    .trim()
+                                    .to_string()
+                            })
+                            .unwrap_or_default(),
                         doc_comment: extract_go_doc_comment(node, source),
                         visibility: Visibility::Public,
                         children: Vec::new(),
@@ -168,14 +176,16 @@ fn extract_go_consts(node: &Node, source: &str, symbols: &mut Vec<CodeSymbol>) {
                             start_byte: child.start_byte(),
                             end_byte: child.end_byte(),
                         },
-                        signature: node_text(&child, source).map(|s| {
-                            s.lines()
-                                .next()
-                                .unwrap_or("")
-                                .trim_end_matches(';')
-                                .trim()
-                                .to_string()
-                        }).unwrap_or_default(),
+                        signature: node_text(&child, source)
+                            .map(|s| {
+                                s.lines()
+                                    .next()
+                                    .unwrap_or("")
+                                    .trim_end_matches(';')
+                                    .trim()
+                                    .to_string()
+                            })
+                            .unwrap_or_default(),
                         doc_comment: None,
                         visibility: Visibility::Public,
                         children: Vec::new(),
@@ -195,7 +205,14 @@ fn extract_go_doc_comment(node: &Node, source: &str) -> Option<String> {
         if cleaned.len() < 200 {
             Some(cleaned.to_string())
         } else {
-            Some(format!("{}...", &cleaned[..cleaned.char_indices().nth(197).map(|(i,_)| i).unwrap_or(cleaned.len())]))
+            Some(format!(
+                "{}...",
+                &cleaned[..cleaned
+                    .char_indices()
+                    .nth(197)
+                    .map(|(i, _)| i)
+                    .unwrap_or(cleaned.len())]
+            ))
         }
     } else {
         None
@@ -231,12 +248,7 @@ pub fn parse_with_regex(path: &Path, content: &str) -> FileOutline {
     }
 }
 
-fn regex_symbol(
-    name: String,
-    kind: SymbolKind,
-    line: usize,
-    signature: String,
-) -> CodeSymbol {
+fn regex_symbol(name: String, kind: SymbolKind, line: usize, signature: String) -> CodeSymbol {
     CodeSymbol {
         name,
         kind,

@@ -731,10 +731,10 @@ impl ToolRouter for ToolRegistry {
                 return Some(tool.clone());
             }
         }
-        // Last resort: linear search (slow but correct for migration)
+        // Last resort: linear search by name part only
         self.tools
             .values()
-            .find(|t| t.tool_name() == *name)
+            .find(|t| t.tool_name().name == name.name)
             .cloned()
     }
 
@@ -870,7 +870,8 @@ impl ToolRegistry {
     ) -> rustycode_protocol::ToolResult {
         let start = std::time::Instant::now();
 
-        let result = self.get(&call.name).map_or_else(
+        let tool_name = ToolName::from_raw(&call.name);
+        let result = self.resolve(&tool_name).map_or_else(
             || {
                 rustycode_protocol::ToolResult::error(
                     &call.call_id,

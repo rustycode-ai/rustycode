@@ -82,6 +82,8 @@ pub(crate) struct ServiceIntegrationState {
     pub(crate) mcp_manager: std::sync::Arc<tokio::sync::RwLock<rustycode_mcp::McpServerManager>>,
     pub(crate) start_time: std::time::Instant,
     pub(crate) event_receiver: tokio::sync::broadcast::Receiver<rustycode_mcp::protocol::McpEvent>,
+    pub(crate) symbol_event_rx:
+        Option<tokio::sync::mpsc::Receiver<crate::app::event_loop::AsyncEvent>>,
     pub(crate) todo_state: rustycode_tools::todo::TodoState,
     pub(crate) todo_event_bus: Option<std::sync::Arc<rustycode_bus::EventBus>>,
     pub(crate) todo_dirty: std::sync::Arc<std::sync::atomic::AtomicBool>,

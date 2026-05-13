@@ -1,7 +1,7 @@
-use rustycode_protocol::code_symbol::{CodeSymbol, SymbolKind as NewSymbolKind};
-use crate::indexing::symbols::extract_file;
 use super::{Symbol, SymbolKind};
+use crate::indexing::symbols::extract_file;
 use anyhow::Result;
+use rustycode_protocol::code_symbol::{CodeSymbol, SymbolKind as NewSymbolKind};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
@@ -11,22 +11,27 @@ use std::path::{Path, PathBuf};
 pub(crate) fn extract_symbols(file_path: &Path, content: &str) -> Vec<Symbol> {
     let outline = extract_file(file_path, content);
     let mut symbols = Vec::new();
-    
+
     // Bridge the new hierarchical CodeSymbol tree to the old flat Symbol list
     for symbol in outline.symbols {
         flatten_symbols(symbol, None, &mut symbols, file_path);
     }
-    
+
     symbols
 }
 
-fn flatten_symbols(symbol: CodeSymbol, parent: Option<String>, symbols: &mut Vec<Symbol>, file_path: &Path) {
+fn flatten_symbols(
+    symbol: CodeSymbol,
+    parent: Option<String>,
+    symbols: &mut Vec<Symbol>,
+    file_path: &Path,
+) {
     let symbol_name = if let Some(p) = parent.clone() {
         format!("{}::{}", p, symbol.name)
     } else {
         symbol.name.clone()
     };
-    
+
     symbols.push(Symbol {
         name: symbol.name,
         kind: map_kind(symbol.kind),

@@ -77,13 +77,13 @@ pub enum RequestId {
 
 impl From<String> for RequestId {
     fn from(s: String) -> Self {
-        RequestId::String(s)
+        Self::String(s)
     }
 }
 
 impl From<u64> for RequestId {
     fn from(n: u64) -> Self {
-        RequestId::Number(n)
+        Self::Number(n)
     }
 }
 

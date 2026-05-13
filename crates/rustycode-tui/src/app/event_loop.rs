@@ -367,7 +367,11 @@ impl TUI {
             (p, reg)
         };
 
-        let (tx, _) = tokio::sync::mpsc::channel(1024); let (_, rx) = tokio::sync::mpsc::channel(1024); let client = InProcessClient::new("tui".to_string(), tx, rx); Ok(Self { client,
+        let (tx, _) = tokio::sync::mpsc::channel(1024);
+        let (_, rx) = tokio::sync::mpsc::channel(1024);
+        let client = InProcessClient::new("tui".to_string(), tx, rx);
+        Ok(Self {
+            client,
             ui: crate::app::state_model::UIComponents {
                 message_renderer: MessageRenderer::new(),
                 input_handler,
@@ -435,6 +439,7 @@ impl TUI {
                 ),
                 hook_manager,
                 skill_manager,
+                symbol_event_rx: None,
             },
             workspace: crate::app::state_model::TaskWorkspaceState {
                 workspace_loaded: false,
@@ -686,6 +691,7 @@ impl TUI {
                     String::new(),
                 ),
                 skill_manager: Arc::new(RwLock::new(SkillStateManager::new())),
+                symbol_event_rx: None,
             },
             workspace: crate::app::state_model::TaskWorkspaceState {
                 workspace_loaded: false,
@@ -1662,12 +1668,16 @@ impl TUI {
         }
 
         if parts[0] == "/outline" {
-            let path = parts.get(1).map(|p| p.to_string()).unwrap_or_else(|| {
-                self.workspace.workspace_context.clone().unwrap_or_default()
-            });
+            let path = parts
+                .get(1)
+                .map(|p| p.to_string())
+                .unwrap_or_else(|| self.workspace.workspace_context.clone().unwrap_or_default());
             let client = self.client.clone();
             tokio::spawn(async move {
-                match client.request("symbol/outline", serde_json::json!({"file_path": path})).await {
+                match client
+                    .request("symbol/outline", serde_json::json!({"file_path": path}))
+                    .await
+                {
                     Ok(val) => tracing::info!("Outline: {:?}", val),
                     Err(e) => tracing::error!("Failed to fetch outline: {}", e),
                 }
@@ -2247,6 +2257,10 @@ pub enum AsyncEvent {
     CommandResult { success: bool, output: String },
     /// Workspace update
     WorkspaceUpdate { file_count: usize },
+    /// Symbol outline response
+    SymbolOutline {
+        outline: rustycode_protocol::code_symbol::FileOutline,
+    },
 }
 
 /// Sender for async events

@@ -1,5 +1,5 @@
-use tree_sitter::{Node, Parser};
 use std::path::Path;
+use tree_sitter::{Node, Parser};
 
 use crate::indexing::symbols::languages::Lang;
 pub use rustycode_protocol::code_symbol::{CodeSymbol, FileOutline, SymbolKind};
@@ -13,7 +13,9 @@ pub use generic::parse_with_regex;
 
 /// Extract text from a tree-sitter node.
 pub(crate) fn node_text(node: &Node, source: &str) -> Option<String> {
-    node.utf8_text(source.as_bytes()).ok().map(|s| s.to_string())
+    node.utf8_text(source.as_bytes())
+        .ok()
+        .map(|s| s.to_string())
 }
 
 pub fn parse_with_treesitter(
@@ -23,14 +25,26 @@ pub fn parse_with_treesitter(
     source: &str,
 ) -> FileOutline {
     let (language, query_source): (tree_sitter::Language, &str) = match lang {
-        Lang::Rust => (tree_sitter_rust::LANGUAGE.into(), include_str!("../queries/rust.scm")),
-        Lang::JavaScript => (tree_sitter_javascript::LANGUAGE.into(), include_str!("../queries/javascript.scm")),
-        Lang::TypeScript => (tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(), include_str!("../queries/typescript.scm")),
-        Lang::Python => (tree_sitter_python::LANGUAGE.into(), include_str!("../queries/python.scm")),
-        Lang::Go => (tree_sitter_go::LANGUAGE.into(), include_str!("../queries/go.scm")),
-        Lang::Java => (tree_sitter_java::LANGUAGE.into(), include_str!("../queries/java.scm")),
-        Lang::Cpp => (tree_sitter_cpp::LANGUAGE.into(), include_str!("../queries/cpp.scm")),
-        Lang::Scala => (tree_sitter_scala::LANGUAGE.into(), include_str!("../queries/scala.scm")),
+        Lang::Rust => (
+            tree_sitter_rust::LANGUAGE.into(),
+            include_str!("../queries/rust.scm"),
+        ),
+        Lang::Python => (
+            tree_sitter_python::LANGUAGE.into(),
+            include_str!("../queries/python.scm"),
+        ),
+        Lang::TypeScript => (
+            tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
+            include_str!("../queries/typescript.scm"),
+        ),
+        Lang::Go => (
+            tree_sitter_go::LANGUAGE.into(),
+            include_str!("../queries/go.scm"),
+        ),
+        Lang::JavaScript => (
+            tree_sitter_javascript::LANGUAGE.into(),
+            include_str!("../queries/javascript.scm"),
+        ),
     };
 
     let extractor = QueryExtractor::new(lang, query_source);

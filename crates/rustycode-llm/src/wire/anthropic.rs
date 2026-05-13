@@ -307,9 +307,10 @@ impl Protocol for AnthropicProtocol {
         let val: Value = serde_json::from_str(data)?;
         let event_type = val.get("type").and_then(|t| t.as_str());
 
-        let mut state = self.state.lock().map_err(|e| {
-            anyhow::anyhow!("Anthropic stream state lock poisoned: {e}")
-        })?;
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Anthropic stream state lock poisoned: {e}"))?;
 
         match event_type {
             Some("message_start") => Ok(None),

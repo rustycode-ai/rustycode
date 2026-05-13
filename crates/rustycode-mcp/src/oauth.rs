@@ -3,8 +3,8 @@
 //! Implements the MCP OAuth 2.1 specification for authenticating with MCP servers.
 //! Supports both PKCE (Proof Key for Code Exchange) flow and dynamic client registration.
 
-use rand::RngExt;
 use crate::{McpError, McpResult};
+use rand::RngExt;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;

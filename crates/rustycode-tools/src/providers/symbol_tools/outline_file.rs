@@ -1,10 +1,10 @@
 use crate::indexing::symbols::extract_file;
 use crate::indexing::symbols::renderers::file_outline::{render_symbol_to_buffer, OutlineDepth};
+use anyhow::Context;
 use rustycode_protocol::code_symbol::CodeSymbol;
 use rustycode_tools_api::{define_tool, ToolOutput, ToolPermission, ToolTag};
-use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
-use anyhow::Context;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -115,7 +115,9 @@ fn find_symbol<'a>(symbols: &'a [CodeSymbol], path: &str) -> Option<&'a CodeSymb
     };
 
     for sym in symbols {
-        if sym.name.eq_ignore_ascii_case(head) || format!("{} {}", sym.kind, sym.name).eq_ignore_ascii_case(path) {
+        if sym.name.eq_ignore_ascii_case(head)
+            || format!("{} {}", sym.kind, sym.name).eq_ignore_ascii_case(path)
+        {
             return match rest {
                 Some(tail) => find_symbol(&sym.children, tail),
                 None => Some(sym),

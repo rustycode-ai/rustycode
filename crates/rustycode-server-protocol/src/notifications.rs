@@ -1,5 +1,5 @@
+use rustycode_protocol::{EventMsg, SessionId};
 use serde::{Deserialize, Serialize};
-use rustycode_protocol::{SessionId, EventMsg};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionStartedNotification {

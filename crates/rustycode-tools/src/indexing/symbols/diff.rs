@@ -48,7 +48,11 @@ pub fn diff_outlines(old: &FileOutline, new: &FileOutline) -> OutlineDiff {
         }
     }
 
-    OutlineDiff { added, removed, modified }
+    OutlineDiff {
+        added,
+        removed,
+        modified,
+    }
 }
 
 fn flatten_to_map(symbols: &[CodeSymbol]) -> HashMap<String, &CodeSymbol> {
@@ -59,15 +63,19 @@ fn flatten_to_map(symbols: &[CodeSymbol]) -> HashMap<String, &CodeSymbol> {
     map
 }
 
-fn flatten_recursive<'a>(sym: &'a CodeSymbol, parent: Option<String>, map: &mut HashMap<String, &'a CodeSymbol>) {
+fn flatten_recursive<'a>(
+    sym: &'a CodeSymbol,
+    parent: Option<String>,
+    map: &mut HashMap<String, &'a CodeSymbol>,
+) {
     let full_name = if let Some(p) = parent {
         format!("{}::{}", p, sym.name)
     } else {
         sym.name.clone()
     };
-    
+
     map.insert(full_name.clone(), sym);
-    
+
     for child in &sym.children {
         flatten_recursive(child, Some(full_name.clone()), map);
     }

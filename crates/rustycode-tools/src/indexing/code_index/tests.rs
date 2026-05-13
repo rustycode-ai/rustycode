@@ -1,5 +1,5 @@
-use super::*;
 use super::crawler::extract_symbols;
+use super::*;
 use std::path::PathBuf;
 use storage::extract_words;
 

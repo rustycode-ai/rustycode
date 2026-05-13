@@ -18,7 +18,7 @@ use axum::{
 };
 use futures_util::{SinkExt, StreamExt};
 use rustycode_protocol::ToolCall;
-use rustycode_tools::ToolExecutor;
+use rustycode_tools::{ToolContext, ToolExecutor};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -57,9 +57,10 @@ fn main() {
 async fn async_main() {
     tracing_subscriber::fmt::init();
 
-    // Shared executor (workspace root)
+    let registry = Arc::new(rustycode_tools::default_registry());
     let executor = Arc::new(Mutex::new(
-        ToolExecutor::from_cwd(PathBuf::from(".")).with_structured_output(true),
+        ToolExecutor::new(registry, ToolContext::new(PathBuf::from(".")))
+            .with_structured_output(true),
     ));
     let cache: Arc<Mutex<HashMap<String, Value>>> = Arc::new(Mutex::new(HashMap::new()));
     let state = AppState {

@@ -1,8 +1,8 @@
-use tree_sitter::{Node, Query, QueryCursor, Language, StreamingIterator};
-use std::collections::HashMap;
 use crate::indexing::symbols::languages::Lang;
 use crate::indexing::symbols::tree_sitter::node_text;
-use rustycode_protocol::code_symbol::{CodeSymbol, SymbolKind, Visibility, SymbolRange};
+use rustycode_protocol::code_symbol::{CodeSymbol, SymbolKind, SymbolRange, Visibility};
+use std::collections::HashMap;
+use tree_sitter::{Language, Node, Query, QueryCursor, StreamingIterator};
 
 pub struct QueryExtractor {
     pub language: Language,
@@ -14,18 +14,28 @@ impl QueryExtractor {
         let language: Language = match lang {
             Lang::Rust => tree_sitter_rust::LANGUAGE.into(),
             Lang::Python => tree_sitter_python::LANGUAGE.into(),
-            Lang::JavaScript | Lang::TypeScript => tree_sitter_javascript::LANGUAGE.into(),
+            Lang::JavaScript => tree_sitter_javascript::LANGUAGE.into(),
+            Lang::TypeScript => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
             Lang::Go => tree_sitter_go::LANGUAGE.into(),
-            Lang::Java | Lang::Cpp | Lang::Scala | Lang::Kotlin => todo!("language not supported by tree-sitter"),
         };
-        let query = Query::new(&language, query_source).expect("Failed to parse tree-sitter query");
+        let query = match Query::new(&language, query_source) {
+            Ok(q) => q,
+            Err(e) => {
+                tracing::warn!(?lang, error = %e, "Failed to parse tree-sitter query, using empty query");
+                // Return a query that matches nothing — safest fallback
+                Query::new(&language, "").unwrap_or_else(|_| {
+                    // If even empty string fails, use a minimal always-false predicate
+                    panic!("tree-sitter query engine broken for {:?}", lang)
+                })
+            }
+        };
         Self { language, query }
     }
 
     pub fn extract(&self, root: &Node, source: &str) -> (Vec<CodeSymbol>, Vec<String>) {
         let mut cursor = QueryCursor::new();
         let mut matches = cursor.matches(&self.query, *root, source.as_bytes());
-        
+
         let mut flat_symbols = Vec::new();
         let mut imports = Vec::new();
 
@@ -118,7 +128,16 @@ impl QueryExtractor {
                     line: range.start_line,
                     end_line: range.end_line,
                     range,
-                    signature: node_text(&node, source).map(|s| s.lines().next().unwrap_or("").trim_end_matches('{').trim().to_string()).unwrap_or_default(),
+                    signature: node_text(&node, source)
+                        .map(|s| {
+                            s.lines()
+                                .next()
+                                .unwrap_or("")
+                                .trim_end_matches('{')
+                                .trim()
+                                .to_string()
+                        })
+                        .unwrap_or_default(),
                     doc_comment: doc,
                     visibility: Visibility::Public,
                     children: Vec::new(),
@@ -130,7 +149,8 @@ impl QueryExtractor {
 
         // Sort by start line, then by end line (longer ranges first to ensure they are parents)
         flat_symbols.sort_by(|a, b| {
-            a.line.cmp(&b.line)
+            a.line
+                .cmp(&b.line)
                 .then_with(|| b.end_line.cmp(&a.end_line))
         });
 

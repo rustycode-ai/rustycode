@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use rustycode_protocol::SessionMode;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionCreateRequest {

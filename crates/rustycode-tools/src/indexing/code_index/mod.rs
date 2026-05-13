@@ -154,7 +154,7 @@ impl CodeIndex {
     pub fn update_file(&mut self, path: PathBuf) -> Result<()> {
         let content = std::fs::read_to_string(&path)?;
         self.remove_file(path.clone())?;
-        
+
         let file_idx = if let Some(idx) = self.trigram_index.files.iter().position(|p| p == &path) {
             idx
         } else {
@@ -162,7 +162,7 @@ impl CodeIndex {
             self.trigram_index.files.push(path.clone());
             idx
         };
-        
+
         self.index_content(file_idx, &path, &content);
         Ok(())
     }

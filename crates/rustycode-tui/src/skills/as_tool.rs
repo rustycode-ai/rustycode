@@ -356,12 +356,13 @@ impl Tool for SpawnAgentTool {
             "task_{}",
             worker.worker_id.split('_').next_back().unwrap_or("unknown")
         );
-        if let Err(e) = worker_registry.assign_task(
-            &worker.worker_id,
-            &task_id,
-            &format!("{}: {}", role, task),
-        ) {
-            tracing::debug!("failed to assign task '{task_id}' to worker '{}': {e}", worker.worker_id);
+        if let Err(e) =
+            worker_registry.assign_task(&worker.worker_id, &task_id, &format!("{}: {}", role, task))
+        {
+            tracing::debug!(
+                "failed to assign task '{task_id}' to worker '{}': {e}",
+                worker.worker_id
+            );
         }
 
         // Log the agent spawn request

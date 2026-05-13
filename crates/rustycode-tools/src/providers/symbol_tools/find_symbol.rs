@@ -1,8 +1,8 @@
 use crate::indexing::CodeIndex;
-use rustycode_tools_api::{define_tool, ToolOutput, ToolPermission, ToolTag};
-use serde::{Deserialize, Serialize};
-use schemars::JsonSchema;
 use anyhow::{anyhow, Context, Result};
+use rustycode_tools_api::{define_tool, ToolOutput, ToolPermission, ToolTag};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -28,9 +28,9 @@ pub(super) fn build_code_index(ctx: &crate::ToolContext) -> Result<Arc<CodeIndex
     }
 
     let mut index = CodeIndex::new(root.clone());
-    index.build().with_context(|| {
-        format!("failed to build code index for {}", root.display())
-    })?;
+    index
+        .build()
+        .with_context(|| format!("failed to build code index for {}", root.display()))?;
 
     let index = Arc::new(index);
     guard.insert(root, Arc::clone(&index));
@@ -43,7 +43,6 @@ fn rel_path(path: &Path, cwd: &Path) -> String {
         .to_string_lossy()
         .replace('\\', "/")
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct FindSymbolParams {

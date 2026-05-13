@@ -1,7 +1,7 @@
 use crate::indexing::code_index::CodeIndex;
 use crate::indexing::repo_map::RepoMap;
-use crate::indexing::symbols::{extract_file, compute_structural_hash};
-use crate::indexing::watcher::{FileSystemWatcher, FileEvent};
+use crate::indexing::symbols::{compute_structural_hash, extract_file};
+use crate::indexing::watcher::{FileEvent, FileSystemWatcher};
 use anyhow::Result;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -31,7 +31,7 @@ impl IndexOrchestrator {
     pub async fn start(self: Arc<Self>) -> Result<()> {
         let (tx, mut rx) = mpsc::channel(100);
         let _watcher = FileSystemWatcher::new(&self.root, tx)?;
-        
+
         tracing::info!("IndexOrchestrator started for {}", self.root.display());
 
         while let Some(event) = rx.recv().await {
@@ -48,7 +48,7 @@ impl IndexOrchestrator {
                 }
             }
         }
-        
+
         Ok(())
     }
 
@@ -56,32 +56,32 @@ impl IndexOrchestrator {
         let content = std::fs::read_to_string(path)?;
         let outline = extract_file(path, &content);
         let new_hash = compute_structural_hash(&outline);
-        
+
         let mut hashes = self.hashes.lock().await;
         let old_hash = hashes.get(path).cloned();
-        
+
         let mut code_index = self.code_index.lock().await;
         code_index.update_file(path.to_path_buf())?;
-        
+
         if Some(new_hash.clone()) != old_hash {
             tracing::debug!("Structural change detected in {}", path.display());
             hashes.insert(path.to_path_buf(), new_hash);
-            
+
             // Trigger RepoMap refresh (lazy or immediate)
             // For now, just mark it as dirty in our mental model.
             // In a real impl, RepoMap might have a 'mark_dirty' method.
         }
-        
+
         Ok(())
     }
 
     async fn handle_delete(&self, path: &Path) -> Result<()> {
         let mut hashes = self.hashes.lock().await;
         hashes.remove(path);
-        
+
         let mut code_index = self.code_index.lock().await;
         code_index.remove_file(path.to_path_buf())?;
-        
+
         Ok(())
     }
 }

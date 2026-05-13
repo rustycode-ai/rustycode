@@ -126,3 +126,4 @@ pub use diff_renderer::DiffRenderer;
 
 // Clarification questions
 pub use clarification::{detect_questions, ClarificationPanel, Question};
+pub mod symbol_outline;

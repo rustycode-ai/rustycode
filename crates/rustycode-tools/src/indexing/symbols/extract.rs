@@ -1,5 +1,5 @@
 use crate::indexing::symbols::languages::Lang;
-use crate::indexing::symbols::tree_sitter::{parse_with_treesitter, parse_with_regex};
+use crate::indexing::symbols::tree_sitter::{parse_with_regex, parse_with_treesitter};
 use rustycode_protocol::code_symbol::FileOutline;
 use std::path::{Path, PathBuf};
 use tree_sitter::Parser;
@@ -27,8 +27,11 @@ pub fn collect_source_files(root: &Path) -> anyhow::Result<Vec<PathBuf>> {
     {
         let path = entry.path();
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-        
-        if matches!(ext, "rs" | "py" | "js" | "ts" | "jsx" | "tsx" | "go" | "java" | "c" | "cpp" | "h" | "hpp") {
+
+        if matches!(
+            ext,
+            "rs" | "py" | "js" | "ts" | "jsx" | "tsx" | "go" | "java" | "c" | "cpp" | "h" | "hpp"
+        ) {
             files.push(path.to_path_buf());
         }
     }
@@ -40,10 +43,7 @@ mod tests {
     use super::*;
     use rustycode_protocol::code_symbol::{CodeSymbol, SymbolKind, Visibility};
 
-    fn find_symbol<'a>(
-        outline: &'a FileOutline,
-        name: &str,
-    ) -> Option<&'a CodeSymbol> {
+    fn find_symbol<'a>(outline: &'a FileOutline, name: &str) -> Option<&'a CodeSymbol> {
         fn search<'a>(syms: &'a [CodeSymbol], name: &str) -> Option<&'a CodeSymbol> {
             for s in syms {
                 if s.name == name {
@@ -86,8 +86,7 @@ fn foo<T>(x: T) -> T {
 }
 ";
         let outline = extract_file(Path::new("test.rs"), content);
-        let sym = find_symbol(&outline, "foo")
-            .expect("generic function should be extracted");
+        let sym = find_symbol(&outline, "foo").expect("generic function should be extracted");
         assert_eq!(sym.name, "foo");
     }
 
@@ -104,8 +103,7 @@ fn outer() {
 }
 ";
         let outline = extract_file(Path::new("test.rs"), content);
-        let outer = find_symbol(&outline, "outer")
-            .expect("outer function should be extracted");
+        let outer = find_symbol(&outline, "outer").expect("outer function should be extracted");
         assert!(
             !outer.children.is_empty(),
             "inner function should appear as child of outer function"
@@ -127,8 +125,7 @@ macro_rules! say_hello {
 }
 "#;
         let outline = extract_file(Path::new("test.rs"), content);
-        let sym = find_symbol(&outline, "say_hello")
-            .expect("macro_rules! should be extracted");
+        let sym = find_symbol(&outline, "say_hello").expect("macro_rules! should be extracted");
         assert_eq!(sym.kind, SymbolKind::Macro);
     }
 
@@ -178,8 +175,7 @@ async def fetch_data(url):
     pass
 ";
         let outline = extract_file(Path::new("test.py"), content);
-        let sym = find_symbol(&outline, "fetch_data")
-            .expect("async function should be extracted");
+        let sym = find_symbol(&outline, "fetch_data").expect("async function should be extracted");
         assert_eq!(sym.kind, SymbolKind::Function);
     }
 
@@ -194,8 +190,7 @@ class Outer:
         pass
 ";
         let outline = extract_file(Path::new("test.py"), content);
-        let outer = find_symbol(&outline, "Outer")
-            .expect("outer class should be extracted");
+        let outer = find_symbol(&outline, "Outer").expect("outer class should be extracted");
         assert_eq!(outer.kind, SymbolKind::Class);
         assert!(
             !outer.children.is_empty(),
@@ -216,8 +211,8 @@ export default function myFunc() {
 }
 ";
         let outline = extract_file(Path::new("test.js"), content);
-        let sym = find_symbol(&outline, "myFunc")
-            .expect("export default function should be extracted");
+        let sym =
+            find_symbol(&outline, "myFunc").expect("export default function should be extracted");
         assert_eq!(sym.kind, SymbolKind::Function);
     }
 
@@ -232,8 +227,8 @@ export async function fetchData() {
 }
 ";
         let outline = extract_file(Path::new("test.js"), content);
-        let sym = find_symbol(&outline, "fetchData")
-            .expect("export async function should be extracted");
+        let sym =
+            find_symbol(&outline, "fetchData").expect("export async function should be extracted");
         assert_eq!(sym.kind, SymbolKind::Function);
     }
 }

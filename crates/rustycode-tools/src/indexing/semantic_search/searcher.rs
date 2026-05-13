@@ -16,10 +16,7 @@ pub(crate) fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
 }
 
 /// Get relative path for display, falling back to absolute if not under project root
-fn get_display_path(
-    file_path: &std::path::Path,
-    project_root: &std::path::Path,
-) -> String {
+fn get_display_path(file_path: &std::path::Path, project_root: &std::path::Path) -> String {
     file_path
         .strip_prefix(project_root)
         .unwrap_or(file_path)

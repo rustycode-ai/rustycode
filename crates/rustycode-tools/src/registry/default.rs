@@ -25,12 +25,14 @@ pub fn default_registry_filtered(filter: &ToolFilter) -> ToolRegistry {
     use crate::providers::lsp::*;
     use crate::providers::notebook::NotebookEditTool;
     use crate::providers::send_message::SendMessageTool;
+    use crate::providers::symbol_tools::{
+        CheckSymbolDriftTool, CodeContextTool, FindSymbolTool, OutlineFileTool, StructuralPatchTool,
+    };
     use crate::providers::task_output::{TaskOutputTool, TaskStopTool};
     use crate::providers::tool_search::ToolSearchTool;
     use crate::providers::web::browser::BrowserFetchTool;
     use crate::providers::web::fetch::WebFetchTool;
     use crate::providers::web::search::WebSearchTool;
-    use crate::providers::symbol_tools::{CheckSymbolDriftTool, CodeContextTool, FindSymbolTool, OutlineFileTool, StructuralPatchTool};
     use crate::providers::{
         BashTool, CmdTool, FindTool, GlobTool, GrepTool, InspectTool, ListDirTool, PowerShellTool,
         QuestionTool, ReadFileTool, WriteFileTool,
