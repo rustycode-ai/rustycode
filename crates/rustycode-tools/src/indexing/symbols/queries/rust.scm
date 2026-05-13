@@ -15,6 +15,9 @@
 ;; Type aliases
 (type_item name: (type_identifier) @symbol.name) @symbol.kind.type
 
+;; Impl blocks (functions inside become methods via post-processing)
+(impl_item type: (type_identifier) @symbol.name) @symbol.kind.impl
+
 ;; Imports
 (use_declaration argument: (_) @import)
 

@@ -74,7 +74,10 @@ where
         let pos = self.entries.iter().position(|(k, _)| k == key)?;
 
         // Remove and reinsert at front (mark as recently used)
-        let (k, v) = self.entries.remove(pos).unwrap();
+        let (k, v) = self
+            .entries
+            .remove(pos)
+            .expect("position() returned valid index, remove must succeed");
         self.entries.push_front((k, v));
 
         // Return reference to value

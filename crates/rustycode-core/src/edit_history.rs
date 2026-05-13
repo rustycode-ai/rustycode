@@ -174,11 +174,12 @@ impl EditHistory {
                 // The file was deleted by undo — it should be recreated
                 // But we don't have the content. This means the original
                 // edit was a creation that was undone. Redo can't recreate
-                // without content. Skip this redo.
+                // without content. Push op back so the user can retry later.
                 tracing::warn!(
                     "Redo cannot recreate file {} — no content stored",
                     op.path.display()
                 );
+                self.redo_stack.push_back(op);
                 return None;
             }
         }
