@@ -79,6 +79,8 @@ license = "MIT"
 repository = "https://github.com/luengnat/rustycode"
 
 [workspace.dependencies]
+rustycode-agent-runtime = { path = "crates/rustycode-agent-runtime" }
+rustycode-core = { path = "crates/rustycode-core" }
 anyhow = "1"
 git2 = { version = "0.20.4", features = ["vendored-libgit2"] }
 openssl-sys = { version = "0.9", features = ["vendored"] }
@@ -139,6 +141,8 @@ tower-http = { version = "0.6", features = ["cors", "fs"] }
 cron = "0.16.0"
 rustycode-prompt = { path = "crates/rustycode-prompt" }
 rustycode-sandbox = { path = "crates/rustycode-sandbox" }
+rustycode-server-protocol = { path = "crates/rustycode-server-protocol" }
+rustycode-protocol = { path = "crates/rustycode-protocol" }
 
 # ---------------------------------------------------------------------------
 # Workspace-wide lint configuration (clippy + rustc)
