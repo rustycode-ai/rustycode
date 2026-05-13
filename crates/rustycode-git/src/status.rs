@@ -33,7 +33,12 @@ impl GitClient {
         for line in output.lines() {
             if line.len() >= 3 {
                 let status = line.chars().take(2).collect::<String>();
-                let path = line[3..].trim();
+                let raw_path = line[3..].trim();
+                let path = if status.starts_with('R') || status.starts_with('r') {
+                    raw_path.split("->").last().unwrap_or(raw_path).trim()
+                } else {
+                    raw_path
+                };
                 files.push(FileStatus {
                     path: path.to_string(),
                     status: status.clone(),

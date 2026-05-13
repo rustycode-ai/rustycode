@@ -103,7 +103,7 @@ impl ConflictDetector {
     }
 
     pub fn detect_conflicts(&self) -> Result<ConflictReport> {
-        // Simplified conflict detection
+        // TODO: implement actual conflict detection via `git diff --check` or `git ls-files --unmerged`
         Ok(ConflictReport {
             conflicts: Vec::new(),
             repository_root: self.repository_root.clone(),
@@ -115,6 +115,7 @@ impl ConflictDetector {
     }
 
     pub fn detect_conflicts_with_branch(&self, _branch_name: &str) -> Result<ConflictReport> {
+        // TODO: implement actual conflict detection via `git merge-tree` or `git diff --check`
         Ok(ConflictReport {
             conflicts: Vec::new(),
             repository_root: self.repository_root.clone(),

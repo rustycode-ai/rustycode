@@ -39,8 +39,9 @@ impl GitClient {
 
         let result = self.execute_git_command(&args, &operation, start_time)?;
 
-        // Execute post-commit hooks
-        self.execute_hooks(GitHookType::PostCommit, &context)?;
+        if result.success {
+            self.execute_hooks(GitHookType::PostCommit, &context)?;
+        }
 
         Ok(result)
     }

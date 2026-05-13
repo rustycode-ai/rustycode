@@ -351,7 +351,7 @@ impl Session {
 
         // Pending tool call (best-effort: inspect last tool call in messages)
         let mut pending_tool_call: Option<String> = None;
-        for m in &self.messages {
+        for m in self.messages.iter().rev() {
             if m.has_tool_calls() {
                 if let Some(part) = m
                     .parts

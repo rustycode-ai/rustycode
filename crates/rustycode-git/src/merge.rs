@@ -50,8 +50,9 @@ impl GitClient {
 
         let result = self.execute_git_command(&args, &operation, start_time)?;
 
-        // Execute post-merge hooks
-        self.execute_hooks(GitHookType::PostMerge, &context)?;
+        if result.success {
+            self.execute_hooks(GitHookType::PostMerge, &context)?;
+        }
 
         Ok(result)
     }

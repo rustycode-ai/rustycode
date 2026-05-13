@@ -148,7 +148,7 @@ impl CompactionReport {
         if self.original_tokens == 0 {
             0.0
         } else {
-            ((self.original_tokens - self.new_tokens) as f64 / self.original_tokens as f64) * 100.0
+            (self.original_tokens.saturating_sub(self.new_tokens) as f64 / self.original_tokens as f64) * 100.0
         }
     }
 
@@ -157,7 +157,7 @@ impl CompactionReport {
         if self.original_count == 0 {
             0.0
         } else {
-            ((self.original_count - self.new_count) as f64 / self.original_count as f64) * 100.0
+            ((self.original_count.saturating_sub(self.new_count)) as f64 / self.original_count as f64) * 100.0
         }
     }
 }

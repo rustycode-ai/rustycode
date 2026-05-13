@@ -161,12 +161,14 @@ impl SessionSerializer {
                 format!("Failed to write session to {}: {e}", tmp_path.display()),
             ))
         })?;
-        std::fs::rename(&tmp_path, path).map_err(|e| {
-            SerializationError::Io(std::io::Error::new(
+        if let Err(e) = std::fs::rename(&tmp_path, path) {
+            // Clean up temp file to avoid leaking it on rename failure
+            let _ = std::fs::remove_file(&tmp_path);
+            return Err(SerializationError::Io(std::io::Error::new(
                 e.kind(),
                 format!("Failed to rename session file: {e}"),
-            ))
-        })?;
+            )));
+        }
         Ok(())
     }
 

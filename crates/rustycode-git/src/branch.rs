@@ -50,9 +50,10 @@ impl GitClient {
 
         let result = self.execute_git_command(&args, &operation, start_time)?;
 
-        // Execute post-checkout hooks
-        let context = self.create_hook_context(operation, vec![]);
-        self.execute_hooks(GitHookType::PostCheckout, &context)?;
+        if result.success {
+            let context = self.create_hook_context(operation, vec![]);
+            self.execute_hooks(GitHookType::PostCheckout, &context)?;
+        }
 
         Ok(result)
     }

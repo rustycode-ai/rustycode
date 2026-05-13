@@ -134,6 +134,9 @@ impl RewindState {
         // Load existing snapshots from store
         let interactions: VecDeque<InteractionSnapshot> = store
             .list_snapshots(&session_id)
+            .inspect_err(|e| {
+                tracing::warn!(session_id = %session_id, error = %e, "failed to load rewind snapshots from store, starting fresh");
+            })
             .unwrap_or_default()
             .into_iter()
             .collect();

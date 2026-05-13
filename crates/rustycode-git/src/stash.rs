@@ -17,11 +17,10 @@ impl GitClient {
 
         let start_time = std::time::Instant::now();
 
-        let mut args = vec!["stash"];
+        let mut args = vec!["stash", "push"];
         if keep_index {
             args.push("--keep-index");
         }
-        args.push("push");
         if let Some(message) = message {
             args.push("-m");
             args.push(message);
