@@ -92,7 +92,9 @@ impl CodeIndexer {
         let chunks = self.walk_directory(dir)?;
 
         for chunk in chunks {
-            let _ = index.add_chunk(chunk);
+            index.add_chunk(chunk).with_context(|| {
+                format!("failed to index chunk in {}", chunk.file_path.display())
+            })?;
         }
 
         Ok(index)

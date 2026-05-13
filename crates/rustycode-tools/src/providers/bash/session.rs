@@ -404,6 +404,10 @@ impl BashSession {
                     if line.contains("---END---") {
                         break;
                     }
+                    if line.trim().chars().all(|c| c.is_numeric() || c == '-') {
+                        exit_code_line = line;
+                        continue;
+                    }
                     if !line.trim().is_empty() {
                         if is_shell_boilerplate(line.trim()) {
                             continue;
@@ -412,9 +416,6 @@ impl BashSession {
                         sender
                             .send(chunk)
                             .map_err(|e| anyhow!("failed to send chunk: {e}"))?;
-                    }
-                    if line.trim().chars().all(|c| c.is_numeric() || c == '-') {
-                        exit_code_line = line;
                     }
                 }
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {

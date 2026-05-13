@@ -79,10 +79,11 @@ impl BackfillWorker {
                 .and_then(|s| s.to_str())
                 .ok_or_else(|| anyhow!("Invalid filename: {:?}", path))?;
             
-            let session_id = SessionId::parse(stem).context("Failed to parse session ID from filename")?;
+            let session_id = SessionId::parse(stem)
+                .with_context(|| format!("Failed to parse session ID from filename: {stem}"))?;
 
-            // Simple check: if already in SQLite and modified time is older than updated_at, skip
-            // But for MVP, we just check if it exists in threads table
+            watermark.items_processed += 1;
+
             if self.state_runtime.get_thread(&session_id)?.is_none() {
                 // Replay and index (simplified for now: just create row)
                 // In a full implementation, we would use SessionReplayer::replay(path)
@@ -90,13 +91,22 @@ impl BackfillWorker {
                     &session_id,
                     &path_str,
                     "Recovered Task", // We don't have the task without replaying
-                    &rustycode_protocol::SessionMode::Executing,
+                    "executing",
                     None,
                     None,
                 )?;
                 watermark.threads_updated += 1;
-                processed += 1;
             }
+
+            let mtime = fs::metadata(&path)
+                .and_then(|m| m.modified())
+                .ok()
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_secs() as i64)
+                .unwrap_or(0);
+            watermark.last_processed_timestamp = mtime;
+            watermark.last_processed_path = Some(path_str);
+            processed += 1;
         }
 
         watermark.save(&self.base_dir)?;

@@ -33,7 +33,7 @@ pub(crate) fn session_from_row(row: &rusqlite::Row) -> rusqlite::Result<Session>
             .with_timezone(&Utc),
         mode: serde_json::from_str(&mode_str).map_err(|e| {
             tracing::warn!("Failed to deserialize session mode '{}': {}", mode_str, e);
-            rusqlite::Error::FromSqlConversionFailure(2, rusqlite::types::Type::Text, Box::new(e))
+            rusqlite::Error::FromSqlConversionFailure(3, rusqlite::types::Type::Text, Box::new(e))
         })?,
         status: serde_json::from_str(&status_str).map_err(|e| {
             tracing::warn!(
@@ -41,7 +41,7 @@ pub(crate) fn session_from_row(row: &rusqlite::Row) -> rusqlite::Result<Session>
                 status_str,
                 e
             );
-            rusqlite::Error::FromSqlConversionFailure(3, rusqlite::types::Type::Text, Box::new(e))
+            rusqlite::Error::FromSqlConversionFailure(4, rusqlite::types::Type::Text, Box::new(e))
         })?,
         plan_path,
         tool_approval_mode: ToolApprovalMode::default(),

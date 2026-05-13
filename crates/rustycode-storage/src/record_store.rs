@@ -95,19 +95,16 @@ impl Storage {
 
     /// Save a rewind snapshot.
     pub fn save_rewind_snapshot(&self, snap: &RewindSnapshot) -> Result<i64> {
-        self.conn
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .execute(
-                "insert into rewind_snapshots (session_id, interaction_number, role, content_preview, tools_used_json, checkpoint_id, captured_at) values (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                params![snap.session_id, snap.interaction_number, snap.role, snap.content_preview, snap.tools_used_json, snap.checkpoint_id, snap.captured_at],
-            )
-            .context("failed to save rewind snapshot")?;
-        let id = self
+        let conn = self
             .conn
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .last_insert_rowid();
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        conn.execute(
+            "insert into rewind_snapshots (session_id, interaction_number, role, content_preview, tools_used_json, checkpoint_id, captured_at) values (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![snap.session_id, snap.interaction_number, snap.role, snap.content_preview, snap.tools_used_json, snap.checkpoint_id, snap.captured_at],
+        )
+        .context("failed to save rewind snapshot")?;
+        let id = conn.last_insert_rowid();
         Ok(id)
     }
 
@@ -176,19 +173,16 @@ impl Storage {
     /// Save a hook execution record.
     pub fn save_hook_execution(&self, rec: &HookExecutionRecord) -> Result<i64> {
         let blocked_int = i32::from(rec.blocked);
-        self.conn
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .execute(
-                "insert into hook_executions (session_id, trigger_type, hook_name, command, status, stdout, stderr, exit_code, blocked, duration_ms, executed_at) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
-                params![rec.session_id, rec.trigger_type, rec.hook_name, rec.command, rec.status, rec.stdout, rec.stderr, rec.exit_code, blocked_int, rec.duration_ms, rec.executed_at],
-            )
-            .context("failed to save hook execution")?;
-        let id = self
+        let conn = self
             .conn
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .last_insert_rowid();
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        conn.execute(
+            "insert into hook_executions (session_id, trigger_type, hook_name, command, status, stdout, stderr, exit_code, blocked, duration_ms, executed_at) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            params![rec.session_id, rec.trigger_type, rec.hook_name, rec.command, rec.status, rec.stdout, rec.stderr, rec.exit_code, blocked_int, rec.duration_ms, rec.executed_at],
+        )
+        .context("failed to save hook execution")?;
+        let id = conn.last_insert_rowid();
         Ok(id)
     }
 
@@ -233,19 +227,16 @@ impl Storage {
 
     /// Save an API call record.
     pub fn save_api_call(&self, rec: &ApiCallRecord) -> Result<i64> {
-        self.conn
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .execute(
-                "insert into api_calls (session_id, model, input_tokens, output_tokens, cost_usd, tool_name, provider, called_at, cache_read_tokens, cache_creation_tokens, cache_savings_usd) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
-                params![rec.session_id, rec.model, rec.input_tokens, rec.output_tokens, rec.cost_usd, rec.tool_name, rec.provider, rec.called_at, rec.cache_read_tokens, rec.cache_creation_tokens, rec.cache_savings_usd],
-            )
-            .context("failed to save api call")?;
-        let id = self
+        let conn = self
             .conn
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .last_insert_rowid();
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        conn.execute(
+            "insert into api_calls (session_id, model, input_tokens, output_tokens, cost_usd, tool_name, provider, called_at, cache_read_tokens, cache_creation_tokens, cache_savings_usd) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            params![rec.session_id, rec.model, rec.input_tokens, rec.output_tokens, rec.cost_usd, rec.tool_name, rec.provider, rec.called_at, rec.cache_read_tokens, rec.cache_creation_tokens, rec.cache_savings_usd],
+        )
+        .context("failed to save api call")?;
+        let id = conn.last_insert_rowid();
         Ok(id)
     }
 

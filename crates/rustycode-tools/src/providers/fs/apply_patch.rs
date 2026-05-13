@@ -371,11 +371,29 @@ fn apply_update(path: &Path, fp: &FilePatch, ctx: &ToolContext) -> Result<String
         return Ok(format!("No changes in {}", path.display()));
     }
 
-    let mut file = create_file_symlink_safe(path)
-        .with_context(|| format!("failed to write: {}", path.display()))?;
-    file.write_all(new_content.as_bytes())
-        .with_context(|| format!("failed to write: {}", path.display()))?;
-    file.sync_all()?;
+    // Atomic write: write to temp file, sync, then rename over target.
+    // Prevents file corruption if the process crashes mid-write.
+    let file_name = path
+        .file_name()
+        .unwrap_or_default()
+        .to_str()
+        .unwrap_or("patch");
+    let tmp_name = format!(".{file_name}.rustycode-tmp");
+    let temp_path = path.with_file_name(tmp_name);
+    {
+        let mut out_file = create_file_symlink_safe(&temp_path)
+            .with_context(|| format!("failed to create temp file: {}", temp_path.display()))?;
+        out_file
+            .write_all(new_content.as_bytes())
+            .with_context(|| format!("failed to write temp file: {}", temp_path.display()))?;
+        out_file
+            .sync_all()
+            .with_context(|| format!("failed to sync temp file: {}", temp_path.display()))?;
+    }
+    std::fs::rename(&temp_path, path).map_err(|e| {
+        let _ = std::fs::remove_file(&temp_path);
+        anyhow::anyhow!("failed to rename temp file to {}: {}", path.display(), e)
+    })?;
 
     let diff = generate_diff(&old_content, &new_content, &path.display().to_string(), 30);
 
@@ -444,7 +462,10 @@ fn apply_hunks(content: &str, hunks: &[Hunk]) -> Result<String> {
         // Remove old lines and insert new ones.
         let remove_count = removes.len().min(result.len().saturating_sub(match_pos));
         result.splice(match_pos..match_pos + remove_count, adds);
+        // Account for both add/remove delta AND positional shift from fuzzy matching.
+        // Without the shift correction, subsequent hunks will be applied at wrong offsets.
         offset += add_count as isize - remove_count as isize;
+        offset += match_pos as isize - insert_pos as isize;
     }
 
     let mut output = result.join("\n");
