@@ -103,7 +103,14 @@ fn matches_rule(rule: &GuardRule, input: &HookInput) -> bool {
                         return false;
                     }
                     if let Some(cwd) = &input.cwd {
-                        return !p.starts_with(cwd.as_str());
+                        let cwd_with_sep = if cwd.ends_with('/') {
+                            cwd.as_str()
+                        } else {
+                            // Use a temporary to enforce directory boundary
+                            // so /home/user/project does NOT match /home/user/projectile
+                            return !p.starts_with(&format!("{}/", cwd));
+                        };
+                        return !p.starts_with(cwd_with_sep);
                     }
                 }
             }

@@ -160,6 +160,8 @@ impl LspResponseReader {
                                     } else {
                                         warn!(response = %response_str, "Failed to parse JSON from response");
                                     }
+                                } else {
+                                    warn!("LSP response body is not valid UTF-8, dropping message");
                                 }
                             }
                             Err(e) => {

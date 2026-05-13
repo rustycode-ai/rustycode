@@ -78,6 +78,8 @@ pub struct LspClient {
     diagnostics: Arc<RwLock<HashMap<Url, Vec<Diagnostic>>>>,
     response_reader_task: Option<tokio::task::JoinHandle<()>>,
     response_handler_task: Option<tokio::task::JoinHandle<()>>,
+    #[allow(dead_code)]
+    stderr_drain_task: Option<tokio::task::JoinHandle<()>>,
 }
 
 impl Clone for LspClient {
@@ -94,6 +96,7 @@ impl Clone for LspClient {
             diagnostics: self.diagnostics.clone(),
             response_reader_task: None,
             response_handler_task: None,
+            stderr_drain_task: None,
         }
     }
 }
@@ -112,6 +115,7 @@ impl LspClient {
             diagnostics: Arc::new(RwLock::new(HashMap::new())),
             response_reader_task: None,
             response_handler_task: None,
+            stderr_drain_task: None,
         }
     }
 
@@ -161,6 +165,18 @@ impl LspClient {
             )
         })?;
         let child_stdin = Arc::new(Mutex::new(Some(stdin)));
+
+        let stderr_drain_task = child.stderr.take().map(|stderr| {
+            let server_name = self.config.server_name.clone();
+            tokio::spawn(async move {
+                use tokio::io::{AsyncBufReadExt, BufReader};
+                let reader = BufReader::new(stderr);
+                let mut lines = reader.lines();
+                while let Ok(Some(line)) = lines.next_line().await {
+                    tracing::debug!(server = %server_name, stderr = %line, "LSP server stderr");
+                }
+            })
+        });
 
         // Create response reader and spawn background task
         let (reader, mut response_rx) = LspResponseReader::new();
@@ -315,6 +331,7 @@ impl LspClient {
         self.state = LspClientState::Starting;
         self.response_reader_task = Some(response_reader_task);
         self.response_handler_task = Some(response_handler_task);
+        self.stderr_drain_task = stderr_drain_task;
 
         // Mark as running
         self.state = LspClientState::Running;
@@ -364,10 +381,12 @@ impl LspClient {
         method: &str,
         params: impl serde::Serialize,
     ) -> Result<JsonValue> {
-        let id = self.send_request(method, params).await?;
-        debug!(method = %method, id = id, "Sending request sync");
+        // Pre-allocate the request ID and register the pending channel
+        // BEFORE sending to avoid a race where the response arrives
+        // before the channel is registered (causing a dropped response).
+        self.request_id = self.request_id.saturating_add(1);
+        let id = self.request_id;
 
-        // Create a channel to receive the response
         let (tx, rx) = oneshot::channel();
         {
             let mut pending = self.pending_requests.lock().await;
@@ -379,7 +398,36 @@ impl LspClient {
             );
         }
 
-        // Wait for the response (already removed by handler)
+        // Build and send the request inline (avoids double-incrementing request_id)
+        let params_json = serde_json::to_value(params)?;
+        let request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "method": method,
+            "params": params_json
+        });
+        let request_str = format!(
+            "Content-Length: {}\r\n\r\n{}",
+            request.to_string().len(),
+            request
+        );
+
+        debug!(id = id, method = %method, request = %request, "Sending request sync");
+
+        {
+            let mut stdin_guard = self.child_stdin.lock().await;
+            if let Some(ref mut stdin) = *stdin_guard {
+                stdin.write_all(request_str.as_bytes()).await?;
+                stdin.flush().await?;
+                debug!(id = id, "Sent request bytes");
+            } else {
+                // Clean up pending since send failed
+                self.pending_requests.lock().await.remove(&id);
+                anyhow::bail!("LSP server stdin is not available - server may have crashed");
+            }
+        }
+
+        // Wait for the response
         let timeout = tokio::time::Duration::from_secs(30);
         debug!(
             id = id,
@@ -402,6 +450,8 @@ impl LspClient {
                     timeout_secs = timeout.as_secs(),
                     "Request timed out"
                 );
+                // Clean up pending on timeout
+                self.pending_requests.lock().await.remove(&id);
                 Err(anyhow::anyhow!("Request timed out"))
             }
         }
@@ -819,7 +869,17 @@ impl LspClient {
     pub async fn shutdown(&mut self) -> Result<()> {
         info!("Shutting down LSP server: {}", self.config.server_name);
 
-        self.send_request("shutdown", JsonValue::Null).await?;
+        // Per LSP spec, the server sends a response to shutdown.
+        // Use send_request_sync to wait for the acknowledgment before
+        // transitioning state, so we don't call exit() prematurely.
+        self.send_request_sync("shutdown", JsonValue::Null)
+            .await
+            .with_context(|| {
+                format!(
+                    "LSP server {} did not respond to shutdown request",
+                    self.config.server_name
+                )
+            })?;
         self.state = LspClientState::ShuttingDown;
         self.ready = false;
 
@@ -870,7 +930,8 @@ impl LspClient {
         }
 
         let probe_interval = Duration::from_millis(500);
-        let deadline = tokio::time::Instant::now() + timeout;
+        let start = tokio::time::Instant::now();
+        let deadline = start + timeout;
         let mut attempts = 0u32;
 
         loop {
@@ -880,9 +941,7 @@ impl LspClient {
                     info!(
                         server = %self.config.server_name,
                         attempts,
-                        elapsed_ms = timeout
-                            .saturating_sub(deadline.duration_since(tokio::time::Instant::now()))
-                            .as_millis(),
+                        elapsed_ms = start.elapsed().as_millis(),
                         "LSP server ready"
                     );
                     self.ready = true;

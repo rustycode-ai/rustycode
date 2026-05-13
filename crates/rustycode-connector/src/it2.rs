@@ -55,12 +55,18 @@ impl It2Connector {
 
     /// Run an it2 command without capturing output
     fn run_it2_silent(&self, args: &[&str]) -> Result<(), ConnectorError> {
-        Command::new("it2")
+        let status = Command::new("it2")
             .args(args)
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()
             .map_err(|e| ConnectorError::Other(format!("Failed to execute it2: {e}")))?;
+        if !status.success() {
+            return Err(ConnectorError::Other(format!(
+                "it2 command failed with exit code {:?}",
+                status.code()
+            )));
+        }
         Ok(())
     }
 }

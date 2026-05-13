@@ -296,16 +296,17 @@ impl MetricsCollector {
             }
         }
 
-        // Update execution time averages
         if let Some(metadata) = &result.execution_metadata {
-            let total = metrics.routing_stats.total_tasks_routed.max(1) as f64;
-            let perf = &mut metrics.performance_metrics;
-            perf.avg_orchestration_execution_time =
-                (perf.avg_orchestration_execution_time * (total - 1.0) + metadata.wall_time_secs)
-                    / total;
-            if let Some(cost) = metadata.cost_usd {
-                perf.avg_orchestration_cost =
-                    (perf.avg_orchestration_cost * (total - 1.0) + cost) / total;
+            if matches!(result.execution_path, crate::router::ExecutionPath::Orchestration) {
+                let total = metrics.routing_stats.orchestration_routed.max(1) as f64;
+                let perf = &mut metrics.performance_metrics;
+                perf.avg_orchestration_execution_time =
+                    (perf.avg_orchestration_execution_time * (total - 1.0) + metadata.wall_time_secs)
+                        / total;
+                if let Some(cost) = metadata.cost_usd {
+                    perf.avg_orchestration_cost =
+                        (perf.avg_orchestration_cost * (total - 1.0) + cost) / total;
+                }
             }
         }
 

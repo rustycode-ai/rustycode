@@ -55,6 +55,15 @@ impl RequestRouter {
         let outline = extract_file(&path, &content);
         let response = rustycode_server_protocol::responses::SymbolOutlineResponse { outline };
 
-        JsonRpcResponse::success(req.id, serde_json::to_value(response).unwrap())
+        match serde_json::to_value(response) {
+            Ok(value) => JsonRpcResponse::success(req.id, value),
+            Err(e) => JsonRpcResponse::error(
+                req.id,
+                JsonRpcError::new(
+                    JsonRpcError::INTERNAL_ERROR,
+                    format!("Failed to serialize response: {}", e),
+                ),
+            ),
+        }
     }
 }

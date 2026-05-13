@@ -381,11 +381,8 @@ impl StepExecutor for GenericStepExecutor {
             // so it can decide whether to retry, adapt, or move on.
         }
 
-        // Use the first tool result for feedback loop (or create default if none)
-        let first_result = tool_results
-            .into_iter()
-            .next()
-            .unwrap_or_else(|| ToolResult {
+        if tool_results.is_empty() {
+            let default_result = ToolResult {
                 call_id: format!("step-{}", step.order),
                 output: format!("Step '{}' completed (no tools executed)", step.title),
                 error: None,
@@ -393,15 +390,24 @@ impl StepExecutor for GenericStepExecutor {
                 exit_code: None,
                 data: None,
                 new_cwd: None,
-            });
-
-        // Process through feedback loop
-        Self::feedback_loop(
-            &mut step,
-            conversation,
-            Some(first_result),
-            Some(&first_tool_name),
-        );
+            };
+            Self::feedback_loop(
+                &mut step,
+                conversation,
+                Some(default_result),
+                Some(&first_tool_name),
+            );
+        } else {
+            let tool_names: Vec<String> = step
+                .tools
+                .iter()
+                .map(|t| t.split(':').next().unwrap_or("generic").to_string())
+                .collect();
+            for (i, result) in tool_results.into_iter().enumerate() {
+                let tool_name = tool_names.get(i).unwrap_or(&first_tool_name);
+                Self::feedback_loop(&mut step, conversation, Some(result), Some(tool_name));
+            }
+        }
 
         // Only set status to Completed if not already failed
         if step.execution_status == StepStatus::Failed {
