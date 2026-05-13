@@ -163,22 +163,31 @@ impl HttpTransport {
 async fn route_sse_event(data: &str, inbox_tx: &mpsc::Sender<IncomingMessage>) {
     let value: serde_json::Value = match serde_json::from_str(data) {
         Ok(v) => v,
-        Err(_) => return,
+        Err(e) => {
+            tracing::debug!("failed to parse SSE event as JSON: {e}");
+            return;
+        }
     };
 
     if value.get("method").is_some() {
         if value.get("id").is_some() {
             if let Ok(req) = serde_json::from_value::<JsonRpcRequest>(value) {
-                let _ = inbox_tx.send(IncomingMessage::Request(req)).await;
+                if let Err(e) = inbox_tx.send(IncomingMessage::Request(req)).await {
+                    tracing::warn!("dropped SSE request (channel full/closed): {e}");
+                }
             }
         } else if let Ok(notif) = serde_json::from_value::<JsonRpcNotification>(value) {
-            let _ = inbox_tx.send(IncomingMessage::Notification(notif)).await;
+            if let Err(e) = inbox_tx.send(IncomingMessage::Notification(notif)).await {
+                tracing::warn!("dropped SSE notification (channel full/closed): {e}");
+            }
         }
         return;
     }
 
     if let Ok(resp) = serde_json::from_value::<JsonRpcResponse>(value) {
-        let _ = inbox_tx.send(IncomingMessage::Response(resp)).await;
+        if let Err(e) = inbox_tx.send(IncomingMessage::Response(resp)).await {
+            tracing::warn!("dropped SSE response (channel full/closed): {e}");
+        }
     }
 }
 

@@ -12,7 +12,9 @@ use crate::memdir;
 /// Returns `None` if the memory system hasn't been initialized or the summary
 /// is empty/default.
 pub fn build_memory_instructions(mem_dir: &Path) -> Option<String> {
-    let _ = memdir::ensure_layout(mem_dir);
+    if let Err(e) = memdir::ensure_layout(mem_dir) {
+        tracing::warn!("failed to ensure memory layout: {e}");
+    }
 
     let summary = match memdir::read_memory_summary(mem_dir) {
         Ok(s) => s,

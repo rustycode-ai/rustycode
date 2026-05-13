@@ -3,6 +3,7 @@
 //! Implements the MCP OAuth 2.1 specification for authenticating with MCP servers.
 //! Supports both PKCE (Proof Key for Code Exchange) flow and dynamic client registration.
 
+use rand::RngExt;
 use crate::{McpError, McpResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -154,10 +155,12 @@ impl PkceState {
         use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
         use sha2::{Digest, Sha256};
 
-        // Generate random code verifier (43-128 characters)
+        // Generate random code verifier using a cryptographically secure RNG.
+        // fastrand is NOT suitable for security-sensitive OAuth secrets.
+        let mut rng = rand::rng();
         let code_verifier: String = (0..32)
             .map(|_| {
-                let idx = fastrand::usize(..62);
+                let idx = rng.random_range(0..62);
                 match idx {
                     0..=25 => (b'a' + idx as u8) as char,
                     26..=51 => (b'A' + (idx - 26) as u8) as char,
@@ -276,6 +279,15 @@ impl OAuthManager {
         let tmp_path = path.with_extension("json.tmp");
         fs::write(&tmp_path, &content)
             .map_err(|e| McpError::ProtocolError(format!("Failed to write token file: {e}")))?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Err(e) = fs::set_permissions(&tmp_path, fs::Permissions::from_mode(0o600)) {
+                tracing::warn!("failed to set token file permissions: {e}");
+            }
+        }
+
         fs::rename(&tmp_path, path)
             .map_err(|e| McpError::ProtocolError(format!("Failed to rename token file: {e}")))?;
 
@@ -317,7 +329,17 @@ impl OAuthManager {
         })?;
 
         // Generate state for CSRF protection
-        let state: String = (0..32).map(|_| fastrand::alphanumeric()).collect();
+        let mut rng = rand::rng();
+        let state: String = (0..32)
+            .map(|_| {
+                let idx = rng.random_range(0..62);
+                match idx {
+                    0..=25 => (b'a' + idx as u8) as char,
+                    26..=51 => (b'A' + (idx - 26) as u8) as char,
+                    _ => (b'0' + (idx - 52) as u8) as char,
+                }
+            })
+            .collect();
 
         // Generate PKCE state
         let pkce = PkceState::new();
