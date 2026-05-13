@@ -1,5 +1,5 @@
 use super::*;
-use crawler::extract_rust_symbols;
+use super::crawler::extract_symbols;
 use std::path::PathBuf;
 use storage::extract_words;
 
@@ -39,7 +39,7 @@ fn test_format_results() {
 }
 
 #[test]
-fn test_extract_rust_symbols() {
+fn test_extract_symbols() {
     let content = r#"
 pub struct Config {
     pub name: String,
@@ -63,7 +63,7 @@ enum Status {
 const MAX_SIZE: usize = 1024;
 "#;
     let file = PathBuf::from("test.rs");
-    let symbols = extract_rust_symbols(&file, content);
+    let symbols = extract_symbols(&file, content);
 
     assert!(symbols
         .iter()

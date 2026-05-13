@@ -15,7 +15,6 @@ pub struct SessionListRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TurnSubmitRequest {
-    pub session_id: String,
-    pub message: String,
+pub struct SymbolOutlineRequest {
+    pub file_path: String,
 }

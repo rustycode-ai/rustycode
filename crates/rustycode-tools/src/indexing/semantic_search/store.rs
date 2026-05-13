@@ -21,6 +21,8 @@ pub struct CodeChunk {
     pub symbol_name: Option<String>,
     /// Optional symbol type (function, class, method, etc.)
     pub symbol_type: Option<String>,
+    /// Optional parent context (e.g. class name, module name)
+    pub parent_context: Option<String>,
 }
 
 /// Search result with relevance score
@@ -82,7 +84,18 @@ impl SemanticIndex {
 
     /// Index a code chunk with embedding
     pub fn add_chunk(&mut self, chunk: CodeChunk) -> Result<()> {
-        let embedding = self.compute_embedding(&chunk.content).with_context(|| {
+        let mut embedding_text = String::new();
+        if let Some(ref parent) = chunk.parent_context {
+            embedding_text.push_str(parent);
+            embedding_text.push_str(" > ");
+        }
+        if let Some(ref name) = chunk.symbol_name {
+            embedding_text.push_str(name);
+            embedding_text.push_str("\n");
+        }
+        embedding_text.push_str(&chunk.content);
+
+        let embedding = self.compute_embedding(&embedding_text).with_context(|| {
             format!(
                 "Failed to compute embedding for chunk in {:?}",
                 chunk.file_path

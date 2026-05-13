@@ -4,7 +4,6 @@
 //! via fastembed. It complements grep (keyword search) and LSP (symbol lookup) by
 //! enabling intent-based queries like "find auth validation logic".
 
-mod chunker;
 mod indexer;
 mod searcher;
 mod store;
@@ -200,7 +199,6 @@ pub(crate) fn rebuild_index(state: &semantic_search_state::SearchState) -> Resul
 
 #[cfg(test)]
 mod tests {
-    use super::chunker::*;
     use super::searcher::cosine_similarity;
     use super::store::SemanticIndex;
     use super::*;
@@ -240,104 +238,6 @@ mod tests {
         let results = index.search("user authentication token", 5).unwrap();
         assert!(!results.is_empty());
         assert!(results[0].chunk.content.contains("authenticate_user"));
-    }
-
-    #[test]
-    fn test_extract_rust_symbol() {
-        assert_eq!(
-            extract_rust_symbol("pub fn authenticate_user(token: &str)"),
-            Some(("authenticate_user".to_string(), "function".to_string()))
-        );
-        assert_eq!(
-            extract_rust_symbol("fn helper()"),
-            Some(("helper".to_string(), "function".to_string()))
-        );
-        assert_eq!(
-            extract_rust_symbol("pub struct UserConfig"),
-            Some(("UserConfig".to_string(), "struct".to_string()))
-        );
-        assert_eq!(
-            extract_rust_symbol("impl UserService"),
-            Some(("UserService".to_string(), "impl".to_string()))
-        );
-    }
-
-    #[test]
-    fn test_extract_python_symbol() {
-        assert_eq!(
-            extract_python_symbol("def authenticate_user(token):"),
-            Some(("authenticate_user".to_string(), "function".to_string()))
-        );
-        assert_eq!(
-            extract_python_symbol("class UserController:"),
-            Some(("UserController".to_string(), "class".to_string()))
-        );
-    }
-
-    #[test]
-    fn test_extract_java_symbol() {
-        assert_eq!(
-            extract_java_symbol("public void authenticateUser(String token) {"),
-            Some(("authenticateUser".to_string(), "method".to_string()))
-        );
-        assert_eq!(
-            extract_java_symbol("private String validateToken() {"),
-            Some(("validateToken".to_string(), "method".to_string()))
-        );
-        assert_eq!(
-            extract_java_symbol("public class UserService {"),
-            Some(("UserService".to_string(), "class".to_string()))
-        );
-        assert_eq!(
-            extract_java_symbol("interface Repository {"),
-            Some(("Repository".to_string(), "interface".to_string()))
-        );
-    }
-
-    #[test]
-    fn test_extract_go_symbol() {
-        assert_eq!(
-            extract_go_symbol("func AuthenticateUser(token string) error {"),
-            Some(("AuthenticateUser".to_string(), "function".to_string()))
-        );
-        assert_eq!(
-            extract_go_symbol(
-                "func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {"
-            ),
-            Some(("HandleRequest".to_string(), "method".to_string()))
-        );
-        assert_eq!(
-            extract_go_symbol("type User struct {"),
-            Some(("User".to_string(), "struct".to_string()))
-        );
-        assert_eq!(
-            extract_go_symbol("type Service interface {"),
-            Some(("Service".to_string(), "interface".to_string()))
-        );
-    }
-
-    #[test]
-    fn test_extract_javascript_symbol() {
-        assert_eq!(
-            extract_javascript_symbol("function authenticateUser(token) {"),
-            Some(("authenticateUser".to_string(), "function".to_string()))
-        );
-        assert_eq!(
-            extract_javascript_symbol("async function fetchData() {"),
-            Some(("fetchData".to_string(), "async_function".to_string()))
-        );
-        assert_eq!(
-            extract_javascript_symbol("const handleClick = () => {"),
-            Some(("handleClick".to_string(), "arrow_function".to_string()))
-        );
-        assert_eq!(
-            extract_javascript_symbol("class UserService {"),
-            Some(("UserService".to_string(), "class".to_string()))
-        );
-        assert_eq!(
-            extract_javascript_symbol("interface User {"),
-            Some(("User".to_string(), "interface".to_string()))
-        );
     }
 
     #[test]

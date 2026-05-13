@@ -33,6 +33,7 @@ pub mod repl;
 pub mod send_message;
 pub mod skill_discovery;
 pub mod symbol;
+pub mod symbol_tools;
 pub mod task_output;
 pub mod team;
 pub mod todo;

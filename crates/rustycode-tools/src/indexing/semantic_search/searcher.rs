@@ -19,11 +19,12 @@ pub(crate) fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
 fn get_display_path(
     file_path: &std::path::Path,
     project_root: &std::path::Path,
-) -> std::path::Display {
+) -> String {
     file_path
         .strip_prefix(project_root)
         .unwrap_or(file_path)
         .display()
+        .to_string()
 }
 
 /// Determine if auto-compact should be used based on query characteristics

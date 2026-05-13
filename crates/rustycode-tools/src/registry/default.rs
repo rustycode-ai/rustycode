@@ -30,6 +30,7 @@ pub fn default_registry_filtered(filter: &ToolFilter) -> ToolRegistry {
     use crate::providers::web::browser::BrowserFetchTool;
     use crate::providers::web::fetch::WebFetchTool;
     use crate::providers::web::search::WebSearchTool;
+    use crate::providers::symbol_tools::{CheckSymbolDriftTool, CodeContextTool, FindSymbolTool, OutlineFileTool};
     use crate::providers::{
         BashTool, CmdTool, FindTool, GlobTool, GrepTool, InspectTool, ListDirTool, PowerShellTool,
         QuestionTool, ReadFileTool, WriteFileTool,
@@ -113,6 +114,13 @@ pub fn default_registry_filtered(filter: &ToolFilter) -> ToolRegistry {
     reg.register(TaskOutputTool);
     reg.register(TaskStopTool);
     reg.register(ToolSearchTool);
+
+    // Symbol tools — fast structural navigation without reading entire files.
+    reg.register(FindSymbolTool);
+    reg.register(CodeContextTool);
+    reg.register(OutlineFileTool);
+    reg.register(CheckSymbolDriftTool);
+    reg.register(StructuralPatchTool);
 
     // Interactive tools — always registered.
     reg.register(QuestionTool);

@@ -13,6 +13,6 @@ pub struct SessionListResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TurnSubmitResponse {
-    pub turn_id: String,
+pub struct SymbolOutlineResponse {
+    pub outline: rustycode_protocol::code_symbol::FileOutline,
 }

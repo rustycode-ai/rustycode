@@ -151,12 +151,34 @@ impl CodeIndex {
     }
 
     /// Update a single file in the index
-    pub fn update_file(&mut self, _path: PathBuf) -> Result<()> {
+    pub fn update_file(&mut self, path: PathBuf) -> Result<()> {
+        let content = std::fs::read_to_string(&path)?;
+        self.remove_file(path.clone())?;
+        
+        let file_idx = if let Some(idx) = self.trigram_index.files.iter().position(|p| p == &path) {
+            idx
+        } else {
+            let idx = self.trigram_index.files.len();
+            self.trigram_index.files.push(path.clone());
+            idx
+        };
+        
+        self.index_content(file_idx, &path, &content);
         Ok(())
     }
 
     /// Remove a file from the index
-    pub fn remove_file(&mut self, _path: PathBuf) -> Result<()> {
+    pub fn remove_file(&mut self, path: PathBuf) -> Result<()> {
+        if let Some(idx) = self.trigram_index.files.iter().position(|p| p == &path) {
+            self.trigram_index.remove_file(idx);
+            self.word_index.remove_file(idx);
+            // Note: we don't remove from self.trigram_index.files to keep indices stable
+            // but we could mark it as deleted if we added a deleted set.
+            // For now, keeping the path in the list but removing its indexed data.
+        }
+        self.symbol_index.remove_file(&path);
+        self.dep_index.remove_file(&path);
+        self.file_cache.remove(&path);
         Ok(())
     }
 

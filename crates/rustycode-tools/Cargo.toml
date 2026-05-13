@@ -60,6 +60,7 @@ tree-sitter-python = "0.25"
 tree-sitter-javascript = "0.25"
 tree-sitter-go = "0.25"
 tree-sitter-typescript = "0.23"
+sha2.workspace = true
 url = "2.5"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif"] }
 schemars = "1.2.1"

@@ -16,10 +16,10 @@ dashmap.workspace = true
 parking_lot.workspace = true
 futures.workspace = true
 
-rustycode-server-protocol = { workspace = true }
-rustycode-protocol = { workspace = true }
-rustycode-core = { workspace = true }
-rustycode-agent-runtime = { workspace = true }
+rustycode-server-protocol = { path = "../rustycode-server-protocol" }
+rustycode-protocol = { path = "../rustycode-protocol" }
+rustycode-core = { path = "../rustycode-core" }
+rustycode-agent-runtime = { path = "../rustycode-agent-runtime" }
 rustycode-runtime = { path = "../rustycode-runtime" }
 
 [lints]

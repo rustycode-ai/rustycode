@@ -128,6 +128,9 @@ pub use rustycode_id::{
 
 // MODULE DECLARATIONS
 
+// Code symbol types for indexing and repo maps
+pub mod code_symbol;
+
 // Session management types
 pub mod session;
 

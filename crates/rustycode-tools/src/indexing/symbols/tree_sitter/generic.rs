@@ -1,15 +1,15 @@
 use std::path::Path;
-
 use tree_sitter::Node;
+use std::collections::HashMap;
 
-use super::{node_text, truncate_str_safe};
-use crate::indexing::repo_map::{FileSummary, SymbolInfo, SymbolKind};
+use super::node_text;
+use rustycode_protocol::code_symbol::{CodeSymbol, FileOutline, SymbolKind, Visibility, SymbolRange};
 
 /// Extract Go symbols from a tree-sitter parse tree.
-pub(super) fn extract_go_symbols_ts(
+pub fn extract_go_symbols_ts(
     root: &Node,
     source: &str,
-    symbols: &mut Vec<SymbolInfo>,
+    symbols: &mut Vec<CodeSymbol>,
     imports: &mut Vec<String>,
 ) {
     let mut cursor = root.walk();
@@ -41,51 +41,69 @@ pub(super) fn extract_go_symbols_ts(
     }
 }
 
-fn go_fn_symbol(node: &Node, source: &str, kind: SymbolKind) -> Option<SymbolInfo> {
+fn go_fn_symbol(node: &Node, source: &str, kind: SymbolKind) -> Option<CodeSymbol> {
     let name = node.child_by_field_name("name")?;
     let name_text = node_text(&name, source)?;
-    let sig = node_text(node, source)
-        .map(|s| {
-            s.lines()
-                .next()
-                .unwrap_or("")
-                .trim_end_matches('{')
-                .trim()
-                .to_string()
-        })
-        .unwrap_or_default();
-    Some(SymbolInfo {
+    Some(CodeSymbol {
         name: name_text,
         kind,
-        signature: sig,
         line: node.start_position().row + 1,
-        docs: extract_go_doc_comment(node, source),
-    })
-}
-
-fn go_method_symbol(node: &Node, source: &str) -> Option<SymbolInfo> {
-    let name = node.child_by_field_name("name")?;
-    let name_text = node_text(&name, source)?;
-    let sig = node_text(node, source)
-        .map(|s| {
+        end_line: node.end_position().row + 1,
+        range: SymbolRange {
+            start_line: node.start_position().row + 1,
+            start_col: node.start_position().column,
+            end_line: node.end_position().row + 1,
+            end_col: node.end_position().column,
+            start_byte: node.start_byte(),
+            end_byte: node.end_byte(),
+        },
+        signature: node_text(node, source).map(|s| {
             s.lines()
                 .next()
                 .unwrap_or("")
                 .trim_end_matches('{')
                 .trim()
                 .to_string()
-        })
-        .unwrap_or_default();
-    Some(SymbolInfo {
-        name: name_text,
-        kind: SymbolKind::Method,
-        signature: sig,
-        line: node.start_position().row + 1,
-        docs: extract_go_doc_comment(node, source),
+        }).unwrap_or_default(),
+        doc_comment: extract_go_doc_comment(node, source),
+        visibility: Visibility::Public,
+        children: Vec::new(),
+        metadata: HashMap::new(),
     })
 }
 
-fn extract_go_type_declaration(node: &Node, source: &str, symbols: &mut Vec<SymbolInfo>) {
+fn go_method_symbol(node: &Node, source: &str) -> Option<CodeSymbol> {
+    let name = node.child_by_field_name("name")?;
+    let name_text = node_text(&name, source)?;
+    Some(CodeSymbol {
+        name: name_text,
+        kind: SymbolKind::Method,
+        line: node.start_position().row + 1,
+        end_line: node.end_position().row + 1,
+        range: SymbolRange {
+            start_line: node.start_position().row + 1,
+            start_col: node.start_position().column,
+            end_line: node.end_position().row + 1,
+            end_col: node.end_position().column,
+            start_byte: node.start_byte(),
+            end_byte: node.end_byte(),
+        },
+        signature: node_text(node, source).map(|s| {
+            s.lines()
+                .next()
+                .unwrap_or("")
+                .trim_end_matches('{')
+                .trim()
+                .to_string()
+        }).unwrap_or_default(),
+        doc_comment: extract_go_doc_comment(node, source),
+        visibility: Visibility::Public,
+        children: Vec::new(),
+        metadata: HashMap::new(),
+    })
+}
+
+fn extract_go_type_declaration(node: &Node, source: &str, symbols: &mut Vec<CodeSymbol>) {
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
         if child.kind() == "type_spec" {
@@ -98,22 +116,31 @@ fn extract_go_type_declaration(node: &Node, source: &str, symbols: &mut Vec<Symb
                         "interface_type" => SymbolKind::Interface,
                         _ => SymbolKind::TypeAlias,
                     };
-                    let sig = node_text(node, source)
-                        .map(|s| {
+                    symbols.push(CodeSymbol {
+                        name: name_text,
+                        kind,
+                        line: node.start_position().row + 1,
+                        end_line: node.end_position().row + 1,
+                        range: SymbolRange {
+                            start_line: node.start_position().row + 1,
+                            start_col: node.start_position().column,
+                            end_line: node.end_position().row + 1,
+                            end_col: node.end_position().column,
+                            start_byte: node.start_byte(),
+                            end_byte: node.end_byte(),
+                        },
+                        signature: node_text(node, source).map(|s| {
                             s.lines()
                                 .next()
                                 .unwrap_or("")
                                 .trim_end_matches('{')
                                 .trim()
                                 .to_string()
-                        })
-                        .unwrap_or_default();
-                    symbols.push(SymbolInfo {
-                        name: name_text,
-                        kind,
-                        signature: sig,
-                        line: node.start_position().row + 1,
-                        docs: extract_go_doc_comment(node, source),
+                        }).unwrap_or_default(),
+                        doc_comment: extract_go_doc_comment(node, source),
+                        visibility: Visibility::Public,
+                        children: Vec::new(),
+                        metadata: HashMap::new(),
                     });
                 }
             }
@@ -121,29 +148,38 @@ fn extract_go_type_declaration(node: &Node, source: &str, symbols: &mut Vec<Symb
     }
 }
 
-fn extract_go_consts(node: &Node, source: &str, symbols: &mut Vec<SymbolInfo>) {
+fn extract_go_consts(node: &Node, source: &str, symbols: &mut Vec<CodeSymbol>) {
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
         if child.kind() == "const_spec" {
             let name = child.child_by_field_name("name");
             if let Some(name_node) = name {
                 if let Some(name_text) = node_text(&name_node, source) {
-                    let sig = node_text(&child, source)
-                        .map(|s| {
+                    symbols.push(CodeSymbol {
+                        name: name_text,
+                        kind: SymbolKind::Constant,
+                        line: child.start_position().row + 1,
+                        end_line: child.end_position().row + 1,
+                        range: SymbolRange {
+                            start_line: child.start_position().row + 1,
+                            start_col: child.start_position().column,
+                            end_line: child.end_position().row + 1,
+                            end_col: child.end_position().column,
+                            start_byte: child.start_byte(),
+                            end_byte: child.end_byte(),
+                        },
+                        signature: node_text(&child, source).map(|s| {
                             s.lines()
                                 .next()
                                 .unwrap_or("")
                                 .trim_end_matches(';')
                                 .trim()
                                 .to_string()
-                        })
-                        .unwrap_or_default();
-                    symbols.push(SymbolInfo {
-                        name: name_text,
-                        kind: SymbolKind::Constant,
-                        signature: sig,
-                        line: child.start_position().row + 1,
-                        docs: None,
+                        }).unwrap_or_default(),
+                        doc_comment: None,
+                        visibility: Visibility::Public,
+                        children: Vec::new(),
+                        metadata: HashMap::new(),
                     });
                 }
             }
@@ -159,7 +195,7 @@ fn extract_go_doc_comment(node: &Node, source: &str) -> Option<String> {
         if cleaned.len() < 200 {
             Some(cleaned.to_string())
         } else {
-            Some(format!("{}...", truncate_str_safe(cleaned, 197)))
+            Some(format!("{}...", &cleaned[..cleaned.char_indices().nth(197).map(|(i,_)| i).unwrap_or(cleaned.len())]))
         }
     } else {
         None
@@ -167,12 +203,12 @@ fn extract_go_doc_comment(node: &Node, source: &str) -> Option<String> {
 }
 
 /// Parse a file using regex fallback for languages without tree-sitter grammars.
-pub fn parse_with_regex(path: &Path, content: &str) -> FileSummary {
+pub fn parse_with_regex(path: &Path, content: &str) -> FileOutline {
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
     let mut symbols = Vec::new();
     let mut imports = Vec::new();
     match ext {
-        "java" | "kt" | "scala" => extract_java_regex(path, content, &mut symbols),
+        "java" | "kt" | "scala" => extract_java_regex(content, &mut symbols),
         "c" | "cpp" | "h" | "hpp" => extract_c_regex(content, &mut symbols),
         "rb" => extract_ruby_regex(content, &mut symbols),
         _ => extract_generic_regex(content, &mut symbols),
@@ -187,14 +223,42 @@ pub fn parse_with_regex(path: &Path, content: &str) -> FileSummary {
             imports.push(trimmed.to_string());
         }
     }
-    FileSummary {
+    FileOutline {
         path: path.to_path_buf(),
+        language: "regex".to_string(),
         symbols,
         imports,
     }
 }
 
-fn extract_java_regex(_path: &Path, content: &str, symbols: &mut Vec<SymbolInfo>) {
+fn regex_symbol(
+    name: String,
+    kind: SymbolKind,
+    line: usize,
+    signature: String,
+) -> CodeSymbol {
+    CodeSymbol {
+        name,
+        kind,
+        line,
+        end_line: line, // Fallback for regex
+        range: SymbolRange {
+            start_line: line,
+            start_col: 0,
+            end_line: line,
+            end_col: 0,
+            start_byte: 0,
+            end_byte: 0,
+        },
+        signature,
+        doc_comment: None,
+        visibility: Visibility::Public,
+        children: Vec::new(),
+        metadata: HashMap::new(),
+    }
+}
+
+fn extract_java_regex(content: &str, symbols: &mut Vec<CodeSymbol>) {
     for (i, line) in content.lines().enumerate() {
         let trimmed = line.trim();
         for (keyword, kind) in &[
@@ -209,13 +273,12 @@ fn extract_java_regex(_path: &Path, content: &str, symbols: &mut Vec<SymbolInfo>
                         .next()
                         .unwrap_or("");
                     if !name.is_empty() {
-                        symbols.push(SymbolInfo {
-                            name: name.to_string(),
-                            kind: *kind,
-                            signature: trimmed.trim_end_matches('{').trim().to_string(),
-                            line: i + 1,
-                            docs: None,
-                        });
+                        symbols.push(regex_symbol(
+                            name.to_string(),
+                            *kind,
+                            i + 1,
+                            trimmed.trim_end_matches('{').trim().to_string(),
+                        ));
                     }
                 }
             }
@@ -223,7 +286,7 @@ fn extract_java_regex(_path: &Path, content: &str, symbols: &mut Vec<SymbolInfo>
     }
 }
 
-fn extract_c_regex(content: &str, symbols: &mut Vec<SymbolInfo>) {
+fn extract_c_regex(content: &str, symbols: &mut Vec<CodeSymbol>) {
     for (i, line) in content.lines().enumerate() {
         let trimmed = line.trim();
         for (keyword, kind) in &[
@@ -241,20 +304,19 @@ fn extract_c_regex(content: &str, symbols: &mut Vec<SymbolInfo>) {
                     })
                     .filter(|s| !s.is_empty())
                 {
-                    symbols.push(SymbolInfo {
-                        name: name.to_string(),
-                        kind: *kind,
-                        signature: trimmed.trim_end_matches('{').trim().to_string(),
-                        line: i + 1,
-                        docs: None,
-                    });
+                    symbols.push(regex_symbol(
+                        name.to_string(),
+                        *kind,
+                        i + 1,
+                        trimmed.trim_end_matches('{').trim().to_string(),
+                    ));
                 }
             }
         }
     }
 }
 
-fn extract_ruby_regex(content: &str, symbols: &mut Vec<SymbolInfo>) {
+fn extract_ruby_regex(content: &str, symbols: &mut Vec<CodeSymbol>) {
     for (i, line) in content.lines().enumerate() {
         let trimmed = line.trim();
         if trimmed.starts_with("def ") {
@@ -265,13 +327,12 @@ fn extract_ruby_regex(content: &str, symbols: &mut Vec<SymbolInfo>) {
                 .next()
                 .unwrap_or("");
             if !name.is_empty() {
-                symbols.push(SymbolInfo {
-                    name: name.to_string(),
-                    kind: SymbolKind::Function,
-                    signature: trimmed.trim().to_string(),
-                    line: i + 1,
-                    docs: None,
-                });
+                symbols.push(regex_symbol(
+                    name.to_string(),
+                    SymbolKind::Function,
+                    i + 1,
+                    trimmed.to_string(),
+                ));
             }
         }
         if trimmed.starts_with("class ") || trimmed.starts_with("module ") {
@@ -292,19 +353,18 @@ fn extract_ruby_regex(content: &str, symbols: &mut Vec<SymbolInfo>) {
                 } else {
                     SymbolKind::Module
                 };
-                symbols.push(SymbolInfo {
-                    name: name.to_string(),
+                symbols.push(regex_symbol(
+                    name.to_string(),
                     kind,
-                    signature: trimmed.trim().to_string(),
-                    line: i + 1,
-                    docs: None,
-                });
+                    i + 1,
+                    trimmed.to_string(),
+                ));
             }
         }
     }
 }
 
-fn extract_generic_regex(content: &str, symbols: &mut Vec<SymbolInfo>) {
+fn extract_generic_regex(content: &str, symbols: &mut Vec<CodeSymbol>) {
     for (i, line) in content.lines().enumerate() {
         let trimmed = line.trim();
         let lower = trimmed.to_lowercase();
@@ -316,13 +376,12 @@ fn extract_generic_regex(content: &str, symbols: &mut Vec<SymbolInfo>) {
                     .unwrap_or("")
                     .to_string();
                 if !name.is_empty() {
-                    symbols.push(SymbolInfo {
+                    symbols.push(regex_symbol(
                         name,
-                        kind: SymbolKind::Function,
-                        signature: trimmed.trim().to_string(),
-                        line: i + 1,
-                        docs: None,
-                    });
+                        SymbolKind::Function,
+                        i + 1,
+                        trimmed.to_string(),
+                    ));
                 }
             }
         }

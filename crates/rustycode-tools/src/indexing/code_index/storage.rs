@@ -41,6 +41,12 @@ impl TrigramIndex {
         }
     }
 
+    pub fn remove_file(&mut self, file_idx: usize) {
+        for matches in self.index.values_mut() {
+            matches.retain(|(idx, _)| *idx != file_idx);
+        }
+    }
+
     pub fn search(&self, pattern: &str, files: &[PathBuf]) -> Vec<(PathBuf, usize)> {
         let pattern_lower: Vec<u8> = pattern.to_lowercase().bytes().collect();
         if pattern_lower.len() < 3 {
@@ -110,6 +116,12 @@ impl WordIndex {
         }
     }
 
+    pub fn remove_file(&mut self, file_idx: usize) {
+        for matches in self.index.values_mut() {
+            matches.retain(|(idx, _)| *idx != file_idx);
+        }
+    }
+
     pub fn lookup(&self, word: &str) -> Vec<(usize, usize)> {
         self.index
             .get(&word.to_lowercase())
@@ -162,6 +174,14 @@ impl SymbolIndex {
         self.all.push(symbol);
     }
 
+    pub fn remove_file(&mut self, path: &Path) {
+        self.all.retain(|s| s.file_path != path);
+        for symbols in self.by_name.values_mut() {
+            symbols.retain(|s| s.file_path != path);
+        }
+        self.by_name.retain(|_, v| !v.is_empty());
+    }
+
     pub fn lookup(&self, name: &str) -> Vec<&Symbol> {
         self.by_name
             .get(&name.to_lowercase())
@@ -202,6 +222,23 @@ impl DependencyIndex {
             .or_default()
             .insert(to.clone());
         self.imported_by.entry(to).or_default().insert(from);
+    }
+
+    pub fn remove_file(&mut self, path: &Path) {
+        if let Some(imported_files) = self.imports.remove(path) {
+            for to in imported_files {
+                if let Some(by) = self.imported_by.get_mut(&to) {
+                    by.remove(path);
+                }
+            }
+        }
+        if let Some(importers) = self.imported_by.remove(path) {
+            for from in importers {
+                if let Some(imp) = self.imports.get_mut(&from) {
+                    imp.remove(path);
+                }
+            }
+        }
     }
 
     pub fn get_dependents(&self, file: &Path) -> Vec<PathBuf> {

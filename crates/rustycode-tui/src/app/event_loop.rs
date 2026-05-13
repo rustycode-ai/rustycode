@@ -113,8 +113,11 @@ fn install_panic_hook() {
 /// - Status bar (progress, animations)
 /// - Animation system (smooth updates)
 /// - Service integration (LLM streaming, tool execution, workspace loading)
+use rustycode_server_client::InProcessClient;
+use rustycode_server_protocol::{ClientMessage, ServerMessage};
+
 pub struct TUI {
-    // Grouped state sub-structs
+    pub(crate) client: InProcessClient,
     pub(crate) ui: crate::app::state_model::UIComponents,
     pub(crate) integration: crate::app::state_model::ServiceIntegrationState,
     pub(crate) workspace: crate::app::state_model::TaskWorkspaceState,
