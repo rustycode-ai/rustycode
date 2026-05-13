@@ -23,6 +23,7 @@ impl AgentRegistry {
         factories.insert("oracle".to_string(), oracle_factory);
         factories.insert("code".to_string(), code_factory);
         factories.insert("nop".to_string(), nop_factory);
+        factories.insert("tui".to_string(), tui_factory);
         #[cfg(feature = "real-agent")]
         factories.insert("real".to_string(), real_factory);
         Self { factories }
@@ -86,6 +87,10 @@ fn real_factory(_name: &str, model: &str, _solution_dir: PathBuf) -> Result<Box<
     super::real_agent::real_agent_factory(_name, model, _solution_dir)
 }
 
+fn tui_factory(name: &str, model: &str, solution_dir: PathBuf) -> Result<Box<dyn BenchAgent>> {
+    super::tui_agent::tui_agent_factory(name, model, solution_dir)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -97,6 +102,7 @@ mod tests {
         assert!(names.contains(&"code"));
         assert!(names.contains(&"nop"));
         assert!(names.contains(&"oracle"));
+        assert!(names.contains(&"tui"));
         #[cfg(feature = "real-agent")]
         assert!(names.contains(&"real"));
     }

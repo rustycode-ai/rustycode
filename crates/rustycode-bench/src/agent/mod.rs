@@ -2,17 +2,20 @@
 
 mod code_agent;
 mod nop;
+mod observer;
 mod oracle;
 #[cfg(feature = "real-agent")]
 pub mod real_agent;
 pub mod registry;
 pub mod tools;
+mod tui_agent;
 
 pub use code_agent::{CodeAgent, CodeAgentConfig};
 pub use nop::NopAgent;
 pub use oracle::OracleAgent;
 #[cfg(feature = "real-agent")]
 pub use real_agent::RealBenchAgent;
+pub use tui_agent::TuiBenchAgent;
 
 use crate::environment::BenchEnvironment;
 
