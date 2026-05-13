@@ -94,17 +94,24 @@ impl EventBridge {
                                 let Some(stream_event) = convert_event(&event) else {
                                     continue;
                                 };
-                                let read_guard = sessions.read().await;
+                                // Clone senders out of the read lock before awaiting
+                                // to avoid holding the lock across potentially slow sends.
+                                let senders: Vec<_> = {
+                                    let read_guard = sessions.read().await;
+                                    read_guard
+                                        .iter()
+                                        .map(|(t, s)| (t.clone(), s.clone()))
+                                        .collect()
+                                };
                                 let mut dead_tokens = Vec::new();
-                                for (token, sender) in read_guard.iter() {
+                                for (token, sender) in senders {
                                     if sender.is_closed() {
-                                        dead_tokens.push(token.clone());
+                                        dead_tokens.push(token);
                                     } else if let Err(e) = sender.send(stream_event.clone()).await {
                                         warn!(session = %token, "failed to forward event: {e}");
-                                        dead_tokens.push(token.clone());
+                                        dead_tokens.push(token);
                                     }
                                 }
-                                drop(read_guard);
                                 if !dead_tokens.is_empty() {
                                     let mut write_guard = sessions.write().await;
                                     for token in dead_tokens {

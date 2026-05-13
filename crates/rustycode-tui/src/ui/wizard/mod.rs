@@ -439,15 +439,17 @@ impl FirstRunWizard {
                 };
 
                 // Update status
-                let _ = std::fs::write(
+                if let Err(e) = std::fs::write(
                     &status_path,
                     serde_json::json!({"stage": "exchanging"}).to_string(),
-                );
+                ) {
+                    tracing::warn!("failed to write copilot 'exchanging' status: {e}");
+                }
 
                 // Step 3: Exchange for Copilot token
                 match auth.exchange_for_copilot_token(&github_token).await {
                     Ok(result) => {
-                        let _ = std::fs::write(
+                        if let Err(e) = std::fs::write(
                             &status_path,
                             serde_json::json!({
                                 "stage": "complete",
@@ -455,13 +457,17 @@ impl FirstRunWizard {
                                 "expires_at": result.expires_at,
                             })
                             .to_string(),
-                        );
+                        ) {
+                            tracing::warn!("failed to write copilot 'complete' status: {e}");
+                        }
                     }
                     Err(e) => {
-                        let _ = std::fs::write(
+                        if let Err(we) = std::fs::write(
                             &status_path,
                             serde_json::json!({"error": e.to_string()}).to_string(),
-                        );
+                        ) {
+                            tracing::warn!("failed to write copilot error status: {we}");
+                        }
                     }
                 }
             });

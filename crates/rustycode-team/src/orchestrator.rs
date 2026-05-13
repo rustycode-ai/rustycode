@@ -554,9 +554,11 @@ impl TeamOrchestrator {
         self.cancelled.clone()
     }
 
-    /// Emit a team event (ignores send errors if no subscribers).
+    /// Emit a team event.
     fn emit(&self, event: TeamEvent) {
-        let _ = self.event_tx.send(event);
+        if let Err(e) = self.event_tx.send(event) {
+            tracing::debug!("team event broadcast failed (no receivers): {e}");
+        }
     }
 
     /// Emit an event and dispatch to registered listeners.

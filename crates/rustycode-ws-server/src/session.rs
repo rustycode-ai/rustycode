@@ -235,21 +235,20 @@ impl SessionManager {
     }
 
     pub async fn create_session(&self) -> Result<SessionState, WsError> {
-        {
-            let sessions = self.sessions.read().await;
-            if sessions.len() >= MAX_SESSIONS {
-                return Err(WsError::TooManySessions {
-                    limit: MAX_SESSIONS,
-                });
-            }
-        }
         let id = SessionId::new();
         let token = id.to_string();
         let state = SessionState::new(id);
 
+        let mut sessions = self.sessions.write().await;
+        if sessions.len() >= MAX_SESSIONS {
+            return Err(WsError::TooManySessions {
+                limit: MAX_SESSIONS,
+            });
+        }
+
         info!(session_id = %token, "created new session");
 
-        self.sessions.write().await.insert(token, state.clone());
+        sessions.insert(token, state.clone());
         Ok(state)
     }
 

@@ -85,7 +85,9 @@ impl SkillAsTool {
                 .state_manager
                 .write()
                 .unwrap_or_else(|e| e.into_inner());
-            let _ = manager.mark_running(&self.skill.name);
+            if let Err(e) = manager.mark_running(&self.skill.name) {
+                tracing::debug!("failed to mark skill '{}' as running: {e}", self.skill.name);
+            }
         }
 
         // Build skill context with parameters
@@ -354,11 +356,13 @@ impl Tool for SpawnAgentTool {
             "task_{}",
             worker.worker_id.split('_').next_back().unwrap_or("unknown")
         );
-        let _ = worker_registry.assign_task(
+        if let Err(e) = worker_registry.assign_task(
             &worker.worker_id,
             &task_id,
             &format!("{}: {}", role, task),
-        );
+        ) {
+            tracing::debug!("failed to assign task '{task_id}' to worker '{}': {e}", worker.worker_id);
+        }
 
         // Log the agent spawn request
         tracing::info!(

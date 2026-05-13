@@ -151,19 +151,25 @@ impl PluginManagerUI {
                 true
             }
             (KeyCode::Char('r'), mods) if mods == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
-                let _ = manager.reload_from_disk();
+                if let Err(e) = manager.reload_from_disk() {
+                    tracing::warn!("plugin reload failed: {e}");
+                }
                 self.reset_selection();
                 true
             }
             (KeyCode::Char('r'), KeyModifiers::CONTROL) => {
                 self.with_selected_plugin_name(&mut manager, |plugin_manager, name| {
-                    let _ = plugin_manager.update_plugin(&name);
+                    if let Err(e) = plugin_manager.update_plugin(&name) {
+                        tracing::warn!("plugin update failed for '{name}': {e}");
+                    }
                 });
                 true
             }
             (KeyCode::Char('u'), mods) if mods == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
                 self.with_selected_plugin_name(&mut manager, |plugin_manager, name| {
-                    let _ = plugin_manager.uninstall_plugin(&name);
+                    if let Err(e) = plugin_manager.uninstall_plugin(&name) {
+                        tracing::warn!("plugin uninstall failed for '{name}': {e}");
+                    }
                 });
                 self.reset_selection();
                 true

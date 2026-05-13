@@ -32,14 +32,24 @@ impl BrowserManager {
     }
 
     pub async fn get_page(&self) -> Result<Page> {
+        // Fast path: check cached page
         if let Some(page) = self.page.lock().await.clone() {
             if page.evaluate("1").await.is_ok() {
                 return Ok(page);
             }
         }
 
+        // Slow path: allocate a new page from the pool
         let page = self.pool.get_page().await?;
         let mut cached = self.page.lock().await;
+        // Re-check: another task may have stored a valid page while we
+        // were allocating, so prefer the existing one to avoid leaking
+        // a browser page.
+        if let Some(existing) = cached.clone() {
+            if existing.evaluate("1").await.is_ok() {
+                return Ok(existing);
+            }
+        }
         *cached = Some(page.clone());
         Ok(page)
     }

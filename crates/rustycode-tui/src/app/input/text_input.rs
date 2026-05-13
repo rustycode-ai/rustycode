@@ -475,7 +475,9 @@ impl TUI {
 
         let history_persist_start = std::time::Instant::now();
         self.ui.input_handler.add_to_history(content.clone());
-        let _ = save_command_history(self.ui.input_handler.history());
+        if let Err(e) = save_command_history(self.ui.input_handler.history()) {
+            tracing::debug!("failed to persist command history: {e}");
+        }
         let history_persist_elapsed = history_persist_start.elapsed();
 
         let injection_summary_start = std::time::Instant::now();
