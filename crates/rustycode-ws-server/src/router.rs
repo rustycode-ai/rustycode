@@ -262,7 +262,9 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                         warn!("websocket receive error: {e}");
                         break;
                     }
-                    _ => {}
+                    _ => {
+                        tracing::trace!(session_id = %session_token, "Unhandled websocket message type");
+                    }
                 }
             }
             () = cancel.cancelled() => {

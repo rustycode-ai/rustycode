@@ -84,7 +84,15 @@ impl HttpTransport {
                     .header("MCP-Session-Id", &session_id);
 
                 // Send Last-Event-ID on reconnect for resumability
-                if let Some(id) = last_event_id.lock().ok().and_then(|g| g.clone()) {
+                if let Some(id) = last_event_id
+                    .lock()
+                    .map_err(|e| {
+                        tracing::warn!("last_event_id mutex poisoned: {e}");
+                        e
+                    })
+                    .ok()
+                    .and_then(|g| g.clone())
+                {
                     req = req.header("Last-Event-ID", &id);
                 }
 
@@ -240,7 +248,10 @@ impl Transport for HttpTransport {
             return Err(McpError::RateLimited(Duration::from_secs(retry_after)));
         }
         if status.is_client_error() || status.is_server_error() {
-            let body = resp.text().await.unwrap_or_default();
+            let body = resp.text().await.unwrap_or_else(|e| {
+                tracing::debug!("Failed to read error response body: {e}");
+                String::from("<empty>")
+            });
             return Err(McpError::TransportError(format!(
                 "HTTP {} response: {}",
                 status,

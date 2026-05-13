@@ -97,16 +97,27 @@ impl From<HookInput> for rustycode_protocol::HookInput {
                 "SessionEnd" => Some(rustycode_protocol::HookEvent::SessionEnd),
                 _ => None,
             })
-            .unwrap_or(rustycode_protocol::HookEvent::PreToolUse);
+            .unwrap_or_else(|| {
+                tracing::warn!(
+                    "Unknown hook event '{}', defaulting to PreToolUse",
+                    input.hook_event_name.as_deref().unwrap_or("<null>")
+                );
+                rustycode_protocol::HookEvent::PreToolUse
+            });
 
-        rustycode_protocol::HookInput::builder(
-            event,
-            input.session_id.unwrap_or_default(),
-            input.cwd.unwrap_or_default(),
-        )
-        .tool_name(input.tool_name)
-        .tool_input(input.tool_input)
-        .build()
+        let session_id = input.session_id.unwrap_or_else(|| {
+            tracing::warn!("Hook input missing session_id, using empty string");
+            String::new()
+        });
+        let cwd = input.cwd.unwrap_or_else(|| {
+            tracing::warn!("Hook input missing cwd, using empty string");
+            String::new()
+        });
+
+        rustycode_protocol::HookInput::builder(event, session_id, cwd)
+            .tool_name(input.tool_name)
+            .tool_input(input.tool_input)
+            .build()
     }
 }
 

@@ -715,7 +715,13 @@ impl AgentLifecycleManager {
             .metadata
             .get("restart_count")
             .and_then(|s| s.parse::<u32>().ok())
-            .unwrap_or(0);
+            .unwrap_or_else(|| {
+                tracing::warn!(
+                    "Agent {} has invalid/missing restart_count metadata, assuming 0",
+                    agent_id
+                );
+                0
+            });
 
         if restart_count >= self.config.max_restart_attempts {
             return Err(AgentError::MaxRestartAttempts {

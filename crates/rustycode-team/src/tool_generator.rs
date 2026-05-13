@@ -560,7 +560,9 @@ fn extract_json_from_response(response: &str) -> Option<&str> {
                         return Some(&response[start..start + i + 1]);
                     }
                 }
-                _ => {}
+                _ => {
+                    tracing::warn!("Unknown auth type, generating code without authentication");
+                }
             }
         }
     }

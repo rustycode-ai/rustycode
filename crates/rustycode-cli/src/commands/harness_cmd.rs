@@ -38,7 +38,9 @@ impl rustycode_agent_runtime::AgentEvents for HarnessEvents {
             StreamEvent::Done => {
                 eprintln!();
             }
-            _ => {}
+            _ => {
+                tracing::trace!("Unhandled stream event in harness");
+            }
         }
     }
 
@@ -68,7 +70,9 @@ fn log_progress(harness_dir: &Path, msg: &str) {
         .open(&progress_file)
     {
         use std::io::Write;
-        let _ = f.write_all(entry.as_bytes());
+        if let Err(e) = f.write_all(entry.as_bytes()) {
+            tracing::debug!("Failed to write progress entry: {e}");
+        }
     }
 }
 
@@ -196,27 +200,59 @@ fn save_tasks(harness_dir: &Path, tasks: &serde_json::Value) -> Result<()> {
 }
 
 fn get_git_head(cwd: &Path) -> Option<String> {
-    std::process::Command::new("git")
+    let output = std::process::Command::new("git")
         .args(["rev-parse", "HEAD"])
         .current_dir(cwd)
-        .output()
-        .ok()
-        .filter(|o| o.status.success())
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .output();
+    match output {
+        Ok(o) if o.status.success() => Some(String::from_utf8_lossy(&o.stdout).trim().to_string()),
+        Ok(o) => {
+            tracing::debug!(
+                "git rev-parse HEAD failed in {}: {}",
+                cwd.display(),
+                String::from_utf8_lossy(&o.stderr)
+            );
+            None
+        }
+        Err(e) => {
+            tracing::debug!("Failed to run git rev-parse in {}: {e}", cwd.display());
+            None
+        }
+    }
 }
 
 fn git_commit(cwd: &Path, message: &str) -> Option<String> {
-    std::process::Command::new("git")
+    let add_output = std::process::Command::new("git")
         .args(["add", "-A"])
         .current_dir(cwd)
-        .output()
-        .ok()?;
+        .output();
+    match add_output {
+        Ok(o) if !o.status.success() => {
+            tracing::warn!("git add -A failed: {}", String::from_utf8_lossy(&o.stderr));
+            return None;
+        }
+        Err(e) => {
+            tracing::warn!("Failed to run git add: {e}");
+            return None;
+        }
+        _ => {}
+    }
 
-    std::process::Command::new("git")
+    let commit_output = std::process::Command::new("git")
         .args(["commit", "-m", message, "--no-gpg-sign"])
         .current_dir(cwd)
-        .output()
-        .ok()?;
+        .output();
+    match commit_output {
+        Ok(o) if !o.status.success() => {
+            tracing::warn!("git commit failed: {}", String::from_utf8_lossy(&o.stderr));
+            return None;
+        }
+        Err(e) => {
+            tracing::warn!("Failed to run git commit: {e}");
+            return None;
+        }
+        _ => {}
+    }
 
     get_git_head(cwd)
 }

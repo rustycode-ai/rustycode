@@ -730,7 +730,14 @@ impl WorkflowExecutor {
             }
             TransformType::JsonParse => input_value
                 .as_str()
-                .and_then(|s| serde_json::from_str(s).ok())
+                .and_then(|s| {
+                    serde_json::from_str(s)
+                        .map_err(|e| {
+                            tracing::debug!("JSON parse transform failed: {e}");
+                            e
+                        })
+                        .ok()
+                })
                 .ok_or_else(|| WorkflowError::Validation("Failed to parse JSON".to_string()))?,
             TransformType::JsonStringify => {
                 return Ok(serde_json::Value::String(
@@ -750,8 +757,23 @@ impl WorkflowExecutor {
                 use base64::{engine::general_purpose, Engine as _};
                 input_value
                     .as_str()
-                    .and_then(|s| general_purpose::STANDARD.decode(s).ok())
-                    .and_then(|bytes| String::from_utf8(bytes).ok())
+                    .and_then(|s| {
+                        general_purpose::STANDARD
+                            .decode(s)
+                            .map_err(|e| {
+                                tracing::debug!("Base64 decode failed: {e}");
+                                e
+                            })
+                            .ok()
+                    })
+                    .and_then(|bytes| {
+                        String::from_utf8(bytes)
+                            .map_err(|e| {
+                                tracing::debug!("Base64 decoded bytes are not valid UTF-8: {e}");
+                                e
+                            })
+                            .ok()
+                    })
                     .ok_or_else(|| {
                         WorkflowError::Validation("Failed to decode base64".to_string())
                     })?

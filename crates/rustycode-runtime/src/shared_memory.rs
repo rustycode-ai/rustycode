@@ -367,7 +367,12 @@ impl SharedWorkingMemory {
             .ok_or_else(|| crate::workflow::WorkflowError::NotFound(entry_id.to_string()))?;
 
         // Track old size for memory_usage delta
-        let old_size = serde_json::to_vec(&*entry).map(|v| v.len()).unwrap_or(0);
+        let old_size = serde_json::to_vec(&*entry)
+            .map(|v| v.len())
+            .unwrap_or_else(|e| {
+                tracing::debug!("Failed to serialize entry for size tracking: {e}");
+                0
+            });
 
         // Update entry
         entry.data = data;
@@ -375,7 +380,12 @@ impl SharedWorkingMemory {
         entry.version = entry.version.saturating_add(1);
 
         // Track new size
-        let new_size = serde_json::to_vec(&*entry).map(|v| v.len()).unwrap_or(0);
+        let new_size = serde_json::to_vec(&*entry)
+            .map(|v| v.len())
+            .unwrap_or_else(|e| {
+                tracing::debug!("Failed to serialize entry for size tracking: {e}");
+                0
+            });
 
         // Update stats — adjust memory_usage by delta
         self.stats.total_writes = self.stats.total_writes.saturating_add(1);
@@ -447,7 +457,12 @@ impl SharedWorkingMemory {
             .ok_or_else(|| crate::workflow::WorkflowError::NotFound(entry_id.to_string()))?;
 
         // Update stats
-        let removed_size = serde_json::to_vec(&removed).map(|v| v.len()).unwrap_or(0);
+        let removed_size = serde_json::to_vec(&removed)
+            .map(|v| v.len())
+            .unwrap_or_else(|e| {
+                tracing::debug!("Failed to serialize removed entry for size tracking: {e}");
+                0
+            });
         self.stats.memory_usage = self.stats.memory_usage.saturating_sub(removed_size);
         self.stats.current_entries = self.storage.len();
         self.stats.last_update = Utc::now();
@@ -518,7 +533,12 @@ impl SharedWorkingMemory {
 
         if let Some(id) = oldest_id {
             if let Some(removed) = self.storage.remove(&id) {
-                let removed_size = serde_json::to_vec(&removed).map(|v| v.len()).unwrap_or(0);
+                let removed_size = serde_json::to_vec(&removed)
+                    .map(|v| v.len())
+                    .unwrap_or_else(|e| {
+                        tracing::debug!("Failed to serialize evicted entry for size tracking: {e}");
+                        0
+                    });
                 self.stats.memory_usage = self.stats.memory_usage.saturating_sub(removed_size);
             }
             self.stats.current_entries = self.storage.len();

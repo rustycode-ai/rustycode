@@ -156,7 +156,6 @@ fn execute_ledger(cwd: &Path) -> Result<()> {
     let ledger_path = ledger_dir.join("LEDGER.md");
 
     if let Some(content) = std::fs::read_to_string(&ledger_path)
-        .with_context(|| format!("Failed to read ledger at {}", ledger_path.display()))
         .ok()
         .filter(|s| !s.is_empty())
     {

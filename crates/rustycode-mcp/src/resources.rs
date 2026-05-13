@@ -315,7 +315,16 @@ pub mod template_matching {
 
         // Build the regex
         let regex_pattern = format!("^{pattern}$");
-        match regex::Regex::new(&regex_pattern).ok() {
+        match regex::Regex::new(&regex_pattern)
+            .map_err(|e| {
+                tracing::warn!(
+                    "Failed to compile resource template regex '{}': {e}",
+                    regex_pattern
+                );
+                e
+            })
+            .ok()
+        {
             Some(re) => {
                 let captures = re.captures(uri)?;
                 // Extract all captured groups in order

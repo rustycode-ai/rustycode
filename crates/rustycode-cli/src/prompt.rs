@@ -366,7 +366,17 @@ impl<T: Clone> Prompt for Select<T> {
 
         if config.global_yes_enabled() {
             let index = self.default_index.unwrap_or(0);
-            return Ok(self.options[index].1.clone());
+            let selected = self.options.get(index).ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!(
+                        "Default index {} out of range ({} options)",
+                        index,
+                        self.options.len()
+                    ),
+                )
+            })?;
+            return Ok(selected.1.clone());
         }
 
         let prompt_text = self.render_options();

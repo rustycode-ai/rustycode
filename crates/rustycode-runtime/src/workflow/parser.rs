@@ -432,7 +432,10 @@ fn parse_expression(expr_str: &str) -> Result<Expression> {
 
     if let Some(pos) = expr_str.find(" > ") {
         let variable = expr_str[..pos].trim();
-        let value = expr_str[pos + 3..].trim().parse().unwrap_or(0);
+        let value = expr_str[pos + 3..].trim().parse().unwrap_or_else(|_| {
+            tracing::warn!("Invalid comparison value in expression: '{}'", expr_str);
+            0
+        });
         return Ok(Expression::GreaterThan {
             variable: variable.to_string(),
             value,
@@ -441,7 +444,10 @@ fn parse_expression(expr_str: &str) -> Result<Expression> {
 
     if let Some(pos) = expr_str.find(" < ") {
         let variable = expr_str[..pos].trim();
-        let value = expr_str[pos + 3..].trim().parse().unwrap_or(0);
+        let value = expr_str[pos + 3..].trim().parse().unwrap_or_else(|_| {
+            tracing::warn!("Invalid comparison value in expression: '{}'", expr_str);
+            0
+        });
         return Ok(Expression::LessThan {
             variable: variable.to_string(),
             value,

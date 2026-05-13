@@ -1213,7 +1213,8 @@ impl TeamOrchestrator {
 
         match outcome {
             TurnOutcome::Stop(reason) => return Ok(StepResult::Stop(reason)),
-            TurnOutcome::Escalate(_) => {
+            TurnOutcome::Escalate(reason) => {
+                tracing::warn!("Coordinator escalated: {:?}", reason);
                 return Ok(StepResult::Stop(StopReason::TrustExhausted));
             }
             _ => {}

@@ -1397,10 +1397,32 @@ impl TmuxMcpServer {
                 .leases
                 .values()
                 .filter_map(|lease| {
-                    let created = chrono::DateTime::parse_from_rfc3339(&lease.created_at).ok()?;
-                    let last_used =
-                        chrono::DateTime::parse_from_rfc3339(&lease.last_used_at).ok()?;
-                    let expiry = last_used + chrono::Duration::seconds(lease.ttl_secs as i64);
+                    let created = chrono::DateTime::parse_from_rfc3339(&lease.created_at)
+                        .inspect_err(|e| {
+                            tracing::debug!(
+                                "Invalid created_at timestamp for lease {}: {e}",
+                                lease.session_id
+                            );
+                        })
+                        .ok()?;
+                    let last_used = chrono::DateTime::parse_from_rfc3339(&lease.last_used_at)
+                        .inspect_err(|e| {
+                            tracing::debug!(
+                                "Invalid last_used_at timestamp for lease {}: {e}",
+                                lease.session_id
+                            );
+                        })
+                        .ok()?;
+                    let ttl = lease.ttl_secs.try_into().unwrap_or(i64::MAX);
+                    let expiry = last_used
+                        .checked_add_signed(chrono::Duration::seconds(ttl))
+                        .unwrap_or_else(|| {
+                            tracing::warn!(
+                                "TTL overflow for lease {}, capping expiry",
+                                lease.session_id
+                            );
+                            last_used + chrono::Duration::seconds(ttl)
+                        });
                     if expiry < now.with_timezone(&created.timezone()) {
                         Some(lease.session_id.clone())
                     } else {
@@ -1631,15 +1653,17 @@ fn parse_batch_op(val: &serde_json::Value) -> McpResult<TmuxOp> {
             })
         }
         "send_keys" => {
-            let keys: Vec<Key> = val
-                .get("keys")
-                .and_then(|v| v.as_array())
-                .map(|arr| {
+            let keys: Vec<Key> = val.get("keys").and_then(|v| v.as_array()).map_or_else(
+                || {
+                    tracing::debug!("send_keys missing 'keys' field, defaulting to empty");
+                    Vec::new()
+                },
+                |arr| {
                     arr.iter()
                         .filter_map(|v| v.as_str().map(Key::from_llm))
                         .collect()
-                })
-                .unwrap_or_default();
+                },
+            );
             Ok(TmuxOp::SendKeys {
                 target: target
                     .ok_or_else(|| McpError::InvalidRequest("send_keys needs 'target'".into()))?
@@ -1651,7 +1675,10 @@ fn parse_batch_op(val: &serde_json::Value) -> McpResult<TmuxOp> {
             target: target
                 .ok_or_else(|| McpError::InvalidRequest("send_text needs 'target'".into()))?
                 .to_string(),
-            text: str_field(val, "text").unwrap_or_default(),
+            text: str_field(val, "text").unwrap_or_else(|| {
+                tracing::warn!("send_text missing 'text' field, defaulting to empty");
+                String::new()
+            }),
         }),
         "capture_pane" => Ok(TmuxOp::CapturePane {
             target: target

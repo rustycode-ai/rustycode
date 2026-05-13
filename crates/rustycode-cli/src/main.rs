@@ -385,7 +385,9 @@ async fn async_main(cli: Cli) -> Result<()> {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
     let log_dir = PathBuf::from(home).join(".rustycode");
     let log_path = log_dir.join("debug.log");
-    let _ = std::fs::create_dir_all(&log_dir);
+    if let Err(e) = std::fs::create_dir_all(&log_dir) {
+        tracing::debug!("Failed to create log directory {}: {e}", log_dir.display());
+    }
 
     // Try to open log file; fall back to stderr if unavailable (non-fatal)
     let log_file = std::fs::OpenOptions::new()
@@ -858,9 +860,10 @@ async fn async_main(cli: Cli) -> Result<()> {
                 .context("Failed to create LLM provider")?;
 
             let tool_registry = std::sync::Arc::new(rustycode_tools::default_registry_filtered(
-                &rustycode_tools::ToolFilter::full(
-                    std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/tmp")),
-                ),
+                &rustycode_tools::ToolFilter::full(std::env::current_dir().unwrap_or_else(|e| {
+                    tracing::warn!("Current directory unavailable ({e}), falling back to /tmp");
+                    std::path::PathBuf::from("/tmp")
+                })),
             ));
 
             let config = OrchestrationConfig::default();
