@@ -71,14 +71,14 @@ impl Protocol for GeminiProtocol {
                     // Sanitize schema for Gemini compatibility
                     let mut sanitized = schema;
                     sanitize_schema_recursive(&mut sanitized);
-                    generation_config
-                        .as_object_mut()
-                        .expect("generation_config is an object")
-                        .insert("responseMimeType".to_string(), json!("application/json"));
-                    generation_config
-                        .as_object_mut()
-                        .expect("generation_config is an object")
-                        .insert("responseSchema".to_string(), sanitized);
+                    let config_obj = generation_config.as_object_mut().ok_or_else(|| {
+                        anyhow::anyhow!("generation_config should be a JSON object")
+                    })?;
+                    config_obj.insert("responseMimeType".to_string(), json!("application/json"));
+                    let config_obj = generation_config.as_object_mut().ok_or_else(|| {
+                        anyhow::anyhow!("generation_config should be a JSON object")
+                    })?;
+                    config_obj.insert("responseSchema".to_string(), sanitized);
                 }
             }
         }

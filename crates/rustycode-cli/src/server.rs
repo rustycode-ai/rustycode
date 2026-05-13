@@ -75,10 +75,12 @@ async fn handle_call(State(state): State<AppState>, Json(payload): Json<Value>) 
         exec.execute(&call)
     };
 
-    let _ = state.cache.lock().await.insert(
+    if let Err(e) = state.cache.lock().await.insert(
         call.call_id.clone(),
         serde_json::to_value(&result).unwrap_or_else(|_| serde_json::json!({})),
-    );
+    ) {
+        tracing::debug!("Failed to cache result for {}: {e}", call.call_id);
+    }
 
     Json(
         serde_json::to_value(result)

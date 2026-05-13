@@ -183,7 +183,9 @@ fn save_tasks(harness_dir: &Path, tasks: &serde_json::Value) -> Result<()> {
 
     // Backup current
     if tasks_file.exists() {
-        let _ = std::fs::copy(&tasks_file, &bak);
+        if let Err(e) = std::fs::copy(&tasks_file, &bak) {
+            tracing::warn!("Failed to back up {}: {e}", tasks_file.display());
+        }
     }
 
     // Write atomically via tmp
@@ -1212,7 +1214,10 @@ pub async fn execute(cwd: &Path, command: HarnessCommand) -> Result<()> {
                 .unwrap_or(true);
 
             if all_done {
-                let _ = std::fs::remove_file(project_dir.join(".harness-active"));
+                let marker = project_dir.join(".harness-active");
+                if let Err(e) = std::fs::remove_file(&marker) {
+                    tracing::debug!("Failed to remove {}: {e}", marker.display());
+                }
                 log_progress(
                     &harness_dir,
                     &format!("[{}] All tasks completed. Harness deactivated.", session_id),
