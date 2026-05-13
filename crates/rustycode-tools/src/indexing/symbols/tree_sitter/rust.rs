@@ -53,6 +53,7 @@ fn extract_rust_impl(impl_node: &Node, source: &str) -> Option<CodeSymbol> {
         kind: SymbolKind::Impl,
         line: impl_node.start_position().row + 1,
         end_line: impl_node.end_position().row + 1,
+        range: (impl_node.start_byte(), impl_node.end_byte()),
         signature: node_text(impl_node, source).map(|s| s.lines().next().unwrap_or("").to_string()).unwrap_or_default(),
         doc_comment: extract_doc_comment(impl_node, source),
         visibility: Visibility::Public,
@@ -61,14 +62,12 @@ fn extract_rust_impl(impl_node: &Node, source: &str) -> Option<CodeSymbol> {
     };
 
     let mut cursor = impl_node.walk();
-    if let Some(body) = impl_node.children(&mut cursor).find(|n| n.kind() == "declaration_list") {
-        let mut body_cursor = body.walk();
-        for child in body.children(&mut body_cursor) {
-            if let Some(child_sym) = extract_rust_node_as_member(&child, source) {
-                sym.children.push(child_sym);
-            }
+    for child in impl_node.children(&mut cursor) {
+        if let Some(child_sym) = extract_rust_node_as_member(&child, source) {
+            sym.children.push(child_sym);
         }
     }
+
     Some(sym)
 }
 
@@ -81,6 +80,7 @@ fn rust_fn_symbol(node: &Node, source: &str) -> Option<CodeSymbol> {
         kind: SymbolKind::Function,
         line: node.start_position().row + 1,
         end_line: node.end_position().row + 1,
+        range: (node.start_byte(), node.end_byte()),
         signature: node_text(node, source).map(|s| s.lines().next().unwrap_or("").to_string()).unwrap_or_default(),
         doc_comment: extract_doc_comment(node, source),
         visibility: Visibility::Public,
@@ -88,7 +88,6 @@ fn rust_fn_symbol(node: &Node, source: &str) -> Option<CodeSymbol> {
         metadata: HashMap::new(),
     };
 
-    // Recursively find nested symbols in function body
     let mut cursor = node.walk();
     if let Some(body) = node.children(&mut cursor).find(|n| n.kind() == "block") {
         let mut body_cursor = body.walk();
@@ -111,6 +110,7 @@ fn rust_named_symbol(node: &Node, source: &str, kind: SymbolKind) -> Option<Code
         kind,
         line: node.start_position().row + 1,
         end_line: node.end_position().row + 1,
+        range: (node.start_byte(), node.end_byte()),
         signature: node_text(node, source).map(|s| s.lines().next().unwrap_or("").to_string()).unwrap_or_default(),
         doc_comment: extract_doc_comment(node, source),
         visibility: Visibility::Public,
@@ -128,6 +128,7 @@ fn rust_macro_symbol(node: &Node, source: &str) -> Option<CodeSymbol> {
         kind: SymbolKind::Macro,
         line: node.start_position().row + 1,
         end_line: node.end_position().row + 1,
+        range: (node.start_byte(), node.end_byte()),
         signature: node_text(node, source).map(|s| s.lines().next().unwrap_or("").to_string()).unwrap_or_default(),
         doc_comment: extract_doc_comment(node, source),
         visibility: Visibility::Public,

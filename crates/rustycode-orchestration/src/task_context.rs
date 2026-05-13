@@ -307,8 +307,9 @@ impl TaskContext {
                     // Log but allow — the caller can check separately
                 }
                 rustycode_tools::doom_loop::DoomLoopStatus::Clean => {}
-                // non-exhaustive: future variants are treated as clean
-                _ => {}
+                _ => {
+                    tracing::debug!(status = ?status, "unhandled non-exhaustive DoomLoopStatus variant, treating as clean");
+                }
             }
         }
         Ok(())

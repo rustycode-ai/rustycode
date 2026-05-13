@@ -54,7 +54,8 @@ impl Summary {
         if self.original_tokens == 0 {
             0.0
         } else {
-            ((self.original_tokens - self.summary_tokens) as f64 / self.original_tokens as f64)
+            ((self.original_tokens.saturating_sub(self.summary_tokens)) as f64
+                / self.original_tokens as f64)
                 * 100.0
         }
     }
@@ -225,22 +226,19 @@ impl SummaryGenerator {
             let text = message.text();
 
             // Look for common patterns
-            if text.to_lowercase().contains("decided to") {
-                if let Some(idx) = text.find("decided to") {
-                    let start = idx;
-                    let end = (start + 100).min(text.len());
-                    let snippet = text[start..end].trim();
-                    points.push(format!("Decision: {snippet}"));
-                }
+            let text_lower = text.to_lowercase();
+            if let Some(idx) = text_lower.find("decided to") {
+                let start = idx;
+                let end = (start + 100).min(text.len());
+                let snippet = text[start..end].trim();
+                points.push(format!("Decision: {snippet}"));
             }
 
-            if text.to_lowercase().contains("implemented") {
-                if let Some(idx) = text.find("implemented") {
-                    let start = idx;
-                    let end = (start + 100).min(text.len());
-                    let snippet = text[start..end].trim();
-                    points.push(format!("Implementation: {snippet}"));
-                }
+            if let Some(idx) = text_lower.find("implemented") {
+                let start = idx;
+                let end = (start + 100).min(text.len());
+                let snippet = text[start..end].trim();
+                points.push(format!("Implementation: {snippet}"));
             }
         }
 

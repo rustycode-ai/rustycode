@@ -237,7 +237,9 @@ impl EventForwarder {
                     });
                 }
             }
-            _ => {}
+            _ => {
+                tracing::debug!(event = ?msg, "unhandled EventMsg variant in handle_event");
+            }
         }
     }
 }

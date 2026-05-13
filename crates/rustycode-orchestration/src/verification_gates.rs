@@ -354,7 +354,13 @@ impl RuleFileVerificationGate {
                     }
                 }
             }
-            _ => {}
+            _ => {
+                tracing::warn!(
+                    rule_type = %rule.check,
+                    rule_name = %rule.description,
+                    "skipping unrecognized verification rule type"
+                );
+            }
         }
         None
     }

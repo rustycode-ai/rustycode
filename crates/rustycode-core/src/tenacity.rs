@@ -62,7 +62,7 @@ pub fn git_head_rev(cwd: &Path) -> Option<String> {
 }
 
 /// Files created by RustyCode internally that should not count as task progress.
-const INTERNAL_FILES: &[&str] = &[".rustycode_command_history", ".claude/"];
+const INTERNAL_FILES: &[&str] = &[".rustycode_command_history", ".claude/", ".git/", "target/"];
 
 /// Check if any files changed (staged, unstaged, or untracked).
 ///
