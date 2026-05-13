@@ -1,4 +1,4 @@
-use tree_sitter::{Node, Query, QueryCursor, Language};
+use tree_sitter::{Node, Query, QueryCursor, Language, StreamingIterator};
 use std::collections::HashMap;
 use crate::indexing::symbols::languages::Lang;
 use crate::indexing::symbols::tree_sitter::node_text;
@@ -23,12 +23,12 @@ impl QueryExtractor {
 
     pub fn extract(&self, root: &Node, source: &str) -> (Vec<CodeSymbol>, Vec<String>) {
         let mut cursor = QueryCursor::new();
-        let matches = cursor.matches(&self.query, *root, source.as_bytes());
+        let mut matches = cursor.matches(&self.query, *root, source.as_bytes());
         
         let mut flat_symbols = Vec::new();
         let mut imports = Vec::new();
 
-        for m in matches.iter() {
+        while let Some(m) = matches.next() {
             let mut name = String::new();
             let mut kind = SymbolKind::Function;
             let mut doc = None;
@@ -72,6 +72,22 @@ impl QueryExtractor {
                     }
                     "symbol.kind.impl" => {
                         kind = SymbolKind::Impl;
+                        symbol_node = Some(node);
+                    }
+                    "symbol.kind.macro" => {
+                        kind = SymbolKind::Macro;
+                        symbol_node = Some(node);
+                    }
+                    "symbol.kind.constant" => {
+                        kind = SymbolKind::Constant;
+                        symbol_node = Some(node);
+                    }
+                    "symbol.kind.type" => {
+                        kind = SymbolKind::TypeAlias;
+                        symbol_node = Some(node);
+                    }
+                    "symbol.kind.module" => {
+                        kind = SymbolKind::Module;
                         symbol_node = Some(node);
                     }
                     "symbol.doc" => {

@@ -8,6 +8,10 @@ pub enum Lang {
     JavaScript,
     TypeScript,
     Go,
+    Java,
+    Cpp,
+    Scala,
+    Kotlin,
 }
 
 impl Lang {
@@ -18,6 +22,10 @@ impl Lang {
             "js" | "jsx" => Some(Self::JavaScript),
             "ts" | "tsx" => Some(Self::TypeScript),
             "go" => Some(Self::Go),
+            "java" => Some(Self::Java),
+            "cpp" | "cc" | "cxx" | "h" | "hpp" => Some(Self::Cpp),
+            "scala" | "sc" => Some(Self::Scala),
+            "kt" | "kts" => Some(Self::Kotlin),
             _ => None,
         }
     }
@@ -29,6 +37,10 @@ impl Lang {
             Self::JavaScript => tree_sitter_javascript::LANGUAGE.into(),
             Self::TypeScript => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
             Self::Go => tree_sitter_go::LANGUAGE.into(),
+            Self::Java => tree_sitter_java::LANGUAGE.into(),
+            Self::Cpp => tree_sitter_cpp::LANGUAGE.into(),
+            Self::Scala => tree_sitter_scala::LANGUAGE.into(),
+            Self::Kotlin => tree_sitter_kotlin::LANGUAGE.into(),
         }
     }
 }
