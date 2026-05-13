@@ -224,7 +224,9 @@ impl TerminalConnector for ITermConnector {
                     end if
                 end tell
                 "#;
-                let _ = self.run_applescript_silent(script);
+                if let Err(e) = self.run_applescript_silent(script) {
+                    tracing::warn!("Failed to close iTerm2 fallback window: {e}");
+                }
             }
 
             // Remove from tracked sessions

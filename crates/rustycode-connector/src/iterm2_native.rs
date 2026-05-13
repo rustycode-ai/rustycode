@@ -259,7 +259,10 @@ impl TerminalConnector for ITerm2NativeConnector {
             session_data.window_id
         );
 
-        let _ = Command::new("osascript").args(["-e", &script]).output();
+        let output = Command::new("osascript").args(["-e", &script]).output();
+        if let Err(e) = output {
+            tracing::warn!("Failed to close iTerm2 window via osascript: {e}");
+        }
 
         // Remove from tracked sessions
         let mut sessions = self
