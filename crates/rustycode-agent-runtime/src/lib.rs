@@ -13,6 +13,7 @@
 mod context;
 pub mod event_convert;
 mod intelligence;
+pub mod plugins;
 mod session;
 mod tool_exec;
 pub(crate) mod turn;
@@ -21,6 +22,9 @@ pub use context::{clean_assistant_text, prune_messages};
 pub use intelligence::{
     ChangeType, CodeIntelligence, CodeLocation, FileChange, LocalIntelligence, NoopIntelligence,
     SymbolRef,
+};
+pub use plugins::{
+    AgentPlugin, ConversationTrace, EarlyStopPolicy, RepetitionDetector, TurnContext,
 };
 pub use rustycode_protocol::stream_event::ApprovalDecision;
 pub use session::{
