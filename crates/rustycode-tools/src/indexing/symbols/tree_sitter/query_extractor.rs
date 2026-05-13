@@ -16,6 +16,7 @@ impl QueryExtractor {
             Lang::Python => tree_sitter_python::LANGUAGE.into(),
             Lang::JavaScript | Lang::TypeScript => tree_sitter_javascript::LANGUAGE.into(),
             Lang::Go => tree_sitter_go::LANGUAGE.into(),
+            Lang::Java | Lang::Cpp | Lang::Scala | Lang::Kotlin => todo!("language not supported by tree-sitter"),
         };
         let query = Query::new(&language, query_source).expect("Failed to parse tree-sitter query");
         Self { language, query }

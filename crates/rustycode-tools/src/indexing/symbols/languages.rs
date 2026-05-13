@@ -40,7 +40,7 @@ impl Lang {
             Self::Java => tree_sitter_java::LANGUAGE.into(),
             Self::Cpp => tree_sitter_cpp::LANGUAGE.into(),
             Self::Scala => tree_sitter_scala::LANGUAGE.into(),
-            Self::Kotlin => tree_sitter_kotlin::LANGUAGE.into(),
+            Self::Kotlin => tree_sitter_kotlin::language().into(),
         }
     }
 }

@@ -31,7 +31,6 @@ pub fn parse_with_treesitter(
         Lang::Java => (tree_sitter_java::LANGUAGE.into(), include_str!("../queries/java.scm")),
         Lang::Cpp => (tree_sitter_cpp::LANGUAGE.into(), include_str!("../queries/cpp.scm")),
         Lang::Scala => (tree_sitter_scala::LANGUAGE.into(), include_str!("../queries/scala.scm")),
-        Lang::Kotlin => (tree_sitter_kotlin::LANGUAGE.into(), include_str!("../queries/kotlin.scm")),
     };
 
     let extractor = QueryExtractor::new(lang, query_source);
