@@ -30,7 +30,7 @@ pub fn default_registry_filtered(filter: &ToolFilter) -> ToolRegistry {
     use crate::providers::web::browser::BrowserFetchTool;
     use crate::providers::web::fetch::WebFetchTool;
     use crate::providers::web::search::WebSearchTool;
-    use crate::providers::symbol_tools::{CheckSymbolDriftTool, CodeContextTool, FindSymbolTool, OutlineFileTool};
+    use crate::providers::symbol_tools::{CheckSymbolDriftTool, CodeContextTool, FindSymbolTool, OutlineFileTool, StructuralPatchTool};
     use crate::providers::{
         BashTool, CmdTool, FindTool, GlobTool, GrepTool, InspectTool, ListDirTool, PowerShellTool,
         QuestionTool, ReadFileTool, WriteFileTool,

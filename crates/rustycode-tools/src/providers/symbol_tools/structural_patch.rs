@@ -1,23 +1,12 @@
 use crate::indexing::symbols::extract_file;
-use crate::security::sanitize_for_log;
-use crate::Tool;
-use anyhow::{Context, Result};
-use async_trait::async_trait;
-use rustycode_tools_api::{define_tool, ToolContext, ToolOutput};
-use serde::{Deserialize, Serialize};
+use anyhow::Context;
+use rustycode_tools_api::{define_tool, ToolOutput, ToolPermission, ToolTag};
 use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-define_tool!(
-    StructuralPatchTool,
-    "structural_patch",
-    "Replace the entire body of a specific code symbol (function, method, class) in a file. \
-     This is more robust than line-based editing as it targets the symbol's structural range.",
-    StructuralPatchArgs
-);
-
-#[derive(Serialize, Deserialize, JsonSchema)]
-pub struct StructuralPatchArgs {
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct StructuralPatchParams {
     /// Path to the file to modify.
     pub path: String,
     /// Name of the symbol to replace.
@@ -26,32 +15,45 @@ pub struct StructuralPatchArgs {
     pub content: String,
 }
 
-#[async_trait]
-impl Tool for StructuralPatchTool {
-    async fn run(&self, ctx: &ToolContext, args: StructuralPatchArgs) -> Result<ToolOutput> {
-        let path = ctx.resolve_path(&args.path)?;
-        let full_content = tokio::fs::read_to_string(&path)
-            .await
-            .with_context(|| format!("Failed to read {}", path.display()))?;
+define_tool! {
+    pub struct StructuralPatchTool;
 
-        let outline = extract_file(&path, &full_content);
-        
+    name: "structural_patch",
+    namespace: "symbol",
+    description: "Replace the entire body of a specific code symbol (function, method, struct, enum, impl) in a file. \
+                  This is more robust than line-based editing because it targets the symbol's structural range using byte offsets. \
+                  Use when: you need to rewrite an entire function, method, or type definition and know its name.",
+    permission: ToolPermission::Write,
+    tags: [ToolTag::Implement],
+    defer_loading: true,
+
+    execute(params: StructuralPatchParams, ctx) {
+        let file_path = if std::path::Path::new(&params.path).is_absolute() {
+            PathBuf::from(&params.path)
+        } else {
+            ctx.cwd.join(&params.path)
+        };
+
+        let full_content = std::fs::read_to_string(&file_path)
+            .with_context(|| format!("Failed to read {}", file_path.display()))?;
+
+        let outline = extract_file(&file_path, &full_content);
+
         let target_symbol = outline.symbols.iter()
-            .find_map(|s| s.find_by_name_recursive(&args.symbol))
-            .with_context(|| format!("Symbol '{}' not found in {}", args.symbol, args.path))?;
+            .find_map(|s| s.find_by_name_recursive(&params.symbol))
+            .with_context(|| format!("Symbol '{}' not found in {}", params.symbol, params.path))?;
 
         let range = target_symbol.range;
-        
-        // We use byte offsets for maximum precision
-        let mut new_full_content = full_content.clone();
-        new_full_content.replace_range(range.start_byte..range.end_byte, &args.content);
 
-        tokio::fs::write(&path, new_full_content).await?;
+        let mut new_full_content = full_content;
+        new_full_content.replace_range(range.start_byte..range.end_byte, &params.content);
 
-        Ok(ToolOutput::new(format!(
+        std::fs::write(&file_path, new_full_content)?;
+
+        Ok(ToolOutput::text(format!(
             "Successfully patched symbol '{}' in {}",
-            args.symbol,
-            args.path
+            params.symbol,
+            params.path
         )))
     }
 }
