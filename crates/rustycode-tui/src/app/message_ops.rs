@@ -30,6 +30,7 @@ impl TUI {
         let message = Message::system(content);
         self.session.messages.push(message);
         self.sys.dirty = true;
+        tracing::info!("ADD_SYS_MSG total={} msg={:?}", self.session.messages.len(), &content[..content.len().min(80)]);
 
         // Mark session recovery dirty for auto-save
         self.mark_session_dirty();

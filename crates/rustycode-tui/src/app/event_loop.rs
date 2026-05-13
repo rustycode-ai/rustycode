@@ -367,7 +367,7 @@ impl TUI {
             (p, reg)
         };
 
-        Ok(Self {
+        let (tx, _) = tokio::sync::mpsc::channel(1024); let (_, rx) = tokio::sync::mpsc::channel(1024); let client = InProcessClient::new("tui".to_string(), tx, rx); Ok(Self { client,
             ui: crate::app::state_model::UIComponents {
                 message_renderer: MessageRenderer::new(),
                 input_handler,
@@ -500,6 +500,7 @@ impl TUI {
                 tool_approval: crate::app::tool_approval_state::ToolApprovalState::new(
                     ToolApprovalManager::new(),
                 ),
+                symbol_outline: crate::ui::symbol_outline::SymbolOutlinePanel::new(),
             },
             theme: crate::app::state_model::ThemeNotificationState {
                 theme_colors,
@@ -750,6 +751,7 @@ impl TUI {
                 tool_approval: crate::app::tool_approval_state::ToolApprovalState::new(
                     ToolApprovalManager::new(),
                 ),
+                symbol_outline: crate::ui::symbol_outline::SymbolOutlinePanel::new(),
             },
             theme: crate::app::state_model::ThemeNotificationState {
                 theme_colors,
@@ -1656,6 +1658,20 @@ impl TUI {
             self.handle_cost_command();
             self.sys.dirty = true;
             self.auto_scroll();
+            return Ok(());
+        }
+
+        if parts[0] == "/outline" {
+            let path = parts.get(1).map(|p| p.to_string()).unwrap_or_else(|| {
+                self.workspace.workspace_context.clone().unwrap_or_default()
+            });
+            let client = self.client.clone();
+            tokio::spawn(async move {
+                match client.request("symbol/outline", serde_json::json!({"file_path": path})).await {
+                    Ok(val) => tracing::info!("Outline: {:?}", val),
+                    Err(e) => tracing::error!("Failed to fetch outline: {}", e),
+                }
+            });
             return Ok(());
         }
 

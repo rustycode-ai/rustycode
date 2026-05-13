@@ -17,6 +17,17 @@ pub struct InProcessClient {
     notification_tx: broadcast::Sender<Notification>,
     next_id: AtomicU64,
 }
+impl Clone for InProcessClient {
+    fn clone(&self) -> Self {
+        Self {
+            client_id: self.client_id.clone(),
+            outbound_tx: self.outbound_tx.clone(),
+            pending_requests: self.pending_requests.clone(),
+            notification_tx: self.notification_tx.clone(),
+            next_id: AtomicU64::new(self.next_id.load(Ordering::SeqCst)),
+        }
+    }
+}
 
 impl InProcessClient {
     pub fn new(

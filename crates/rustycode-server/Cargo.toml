@@ -21,6 +21,7 @@ rustycode-protocol = { path = "../rustycode-protocol" }
 rustycode-core = { path = "../rustycode-core" }
 rustycode-agent-runtime = { path = "../rustycode-agent-runtime" }
 rustycode-runtime = { path = "../rustycode-runtime" }
+rustycode-tools = { path = "../rustycode-tools" }
 
 [lints]
 workspace = true
