@@ -165,6 +165,7 @@ pub(crate) struct ToolExecutionPanel {
     pub(crate) clarification_panel: ClarificationPanel,
     pub(crate) awaiting_clarification: bool,
     pub(crate) tool_approval: ToolApprovalState,
+    pub(crate) symbol_outline: crate::ui::symbol_outline::SymbolOutlinePanel,
 }
 
 /// Theme and Notification State sub-struct

@@ -2,6 +2,7 @@
 //!
 //! Handles auto-memory injection and context compaction.
 
+use crate::ui::message::Message;
 use super::event_loop::TUI;
 
 impl TUI {
@@ -307,10 +308,12 @@ impl TUI {
                     old_count.saturating_sub(new_count)
                 );
 
-                self.add_system_message(format!(
+                // Direct push — do NOT use add_system_message to avoid
+                // triggering update_context_and_compact() feedback loop.
+                self.session.messages.push(Message::system(format!(
                     "💾 Context compacted: {} → {} messages",
                     old_count, new_count
-                ));
+                )));
                 self.theme.toast_manager.success(format!(
                     "Context compacted: {} → {} messages",
                     old_count, new_count
@@ -323,7 +326,8 @@ impl TUI {
                     .auto_compact_state
                     .on_failure();
                 tracing::error!("Compaction failed: {}", e);
-                self.add_system_message(format!("⚠ Compaction failed: {}", e));
+                // Direct push to avoid feedback loop.
+                self.session.messages.push(Message::system(format!("⚠ Compaction failed: {}", e)));
                 self.theme
                     .toast_manager
                     .error(format!("Compaction failed: {}", e));

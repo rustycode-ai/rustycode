@@ -8,9 +8,16 @@ use tracing;
 pub fn handle_workspace_update(tui: &mut TUI, update: WorkspaceUpdate) {
     let event = match &update {
         WorkspaceUpdate::ContextLoaded(context) => {
+            // Guard: if workspace already loaded, this is a feedback loop
+            // from the event channel re-processing. Skip to prevent
+            // infinite message growth.
+            if tui.workspace.workspace_loaded {
+                tracing::debug!("Skipping duplicate ContextLoaded (workspace already loaded)");
+                return;
+            }
             tui.workspace.workspace_loaded = true;
-            tui.workspace.workspace_context = Some(context.clone()); // Store workspace context!
-            tui.workspace.workspace_scan_progress = None; // Clear progress
+            tui.workspace.workspace_context = Some(context.clone());
+            tui.workspace.workspace_scan_progress = None;
             tracing::debug!("Workspace context loaded ({} bytes)", context.len());
 
             // Detect git branch for status bar
@@ -34,9 +41,9 @@ pub fn handle_workspace_update(tui: &mut TUI, update: WorkspaceUpdate) {
                 context.lines().count()
             ));
 
-            Some(EventMsg::Workspace(WorkspaceEvent::ContextLoaded(
-                context.clone(),
-            )))
+            // Note: do NOT re-emit to event channel — that creates a
+            // feedback loop (event_msg converts back to WorkspaceUpdate).
+            None}
         }
         WorkspaceUpdate::Notice(message) => {
             tracing::info!("Workspace notice: {}", message);
