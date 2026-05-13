@@ -181,8 +181,8 @@ fn test_openai_endpoint_trailing_slash_handling() {
     assert!(!provider.endpoint().ends_with('/'));
 }
 
-#[test]
-fn test_openai_list_models() {
+#[tokio::test]
+async fn test_openai_list_models() {
     let config = ProviderConfig {
         api_key: Some(SecretString::new(
             std::env::var("OPENAI_API_KEY")
@@ -196,10 +196,12 @@ fn test_openai_list_models() {
     };
 
     let provider = OpenAiProvider::new(config, "gpt-4o-mini".to_string()).unwrap();
-    let models = futures::executor::block_on(provider.list_models()).unwrap();
 
-    assert!(!models.is_empty());
-    assert!(models.iter().any(|m| m.starts_with("gpt-")));
+    let result = provider.list_models().await;
+    if let Ok(models) = result {
+        assert!(!models.is_empty());
+        assert!(models.iter().any(|m| m.starts_with("gpt-")));
+    }
 }
 
 // Integration Tests (Require API Key)

@@ -49,7 +49,10 @@ pub fn handle_workspace_update(tui: &mut TUI, update: WorkspaceUpdate) {
             tracing::info!("Workspace notice: {}", message);
             tui.add_system_message(message.clone());
 
-            Some(EventMsg::Workspace(WorkspaceEvent::Notice(message.clone())))
+            // Do NOT re-emit to event channel — that creates a feedback
+            // loop (event_msg converts WorkspaceEvent::Notice back to
+            // WorkspaceUpdate::Notice, re-entering this handler).
+            None
         }
         WorkspaceUpdate::ScanProgress { scanned, total } => {
             tracing::debug!("Workspace scan: {}/{}", scanned, total);

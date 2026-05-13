@@ -805,7 +805,6 @@ impl ServiceManager {
         let last_reported_pct_for_thread = last_reported_pct.clone();
         let _ = std::thread::Builder::new()
             .name("workspace-loader".into())
-            .stack_size(8 * 1024 * 1024)
             .spawn(move || {
                 // Create progress callback that sends updates through the channel
                 let progress_callback: workspace_context::ScanProgressCallback =

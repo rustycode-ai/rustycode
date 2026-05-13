@@ -290,7 +290,6 @@ fn main() -> Result<()> {
     // Uses number of CPU cores for maximum parallelism in tool execution
     let rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(num_cpus::get())
-        .thread_stack_size(8 * 1024 * 1024) // 8MB — serde_json on 10k+ message sessions overflows smaller stacks
         .thread_name_fn(|| {
             static ATOMIC_ID: std::sync::atomic::AtomicUsize =
                 std::sync::atomic::AtomicUsize::new(0);

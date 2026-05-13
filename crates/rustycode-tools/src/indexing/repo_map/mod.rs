@@ -33,7 +33,7 @@ impl RepoMap {
         // Sort outlines for deterministic rendering (e.g. by path)
         all_outlines.sort_by(|a, b| a.path.cmp(&b.path));
 
-        let map = renderers::render_repo_map(&all_outlines.values().next().unwrap(), token_budget);
+        let map = renderers::render_repo_map(&all_outlines, token_budget);
         let total_tokens = map.len() / crate::indexing::symbols::renderers::CHARS_PER_TOKEN;
 
         Ok(Self {
@@ -98,7 +98,10 @@ impl User {
         // Check that we found the expected symbols
         assert!(map.symbol_count() >= 2);
         assert!(map.to_map_string().contains("User"));
-        assert!(map.to_map_string().contains("impl"));
+        assert!(
+            map.to_map_string().contains("Struct") || map.to_map_string().contains("Function"),
+            "expected Struct or Function kind in map output"
+        );
     }
 
     #[test]

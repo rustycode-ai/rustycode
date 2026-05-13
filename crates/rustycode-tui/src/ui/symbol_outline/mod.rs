@@ -1,5 +1,6 @@
 use rustycode_protocol::code_symbol::FileOutline;
 
+#[derive(Default)]
 pub struct SymbolOutlinePanel {
     pub visible: bool,
     pub outline: Option<FileOutline>,
@@ -7,9 +8,6 @@ pub struct SymbolOutlinePanel {
 
 impl SymbolOutlinePanel {
     pub fn new() -> Self {
-        Self {
-            visible: false,
-            outline: None,
-        }
+        Self::default()
     }
 }

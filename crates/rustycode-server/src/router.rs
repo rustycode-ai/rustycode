@@ -13,9 +13,9 @@ impl RequestRouter {
         Self { _runtime: runtime }
     }
 
-    pub async fn dispatch(&self, req: JsonRpcRequest) -> JsonRpcResponse {
+    pub fn dispatch(&self, req: JsonRpcRequest) -> JsonRpcResponse {
         match req.method.as_str() {
-            "symbol/outline" => self.handle_symbol_outline(req).await,
+            "symbol/outline" => self.handle_symbol_outline(req),
             _ => JsonRpcResponse::error(
                 req.id,
                 JsonRpcError::new(
@@ -26,7 +26,8 @@ impl RequestRouter {
         }
     }
 
-    async fn handle_symbol_outline(&self, req: JsonRpcRequest) -> JsonRpcResponse {
+    #[allow(clippy::unused_self)]
+    fn handle_symbol_outline(&self, req: JsonRpcRequest) -> JsonRpcResponse {
         let params: rustycode_server_protocol::requests::SymbolOutlineRequest =
             match serde_json::from_value(req.params) {
                 Ok(p) => p,

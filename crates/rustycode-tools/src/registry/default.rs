@@ -26,7 +26,8 @@ pub fn default_registry_filtered(filter: &ToolFilter) -> ToolRegistry {
     use crate::providers::notebook::NotebookEditTool;
     use crate::providers::send_message::SendMessageTool;
     use crate::providers::symbol_tools::{
-        CheckSymbolDriftTool, CodeContextTool, FindSymbolTool, OutlineFileTool, StructuralPatchTool,
+        CheckSymbolDriftTool, CodeContextTool, FindSymbolTool, OutlineFileTool,
+        StructuralPatchTool, TsNodesTool, TsQueryTool,
     };
     use crate::providers::task_output::{TaskOutputTool, TaskStopTool};
     use crate::providers::tool_search::ToolSearchTool;
@@ -123,6 +124,8 @@ pub fn default_registry_filtered(filter: &ToolFilter) -> ToolRegistry {
     reg.register(OutlineFileTool);
     reg.register(CheckSymbolDriftTool);
     reg.register(StructuralPatchTool);
+    reg.register(TsNodesTool);
+    reg.register(TsQueryTool);
 
     // Interactive tools — always registered.
     reg.register(QuestionTool);

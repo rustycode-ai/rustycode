@@ -592,7 +592,12 @@ impl TUI {
         // Brutalist mode for tests (use default config value)
         let renderer_mode = RendererMode::from_brutalist(TUIConfig::default().ui.brutalist_mode);
 
+        let (tx, _) = tokio::sync::mpsc::channel(1024);
+        let (_, rx) = tokio::sync::mpsc::channel(1024);
+        let client = InProcessClient::new("tui".to_string(), tx, rx);
+
         Self {
+            client,
             ui: crate::app::state_model::UIComponents {
                 message_renderer: MessageRenderer::new(),
                 input_handler,

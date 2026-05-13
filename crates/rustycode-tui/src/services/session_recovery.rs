@@ -163,12 +163,9 @@ impl SessionPersistence {
         fs::create_dir_all(&session_dir)?;
 
         // Serialize state to JSON on a thread with a large stack (8MB)
-        // to avoid stack overflow when serializing large session state
-        // (10k+ messages produce deeply nested JSON that overflows default stacks).
         let state_clone = state.clone();
         let json = std::thread::Builder::new()
             .name("session-save".into())
-            .stack_size(8 * 1024 * 1024)
             .spawn(move || serde_json::to_string_pretty(&state_clone))
             .context("Failed to spawn session save thread")?
             .join()
@@ -208,7 +205,6 @@ impl SessionPersistence {
 
         let state = std::thread::Builder::new()
             .name("session-load".into())
-            .stack_size(8 * 1024 * 1024)
             .spawn(move || serde_json::from_str::<SessionState>(&json))
             .context("Failed to spawn session load thread")?
             .join()

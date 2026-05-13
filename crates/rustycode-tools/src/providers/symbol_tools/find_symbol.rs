@@ -1,10 +1,11 @@
 use crate::indexing::CodeIndex;
 use anyhow::{anyhow, Context, Result};
+use rustycode_protocol::code_symbol::CodeSymbol;
 use rustycode_tools_api::{define_tool, ToolOutput, ToolPermission, ToolTag};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock};
 
 static CODE_INDEX_CACHE: OnceLock<Mutex<HashMap<PathBuf, Arc<CodeIndex>>>> = OnceLock::new();
@@ -37,13 +38,6 @@ pub(super) fn build_code_index(ctx: &crate::ToolContext) -> Result<Arc<CodeIndex
     Ok(index)
 }
 
-fn rel_path(path: &Path, cwd: &Path) -> String {
-    path.strip_prefix(cwd)
-        .unwrap_or(path)
-        .to_string_lossy()
-        .replace('\\', "/")
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct FindSymbolParams {
     pub query: String,
@@ -66,66 +60,37 @@ define_tool! {
     execute(params: FindSymbolParams, ctx) {
         let index = build_code_index(ctx)?;
         let limit = params.limit.unwrap_or(20).clamp(1, 50);
-        let query_lower = params.query.to_lowercase();
 
-        let mut symbols: Vec<_> = index.find_symbols(&params.query).into_iter().collect();
-
-        if symbols.is_empty() {
-            symbols = index.symbol_index.all_symbols()
-                .iter()
-                .filter(|s| {
-                    let name_lower = s.name.to_lowercase();
-                    name_lower.contains(&query_lower)
-                        || name_lower.starts_with(&query_lower)
-                })
-                .collect();
-        }
-
-        if let Some(ref kind_filter) = params.kind {
-            let kind_lower = kind_filter.to_lowercase();
-            symbols.retain(|s| format!("{}", s.kind).to_lowercase() == kind_lower);
-        }
-
-        if let Some(ref pattern) = params.file_pattern {
-            let pat = pattern.replace('\\', "/").to_lowercase();
-            symbols.retain(|s| {
-                rel_path(&s.file_path, &ctx.cwd).to_lowercase().contains(&pat)
-            });
-        }
-
-        symbols.sort_by(|a, b| {
-            a.name.len().cmp(&b.name.len())
-                .then_with(|| a.file_path.cmp(&b.file_path))
-                .then_with(|| a.line.cmp(&b.line))
-        });
+        let mut symbols: Vec<_> = index.symbol_index.all_symbols().iter().filter(|s| {
+            let matches_query = s.name.contains(&params.query);
+            let matches_kind = params.kind.as_ref().is_none_or(|k| format!("{:?}", s.kind).to_lowercase() == k.to_lowercase());
+            matches_query && matches_kind
+        }).cloned().collect();
 
         symbols.truncate(limit);
 
         if symbols.is_empty() {
-            return Ok(ToolOutput::text(format!(
-                "No symbols found matching `{}`",
-                params.query
-            )));
+            return Ok(ToolOutput::text(format!("No symbols found matching `{}`", params.query)));
         }
 
-        let mut output = format!(
-            "Found {} symbols matching `{}`:\n\n",
-            symbols.len(),
-            params.query
-        );
+        let mut output = format!("Found {} matches:\n", symbols.len());
+        let code_symbols: Vec<CodeSymbol> = symbols.iter().map(|s| CodeSymbol {
+            name: s.name.clone(),
+            kind: rustycode_protocol::code_symbol::SymbolKind::Function,
+            line: s.line,
+            end_line: s.line,
+            range: rustycode_protocol::code_symbol::SymbolRange {
+                start_line: 0, start_col: 0, end_line: 0, end_col: 0, start_byte: 0, end_byte: 0
+            },
+            signature: String::new(),
+            doc_comment: s.doc_comment.clone(),
+            visibility: rustycode_protocol::code_symbol::Visibility::Private,
+            children: Vec::new(),
+            metadata: std::collections::HashMap::new(),
+        }).collect();
 
-        for sym in &symbols {
-            let rel = rel_path(&sym.file_path, &ctx.cwd);
-            output.push_str(&format!(
-                "  {} {} ({}:{})\n",
-                sym.kind, sym.name, rel, sym.line
-            ));
-            if let Some(ref sig) = sym.signature {
-                if !sig.is_empty() {
-                    output.push_str(&format!("    {}\n", sig));
-                }
-            }
-        }
+        // Use the new hierarchical renderer
+        output.push_str(&crate::indexing::symbols::renderers::render_llm_outline(&code_symbols));
 
         Ok(ToolOutput::text(output))
     }

@@ -295,6 +295,7 @@ impl GenericStepExecutor {
 }
 
 impl StepExecutor for GenericStepExecutor {
+    #[allow(clippy::too_many_lines)]
     fn execute(
         &self,
         mut step: PlanStep,
@@ -782,6 +783,7 @@ mod tests {
     struct MockStepExecutor;
 
     impl StepExecutor for MockStepExecutor {
+        #[allow(clippy::too_many_lines)]
         fn execute(
             &self,
             step: PlanStep,

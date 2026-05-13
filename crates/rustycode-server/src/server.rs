@@ -46,16 +46,13 @@ impl AppServer {
         loop {
             tokio::select! {
                 msg = self.inbound_rx.recv() => {
-                    match msg {
-                        Some((client_id, msg)) => {
-                            if let Err(e) = self.handle_client_message(client_id, msg).await {
-                                error!("Error handling client message: {:?}", e);
-                            }
+                    if let Some((client_id, msg)) = msg {
+                        if let Err(e) = self.handle_client_message(client_id, msg) {
+                            error!("Error handling client message: {:?}", e);
                         }
-                        None => {
-                            info!("Inbound channel closed, shutting down AppServer");
-                            break;
-                        }
+                    } else {
+                        info!("Inbound channel closed, shutting down AppServer");
+                        break;
                     }
                 }
                 event = event_rx.recv() => {
@@ -86,7 +83,12 @@ impl AppServer {
         self.clients.remove(client_id);
     }
 
-    async fn handle_client_message(&self, client_id: ClientId, msg: ClientMessage) -> Result<()> {
+    #[allow(
+        clippy::unused_self,
+        clippy::needless_pass_by_value,
+        clippy::unnecessary_wraps
+    )]
+    fn handle_client_message(&self, client_id: ClientId, msg: ClientMessage) -> Result<()> {
         match msg {
             ClientMessage::Request(req) => {
                 debug!("Received request from {}: {}", client_id, req.method);

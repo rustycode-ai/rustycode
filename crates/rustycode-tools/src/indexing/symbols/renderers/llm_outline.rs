@@ -10,7 +10,11 @@ pub fn render_llm_outline(symbols: &[CodeSymbol]) -> String {
 
 fn render_symbol_recursive(symbol: &CodeSymbol, depth: usize, buffer: &mut String) {
     let indent = "  ".repeat(depth);
-    let sig = symbol.signature.as_ref().map(|s| s.as_str()).unwrap_or("");
+    let sig = if symbol.signature.is_empty() {
+        ""
+    } else {
+        &symbol.signature
+    };
     let kind = format!("{:?}", symbol.kind);
 
     buffer.push_str(&format!(

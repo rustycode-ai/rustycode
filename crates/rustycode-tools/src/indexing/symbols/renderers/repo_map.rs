@@ -1,12 +1,22 @@
-use super::SymbolDisplay;
-use crate::indexing::symbols::renderers::CHARS_PER_TOKEN;
 use crate::indexing::symbols::{CodeSymbol, FileOutline};
 
-pub fn render_repo_map(outline: &FileOutline, _budget: usize) -> String {
+pub fn render_repo_map(outlines: &[FileOutline], budget: usize) -> String {
+    let max_chars = budget * super::CHARS_PER_TOKEN;
     let mut buffer = String::new();
-    buffer.push_str(&format!("{}:\n", outline.path.display()));
-    for symbol in &outline.symbols {
-        render_symbol_to_map(symbol, 1, &mut buffer);
+
+    for outline in outlines {
+        let header = format!("{}:\n", outline.path.display());
+        if !buffer.is_empty() && buffer.len() + header.len() > max_chars {
+            break;
+        }
+        buffer.push_str(&header);
+        for symbol in &outline.symbols {
+            render_symbol_to_map(symbol, 1, &mut buffer);
+        }
+        if buffer.len() > max_chars {
+            buffer.truncate(max_chars);
+            break;
+        }
     }
     buffer
 }
