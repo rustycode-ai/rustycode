@@ -224,7 +224,7 @@ fn test_streaming_always_sends_done_on_success() {
                 let config =
                     streaming::StreamConfig::new("test", &PathBuf::from("/tmp"), stream_tx)
                         .stop_signal_opt(Some(stop_flag));
-                let _ = streaming::stream_llm_response(config).await;
+                let _ = streaming::run_agent_session_stream(config).await;
             });
         });
 
@@ -538,7 +538,7 @@ fn test_regression_streaming_done_signal_prevents_hang() {
                     stream_tx,
                 )
                 .stop_signal_opt(Some(stop_flag_clone));
-                let _ = streaming::stream_llm_response(config).await;
+                let _ = streaming::run_agent_session_stream(config).await;
             });
         });
 

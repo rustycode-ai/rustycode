@@ -66,7 +66,7 @@ use rustycode_protocol::{ContentBlock, MessageContent};
 
 /// Configuration for streaming LLM responses
 ///
-/// Builder pattern to handle the many parameters needed for `stream_llm_response`.
+/// Builder pattern to handle the many parameters needed for `run_agent_session_stream`.
 pub struct StreamConfig {
     pub content: String,
     pub cwd: std::path::PathBuf,
@@ -633,7 +633,7 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
     Ok(())
 }
 
-pub async fn stream_llm_response(config: StreamConfig) -> Result<()> {
+pub async fn run_agent_session_stream(config: StreamConfig) -> Result<()> {
     stream_llm_response_agent(config).await
 }
 

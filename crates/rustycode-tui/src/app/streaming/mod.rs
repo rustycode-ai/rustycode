@@ -6,7 +6,7 @@ pub mod response;
 pub mod tool_detection;
 pub mod tool_execution;
 
-pub use response::stream_llm_response;
+pub use response::run_agent_session_stream;
 pub use response::StreamConfig;
 
 /// Re-export ToolAccumulator from streaming module as ActiveToolUse for compatibility

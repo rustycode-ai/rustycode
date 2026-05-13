@@ -2,7 +2,7 @@
 
 use crate::app::async_::*;
 use crate::app::orchestration_integration::OrchestrationIntegration;
-use crate::app::streaming::stream_llm_response;
+use crate::app::streaming::run_agent_session_stream;
 use crate::services::agent_mode::AiMode;
 use crate::services::conversation_service::{ConversationConfig, ConversationService};
 // sessions_dir import used by auto-session feature
@@ -546,10 +546,10 @@ impl ServiceManager {
             has_pipeline,
             tools.len()
         );
-        // Always use legacy streaming for interactive chat — the pipeline path
+        // Use agent streaming for interactive chat — the pipeline path
         // (conduct_with_history) is for autonomous orchestration loops and doesn't
         // stream tokens back to the TUI.
-        self.execute_legacy_streaming(ctx, stream_tx, tools, approval_rx, question_rx);
+        self.execute_agent_streaming(ctx, stream_tx, tools, approval_rx, question_rx);
 
         Ok(())
     }
@@ -560,8 +560,8 @@ impl ServiceManager {
         self.query_guard.force_end();
     }
 
-    /// Execute legacy streaming as a fallback when the pipeline is unavailable.
-    fn execute_legacy_streaming(
+    /// Execute agent streaming for interactive chat via AgentSession.
+    fn execute_agent_streaming(
         &self,
         ctx: StreamingContext,
         stream_tx: SyncSender<StreamChunk>,
@@ -598,7 +598,7 @@ impl ServiceManager {
                     .hook_manager_opt(ctx.hook_manager)
                     .permission_mode_opt(Some(ctx.permission_mode));
 
-                    stream_llm_response(config).await
+                    run_agent_session_stream(config).await
                 });
 
                 if let Err(e) = result {

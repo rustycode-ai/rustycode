@@ -1,0 +1,17 @@
+[package]
+name = "rustycode-services"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+tokio = { workspace = true, features = ["sync", "rt", "macros"] }
+rustycode-runtime = { path = "../rustycode-runtime" }
+rustycode-server = { path = "../rustycode-server" }
+rustycode-server-client = { path = "../rustycode-server-client" }
+
+[lints]
+workspace = true

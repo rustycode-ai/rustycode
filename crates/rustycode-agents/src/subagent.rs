@@ -296,7 +296,11 @@ impl SubagentRegistry {
 
         if let Some(dir) = user_dir {
             let mut user_registry = Self::new();
-            if user_registry.load_from_directory(dir).unwrap_or(0) > 0 {
+            if user_registry.load_from_directory(dir).unwrap_or_else(|e| {
+                tracing::warn!("Failed to load user subagents from {}: {e}", dir.display());
+                0
+            }) > 0
+            {
                 for (_, subagent) in user_registry.subagents {
                     let id = subagent.id().to_string();
                     registry
@@ -308,7 +312,17 @@ impl SubagentRegistry {
 
         if let Some(dir) = project_dir {
             let mut project_registry = Self::new();
-            if project_registry.load_from_directory(dir).unwrap_or(0) > 0 {
+            if project_registry
+                .load_from_directory(dir)
+                .unwrap_or_else(|e| {
+                    tracing::warn!(
+                        "Failed to load project subagents from {}: {e}",
+                        dir.display()
+                    );
+                    0
+                })
+                > 0
+            {
                 for (_, subagent) in project_registry.subagents {
                     let id = subagent.id().to_string();
                     registry
