@@ -134,7 +134,7 @@ pub struct ThemeConfig {
 
 impl PluginManifest {
     /// Load manifest from a file
-    pub fn from_path(path: &PathBuf) -> Result<Self, anyhow::Error> {
+    pub fn from_path(path: &Path) -> Result<Self, anyhow::Error> {
         let content = std::fs::read_to_string(path)?;
         let manifest: PluginManifest = toml::from_str(&content)
             .map_err(|e| anyhow::anyhow!("Failed to parse plugin.toml: {}", e))?;

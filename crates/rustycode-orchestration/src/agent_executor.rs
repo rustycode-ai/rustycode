@@ -399,6 +399,7 @@ impl ToolExecutor for AgentSessionExecutor {
                 tracing::warn!("AgentSession timed out for step");
                 Some(1)
             }
+            StoppedReason::PluginStopped => Some(0),
         };
 
         Ok(StepResult {

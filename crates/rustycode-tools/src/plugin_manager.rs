@@ -38,6 +38,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tracing::warn;
 
 use super::plugin::{PluginCapabilities, PluginState, ToolPlugin};
 
@@ -158,7 +159,16 @@ impl PluginManager {
 
         // Register each tool with namespacing
         for tool in tools {
-            // Create a namespaced wrapper
+            let tool_name = tool.name().to_string();
+            let namespaced_name = format!("{}::{}", plugin_name, tool_name);
+            if registry.get(&namespaced_name).is_some() {
+                warn!(
+                    plugin = %plugin_name,
+                    tool = %namespaced_name,
+                    "tool already registered, skipping duplicate"
+                );
+                continue;
+            }
             let namespaced_tool = super::plugin::NamespacedTool::new(plugin_name.clone(), tool);
             registry.register(namespaced_tool);
         }

@@ -111,7 +111,10 @@ impl PluginConfig {
     pub fn get(&self, key: &str) -> Option<String> {
         self.values
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .unwrap_or_else(|e| {
+                tracing::warn!("lock poisoned - data may be inconsistent");
+                e.into_inner()
+            })
             .get(key)
             .cloned()
     }
@@ -119,7 +122,10 @@ impl PluginConfig {
     pub fn set(&self, key: String, value: String) {
         self.values
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .unwrap_or_else(|e| {
+                tracing::warn!("lock poisoned - data may be inconsistent");
+                e.into_inner()
+            })
             .insert(key, value);
     }
 
@@ -127,7 +133,10 @@ impl PluginConfig {
         let content = std::fs::read_to_string(path)?;
         let config: std::collections::HashMap<String, String> = toml::from_str(&content)?;
 
-        let mut values = self.values.lock().unwrap_or_else(|e| e.into_inner());
+        let mut values = self.values.lock().unwrap_or_else(|e| {
+            tracing::warn!("lock poisoned - data may be inconsistent");
+            e.into_inner()
+        });
         for (key, value) in config {
             values.insert(key, value);
         }
@@ -136,7 +145,10 @@ impl PluginConfig {
     }
 
     pub fn save_to_file(&self, path: &std::path::Path) -> Result<(), anyhow::Error> {
-        let values = self.values.lock().unwrap_or_else(|e| e.into_inner());
+        let values = self.values.lock().unwrap_or_else(|e| {
+            tracing::warn!("lock poisoned - data may be inconsistent");
+            e.into_inner()
+        });
         let content = toml::to_string_pretty(&*values)?;
         std::fs::write(path, content)?;
         Ok(())
@@ -175,7 +187,10 @@ impl PluginUI {
         if let Some(sender) = self
             .message_sender
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .unwrap_or_else(|e| {
+                tracing::warn!("lock poisoned - data may be inconsistent");
+                e.into_inner()
+            })
             .as_ref()
         {
             sender(message.to_string());
@@ -186,7 +201,10 @@ impl PluginUI {
         if let Some(getter) = self
             .input_getter
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .unwrap_or_else(|e| {
+                tracing::warn!("lock poisoned - data may be inconsistent");
+                e.into_inner()
+            })
             .as_ref()
         {
             getter()
@@ -199,7 +217,10 @@ impl PluginUI {
         if let Some(setter) = self
             .input_setter
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .unwrap_or_else(|e| {
+                tracing::warn!("lock poisoned - data may be inconsistent");
+                e.into_inner()
+            })
             .as_ref()
         {
             setter(text.to_string());
@@ -207,18 +228,24 @@ impl PluginUI {
     }
 
     pub fn set_message_sender(&mut self, sender: Box<dyn Fn(String) + Send>) {
-        *self
-            .message_sender
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(sender);
+        *self.message_sender.lock().unwrap_or_else(|e| {
+            tracing::warn!("lock poisoned - data may be inconsistent");
+            e.into_inner()
+        }) = Some(sender);
     }
 
     pub fn set_input_getter(&mut self, getter: Box<dyn Fn() -> String + Send>) {
-        *self.input_getter.lock().unwrap_or_else(|e| e.into_inner()) = Some(getter);
+        *self.input_getter.lock().unwrap_or_else(|e| {
+            tracing::warn!("lock poisoned - data may be inconsistent");
+            e.into_inner()
+        }) = Some(getter);
     }
 
     pub fn set_input_setter(&mut self, setter: Box<dyn Fn(String) + Send>) {
-        *self.input_setter.lock().unwrap_or_else(|e| e.into_inner()) = Some(setter);
+        *self.input_setter.lock().unwrap_or_else(|e| {
+            tracing::warn!("lock poisoned - data may be inconsistent");
+            e.into_inner()
+        }) = Some(setter);
     }
 }
 
@@ -245,14 +272,20 @@ impl PluginCommands {
     pub fn register(&mut self, name: String, handler: CommandHandler) {
         self.commands
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .unwrap_or_else(|e| {
+                tracing::warn!("lock poisoned - data may be inconsistent");
+                e.into_inner()
+            })
             .insert(name, handler);
     }
 
     pub fn get(&self, name: &str) -> Option<CommandHandler> {
         self.commands
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .unwrap_or_else(|e| {
+                tracing::warn!("lock poisoned - data may be inconsistent");
+                e.into_inner()
+            })
             .get(name)
             .copied()
     }
@@ -260,7 +293,10 @@ impl PluginCommands {
     pub fn list(&self) -> Vec<String> {
         self.commands
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .unwrap_or_else(|e| {
+                tracing::warn!("lock poisoned - data may be inconsistent");
+                e.into_inner()
+            })
             .keys()
             .cloned()
             .collect()
@@ -300,7 +336,10 @@ impl PluginContext {
         if let Some(getter) = self
             .workspace_getter
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .unwrap_or_else(|e| {
+                tracing::warn!("lock poisoned - data may be inconsistent");
+                e.into_inner()
+            })
             .as_ref()
         {
             getter()
@@ -314,12 +353,18 @@ impl PluginContext {
         if let Some(getter) = self
             .cwd_getter
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .unwrap_or_else(|e| {
+                tracing::warn!("lock poisoned - data may be inconsistent");
+                e.into_inner()
+            })
             .as_ref()
         {
             getter()
         } else {
-            std::env::current_dir().unwrap_or_default()
+            std::env::current_dir().unwrap_or_else(|e| {
+                tracing::warn!("failed to get cwd: {e}");
+                std::path::PathBuf::from("/")
+            })
         }
     }
 
@@ -328,7 +373,10 @@ impl PluginContext {
         if let Some(getter) = self
             .history_getter
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .unwrap_or_else(|e| {
+                tracing::warn!("lock poisoned - data may be inconsistent");
+                e.into_inner()
+            })
             .as_ref()
         {
             getter()
@@ -339,23 +387,26 @@ impl PluginContext {
 
     /// Set workspace context getter
     pub fn set_workspace_getter(&mut self, getter: Box<dyn Fn() -> String + Send>) {
-        *self
-            .workspace_getter
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(getter);
+        *self.workspace_getter.lock().unwrap_or_else(|e| {
+            tracing::warn!("lock poisoned - data may be inconsistent");
+            e.into_inner()
+        }) = Some(getter);
     }
 
     /// Set current working directory getter
     pub fn set_cwd_getter(&mut self, getter: Box<dyn Fn() -> std::path::PathBuf + Send>) {
-        *self.cwd_getter.lock().unwrap_or_else(|e| e.into_inner()) = Some(getter);
+        *self.cwd_getter.lock().unwrap_or_else(|e| {
+            tracing::warn!("lock poisoned - data may be inconsistent");
+            e.into_inner()
+        }) = Some(getter);
     }
 
     /// Set conversation history getter
     pub fn set_history_getter(&mut self, getter: Box<dyn Fn() -> Vec<String> + Send>) {
-        *self
-            .history_getter
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(getter);
+        *self.history_getter.lock().unwrap_or_else(|e| {
+            tracing::warn!("lock poisoned - data may be inconsistent");
+            e.into_inner()
+        }) = Some(getter);
     }
 }
 

@@ -102,7 +102,7 @@ impl PluginManager {
         self.discover_plugins()
     }
 
-    pub fn load_plugin(&mut self, manifest_path: &PathBuf) -> Result<()> {
+    pub fn load_plugin(&mut self, manifest_path: &Path) -> Result<()> {
         // Load and parse manifest
         let manifest =
             PluginManifest::from_path(manifest_path).context("Failed to load plugin manifest")?;
@@ -115,8 +115,14 @@ impl PluginManager {
 
         // Parse permissions
         let permissions = PluginPermissions::from_strings(manifest.permissions.clone());
-        let install_metadata =
-            read_plugin_metadata(manifest_path.parent().unwrap_or(Path::new("."))).ok();
+        let install_metadata = read_plugin_metadata(manifest_path.parent().unwrap_or_else(|| {
+            tracing::warn!(
+                "manifest has no parent directory: {}",
+                manifest_path.display()
+            );
+            Path::new(".")
+        }))
+        .ok();
 
         // EXPERIMENTAL: Permission checking is not yet enforced
         // Permissions are parsed and logged, but not checked against operations
@@ -284,8 +290,9 @@ impl PluginManager {
             .collect();
 
         for name in names {
-            if self.update_plugin(&name).is_ok() {
-                updated.push(name);
+            match self.update_plugin(&name) {
+                Ok(()) => updated.push(name),
+                Err(e) => tracing::warn!("plugin '{}' update failed: {e}", name),
             }
         }
 
@@ -435,11 +442,16 @@ impl PluginManager {
 
         let temp_dir = self.plugin_dir.join(format!(
             ".installing-{}",
-            chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or_else(|| {
+                tracing::warn!("timestamp_nanos unavailable for temp dir, using fallback");
+                0
+            })
         ));
 
         if temp_dir.exists() {
-            fs::remove_dir_all(&temp_dir).ok();
+            if let Err(e) = fs::remove_dir_all(&temp_dir) {
+                tracing::warn!("failed to clean temp dir {}: {e}", temp_dir.display());
+            }
         }
 
         let status = Command::new("git")
@@ -458,7 +470,9 @@ impl PluginManager {
         let dest_dir = self.plugin_dir.join(&manifest.name);
 
         if dest_dir.exists() {
-            fs::remove_dir_all(&temp_dir).ok();
+            if let Err(e) = fs::remove_dir_all(&temp_dir) {
+                tracing::warn!("failed to clean temp dir {}: {e}", temp_dir.display());
+            }
             return Err(anyhow::anyhow!(
                 "Plugin '{}' is already installed",
                 manifest.name
@@ -491,7 +505,9 @@ impl Default for PluginManager {
             tracing::warn!("PluginManager init failed, using empty state: {e}");
             Self {
                 plugins: HashMap::new(),
-                plugin_dir: PathBuf::new(),
+                // Safe fallback: signals the manager is in a disabled state.
+                // Plugin discovery/install will not work with this path.
+                plugin_dir: PathBuf::from("/tmp/rustycode-plugins-disabled"),
             }
         })
     }
@@ -536,6 +552,11 @@ fn copy_dir_all(src: &Path, dst: &Path) -> Result<()> {
                     dest_path.display()
                 )
             })?;
+        } else if ty.is_symlink() {
+            tracing::debug!(
+                "skipping symlink during plugin copy: {}",
+                entry.path().display()
+            );
         }
     }
 

@@ -103,6 +103,8 @@ pub enum StoppedReason {
     MaxTurnsReached,
     /// Wall-clock timeout exceeded.
     TimeoutExceeded,
+    /// A plugin requested early stop.
+    PluginStopped,
 }
 
 /// Result of an agent run.
@@ -166,6 +168,8 @@ pub struct AgentSession {
     event_tx: tokio::sync::broadcast::Sender<EventMsg>,
     /// Inbound command receiver (Op).
     op_rx: Option<tokio::sync::mpsc::UnboundedReceiver<rustycode_protocol::Op>>,
+    /// Optional agent plugins (observers/modifiers). Empty = zero overhead.
+    plugins: Vec<Box<dyn crate::plugins::AgentPlugin>>,
 }
 
 impl AgentSession {
@@ -180,6 +184,7 @@ impl AgentSession {
             message_sender: None,
             event_tx,
             op_rx: None,
+            plugins: Vec::new(),
         }
     }
 
@@ -213,6 +218,12 @@ impl AgentSession {
         op_rx: tokio::sync::mpsc::UnboundedReceiver<rustycode_protocol::Op>,
     ) -> Self {
         self.op_rx = Some(op_rx);
+        self
+    }
+
+    /// Attach an agent plugin. Plugins are called at turn boundaries.
+    pub fn with_plugin(mut self, plugin: Box<dyn crate::plugins::AgentPlugin>) -> Self {
+        self.plugins.push(plugin);
         self
     }
 
@@ -277,6 +288,7 @@ impl AgentSession {
             self.message_sender.clone(),
             &self.event_tx,
             &mut op_rx,
+            &mut self.plugins,
         )
         .await;
 
@@ -326,6 +338,7 @@ async fn run_loop(
     message_sender: Option<Arc<dyn MessageSender>>,
     event_tx: &tokio::sync::broadcast::Sender<EventMsg>,
     op_rx: &mut Option<tokio::sync::mpsc::UnboundedReceiver<rustycode_protocol::Op>>,
+    plugins: &mut [Box<dyn crate::plugins::AgentPlugin>],
 ) -> Result<AgentResult> {
     const MAX_RETRIES: usize = 3;
 
@@ -365,6 +378,16 @@ async fn run_loop(
 
     let start = std::time::Instant::now();
     let chunk_timeout = Duration::from_mins(2);
+
+    let mut plugin_ctx = crate::plugins::TurnContext {
+        turn: 0,
+        total_input_tokens: 0,
+        total_output_tokens: 0,
+        cwd: cwd.to_path_buf(),
+    };
+    for plugin in plugins.iter_mut() {
+        plugin.on_start(&plugin_ctx).await;
+    }
 
     for turn in 0..max_turns {
         if start.elapsed().as_secs() > timeout_secs {
@@ -640,17 +663,22 @@ async fn run_loop(
             );
             let truncated = truncate_tool_output(&result.output, config.max_tool_result_bytes);
             let error_flag = !result.success;
+            let mut plugin_output = truncated.clone();
 
-            // Record usage
+            for plugin in plugins.iter_mut() {
+                plugin
+                    .on_tool_result(&tool.name, &tool.id, &input, &mut plugin_output)
+                    .await;
+            }
+
             activation.record_use(&tool.name, !error_flag);
 
-            // Phase 1B: Dual emission — broadcast EventMsg alongside callback
             let exec_msg = EventMsg::ToolExecCompleted {
                 tool_id: tool.id.clone(),
                 tool_name: tool.name.clone(),
                 success: result.success,
-                output: truncated.clone(),
-                output_size: truncated.len(),
+                output: plugin_output.clone(),
+                output_size: plugin_output.len(),
                 duration_ms: 0,
                 exit_code: result.exit_code,
             };
@@ -659,14 +687,13 @@ async fn run_loop(
             let stream_event = StreamEvent::ToolExecCompleted {
                 id: tool.id.clone(),
                 name: tool.name.clone(),
-                output: truncated.clone(),
+                output: plugin_output.clone(),
                 is_error: error_flag,
             };
             events.on_event(stream_event).await;
 
             if error_flag {
-                tool_result_blocks.push(ContentBlock::tool_error(&tool.id, &truncated));
-                // Dispatch ToolError hook
+                tool_result_blocks.push(ContentBlock::tool_error(&tool.id, &plugin_output));
                 let _ = hooks.dispatch(&LifecycleEvent::new(
                     LifecycleHook::ToolError,
                     &tool.name,
@@ -676,13 +703,12 @@ async fn run_loop(
                     }),
                 ));
             } else {
-                tool_result_blocks.push(ContentBlock::tool_result(&tool.id, &truncated));
-                // Dispatch PostToolUse hook
+                tool_result_blocks.push(ContentBlock::tool_result(&tool.id, &plugin_output));
                 let _ = hooks.dispatch(&LifecycleEvent::new(
                     LifecycleHook::PostToolUse,
                     &tool.name,
                     serde_json::json!({
-                        "output_len": truncated.len(),
+                        "output_len": plugin_output.len(),
                         "exit_code": result.exit_code,
                     }),
                 ));
@@ -710,12 +736,33 @@ async fn run_loop(
             stopped_reason = StoppedReason::NoToolCalls;
             break;
         }
+
+        plugin_ctx.turn = turn + 1;
+        plugin_ctx.total_input_tokens = total_input_tokens;
+        plugin_ctx.total_output_tokens = total_output_tokens;
+        let mut plugin_wants_stop = false;
+        for plugin in plugins.iter_mut() {
+            if plugin.should_stop(&plugin_ctx).await {
+                plugin_wants_stop = true;
+            }
+        }
+        if plugin_wants_stop {
+            tracing::info!("Plugin requested early stop after turn {}", turn + 1);
+            stopped_reason = StoppedReason::PluginStopped;
+            break;
+        }
     }
 
     if stopped_reason != StoppedReason::NoToolCalls
         && stopped_reason != StoppedReason::TimeoutExceeded
+        && stopped_reason != StoppedReason::PluginStopped
     {
         stopped_reason = StoppedReason::MaxTurnsReached;
+    }
+
+    plugin_ctx.turn = max_turns;
+    for plugin in plugins.iter_mut() {
+        plugin.on_done(&plugin_ctx).await;
     }
 
     let result = AgentResult {

@@ -5,6 +5,26 @@ use anyhow::Result;
 use serde_json::Value;
 use std::any::Any;
 
+/// Maps a `ToolPermission` to an explicit privilege level for comparison.
+///
+/// This avoids relying on enum discriminant ordering, which would silently
+/// break if variants were reordered.
+fn permission_level(p: ToolPermission) -> u8 {
+    match p {
+        ToolPermission::None => 0,
+        ToolPermission::Read => 1,
+        ToolPermission::Write => 2,
+        ToolPermission::Execute => 3,
+        ToolPermission::Network => 4,
+        _ => 0,
+    }
+}
+
+/// Returns `true` if `permission` represents a higher privilege level than `other`.
+fn permission_exceeds(permission: ToolPermission, other: ToolPermission) -> bool {
+    permission_level(permission) > permission_level(other)
+}
+
 /// Capabilities that a plugin can request
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct PluginCapabilities {
@@ -59,7 +79,7 @@ impl PluginCapabilities {
 
     /// Validate that requested capabilities are within allowed limits
     pub fn validate(&self, allowed: &Self) -> Result<()> {
-        if self.max_permission as u8 > allowed.max_permission as u8 {
+        if permission_exceeds(self.max_permission, allowed.max_permission) {
             anyhow::bail!(
                 "Plugin requires {:?} permission but only {:?} is allowed",
                 self.max_permission,

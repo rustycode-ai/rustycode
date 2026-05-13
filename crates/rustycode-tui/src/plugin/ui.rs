@@ -105,7 +105,10 @@ impl PluginManagerUI {
             return false;
         }
 
-        let mut manager = manager.write().unwrap_or_else(|e| e.into_inner());
+        let mut manager = manager.write().unwrap_or_else(|e| {
+            tracing::warn!("lock poisoned - data may be inconsistent");
+            e.into_inner()
+        });
 
         match (key.code, key.modifiers) {
             (KeyCode::Esc, _) => {
@@ -659,6 +662,9 @@ impl PluginManagerUI {
         self.scroll_offset = self.scroll_offset.saturating_sub(rows);
     }
 
+    // TODO: page_down does not clamp selected_index against the plugin count.
+    // The index is clamped lazily by ensure_visible and render_list, but a
+    // future refactor should accept the plugin count directly (like select_next).
     fn page_down(&mut self) {
         let rows = self.viewport_rows.get().max(1);
         self.selected_index = self.selected_index.saturating_add(rows);

@@ -60,8 +60,8 @@ impl FromStr for Permission {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "Read" => Ok(Permission::ReadFile),
-            "Write" => Ok(Permission::WriteFile),
+            "read" | "Read" | "read_file" => Ok(Permission::ReadFile),
+            "write" | "Write" | "write_file" => Ok(Permission::WriteFile),
             "execute_command" => Ok(Permission::ExecuteCommand),
             "network_request" => Ok(Permission::NetworkRequest),
             "notification" => Ok(Permission::Notification),
@@ -89,7 +89,13 @@ impl PluginPermissions {
     pub fn from_strings(perm_strings: Vec<String>) -> Self {
         let permissions = perm_strings
             .iter()
-            .filter_map(|s| Permission::from_str(s).ok())
+            .filter_map(|s| match Permission::from_str(s) {
+                Ok(p) => Some(p),
+                Err(e) => {
+                    tracing::warn!("unrecognized permission '{s}': {e}");
+                    None
+                }
+            })
             .collect();
 
         Self {

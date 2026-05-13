@@ -9,7 +9,7 @@ use rustycode_tools_api::{
 };
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 /// Configuration for the tool registry
 #[derive(Debug, Clone)]
@@ -76,13 +76,17 @@ impl ToolRegistry {
         }
 
         // Store metadata
+        debug!(
+            "Registering tool '{}' with default metadata (version=1.0.0, author=Unknown)",
+            name
+        );
         self.metadata.insert(
             name.clone(),
             ToolMetadata {
                 name: name.clone(),
                 description,
-                version: "1.0.0".to_string(),  // Default version
-                author: "Unknown".to_string(), // Default author
+                version: "1.0.0".to_string(),
+                author: "Unknown".to_string(),
                 tags: vec![],
                 dependencies: vec![],
             },
@@ -94,8 +98,8 @@ impl ToolRegistry {
 
     /// Get a tool by name
     pub fn get(&self, _name: &str) -> Option<std::sync::MutexGuard<'_, dyn Tool + 'static>> {
-        // This is a simplified implementation
-        // In practice, we'd need to handle the lifetime issues properly
+        // TODO: Implement proper tool retrieval with lifetime handling
+        warn!("get() called on unimplemented ToolRegistry method");
         None
     }
 

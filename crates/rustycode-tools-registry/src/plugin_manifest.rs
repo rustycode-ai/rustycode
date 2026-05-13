@@ -141,7 +141,7 @@ impl PluginManifest {
     pub fn requires_permission(&self, permission: &str) -> bool {
         self.permissions
             .as_ref()
-            .is_some_and(|perms| perms.contains(&permission.to_string()))
+            .is_some_and(|perms| perms.iter().any(|p| p == permission))
     }
 }
 
@@ -250,11 +250,25 @@ impl DependencySpec {
     fn compare_versions(ver1: &str, ver2: &str) -> i32 {
         let parts1: Vec<u32> = ver1
             .split('.')
-            .filter_map(|p| p.parse::<u32>().ok())
+            .filter_map(|p| {
+                p.parse::<u32>()
+                    .map_err(|e| {
+                        tracing::debug!("version part '{}' is not numeric: {e}", p);
+                        e
+                    })
+                    .ok()
+            })
             .collect();
         let parts2: Vec<u32> = ver2
             .split('.')
-            .filter_map(|p| p.parse::<u32>().ok())
+            .filter_map(|p| {
+                p.parse::<u32>()
+                    .map_err(|e| {
+                        tracing::debug!("version part '{}' is not numeric: {e}", p);
+                        e
+                    })
+                    .ok()
+            })
             .collect();
 
         for i in 0..3 {
