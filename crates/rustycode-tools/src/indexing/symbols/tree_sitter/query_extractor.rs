@@ -184,6 +184,29 @@ impl QueryExtractor {
             }
         }
 
+        // Reclassify Function → Method for children of Impl/Class/Trait parents.
+        // Languages like Rust and Python use the same AST node for free functions
+        // and methods; the distinction is purely contextual (parent kind).
+        reclassify_methods(&mut root_symbols);
+
         (root_symbols, imports)
+    }
+}
+
+fn reclassify_methods(symbols: &mut [CodeSymbol]) {
+    for sym in symbols.iter_mut() {
+        if matches!(
+            sym.kind,
+            SymbolKind::Impl | SymbolKind::Class | SymbolKind::Trait
+        ) {
+            for child in &mut sym.children {
+                if child.kind == SymbolKind::Function {
+                    child.kind = SymbolKind::Method;
+                }
+            }
+            reclassify_methods(&mut sym.children);
+        } else {
+            reclassify_methods(&mut sym.children);
+        }
     }
 }
