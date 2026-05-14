@@ -322,4 +322,287 @@ mod tests {
             result.tokens_removed
         );
     }
+
+    // -- Extended edge-case tests -------------------------------------------
+
+    #[test]
+    fn empty_messages_returns_empty() {
+        let tier = SnipTier::new(10);
+        let msgs: Vec<Message> = Vec::new();
+        let result = tier.compact(msgs);
+        assert!(result.messages.is_empty());
+        assert_eq!(result.tokens_removed, 0);
+    }
+
+    #[test]
+    fn multiple_thinking_blocks_in_one_message() {
+        let tier = SnipTier::new(50);
+        let input = "before <thinking>first</thinking> middle <thinking>second</thinking> after";
+        let msgs = vec![user_msg(input)];
+        let result = tier.compact(msgs);
+
+        let text = result.messages[0].content.as_text();
+        assert!(
+            !text.contains("first"),
+            "first thinking block should be removed"
+        );
+        assert!(
+            !text.contains("second"),
+            "second thinking block should be removed"
+        );
+        assert!(text.contains("before"), "text before blocks preserved");
+        assert!(text.contains("middle"), "text between blocks preserved");
+        assert!(text.contains("after"), "text after blocks preserved");
+    }
+
+    #[test]
+    fn unclosed_thinking_tag_removes_rest() {
+        let tier = SnipTier::new(50);
+        let input = "start <thinking>this never closes";
+        let msgs = vec![user_msg(input)];
+        let result = tier.compact(msgs);
+
+        let text = result.messages[0].content.as_text();
+        assert!(
+            !text.contains("this never closes"),
+            "unclosed thinking should be removed"
+        );
+        assert!(text.contains("start"), "text before unclosed tag preserved");
+    }
+
+    #[test]
+    fn nested_analysis_inside_thinking() {
+        let tier = SnipTier::new(50);
+        // <thinking> wraps <analysis> — the outer thinking tag removes everything.
+        let input = "before <thinking>outer <analysis>inner</analysis> rest</thinking> after";
+        let msgs = vec![user_msg(input)];
+        let result = tier.compact(msgs);
+
+        let text = result.messages[0].content.as_text();
+        assert!(
+            !text.contains("outer") && !text.contains("inner"),
+            "nested blocks should be fully removed"
+        );
+        assert!(text.contains("before") && text.contains("after"));
+    }
+
+    #[test]
+    fn thinking_block_with_newlines() {
+        let tier = SnipTier::new(50);
+        let input = "before\n<thinking>\nline1\nline2\nline3\n</thinking>\nafter";
+        let msgs = vec![user_msg(input)];
+        let result = tier.compact(msgs);
+
+        let text = result.messages[0].content.as_text();
+        assert!(
+            !text.contains("line1"),
+            "multiline thinking should be removed"
+        );
+        assert!(text.contains("before") && text.contains("after"));
+    }
+
+    #[test]
+    fn tool_output_exactly_at_limit_not_truncated() {
+        let tier = SnipTier::new(3);
+        let input = "line1\nline2\nline3"; // exactly 3 lines
+        let msgs = vec![tool_result_msg(input)];
+        let result = tier.compact(msgs);
+
+        assert_eq!(
+            result.tokens_removed, 0,
+            "no truncation when exactly at limit"
+        );
+        match &result.messages[0].content {
+            MessageContent::Blocks(blocks) => {
+                if let ContentBlock::ToolResult { content, .. } = &blocks[0] {
+                    assert!(
+                        !content.contains("truncated"),
+                        "no truncation footer expected"
+                    );
+                    assert_eq!(content, input);
+                }
+            }
+            other => panic!("expected Blocks, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn tool_output_one_over_limit_is_truncated() {
+        let tier = SnipTier::new(3);
+        let input = "line1\nline2\nline3\nline4"; // 4 lines, limit 3
+        let msgs = vec![tool_result_msg(input)];
+        let result = tier.compact(msgs);
+
+        // Note: removing 1 short line may not save tokens because the truncation
+        // footer ("... 1 lines truncated ...") can be longer than the removed
+        // content. Verify the truncation happened, not that tokens decreased.
+        match &result.messages[0].content {
+            MessageContent::Blocks(blocks) => {
+                if let ContentBlock::ToolResult { content, .. } = &blocks[0] {
+                    assert!(
+                        content.contains("1 lines truncated"),
+                        "should report 1 line truncated"
+                    );
+                    assert!(
+                        content.contains("line1")
+                            && content.contains("line2")
+                            && content.contains("line3")
+                    );
+                    assert!(!content.contains("line4"), "line4 should have been removed");
+                }
+            }
+            other => panic!("expected Blocks, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn tool_output_with_crlf_line_endings() {
+        let tier = SnipTier::new(2);
+        let input = "line1\r\nline2\r\nline3\r\nline4"; // 4 lines with CRLF
+        let msgs = vec![tool_result_msg(input)];
+        let result = tier.compact(msgs);
+
+        // Verify truncation happened (footer present), regardless of net token
+        // savings — the footer can be longer than the removed short lines.
+        match &result.messages[0].content {
+            MessageContent::Blocks(blocks) => {
+                if let ContentBlock::ToolResult { content, .. } = &blocks[0] {
+                    assert!(
+                        content.contains("2 lines truncated"),
+                        "should report truncation count"
+                    );
+                    assert!(content.contains("line1"), "first 2 lines should be kept");
+                    assert!(content.contains("line2"), "first 2 lines should be kept");
+                    assert!(!content.contains("line4"), "line4 should have been removed");
+                }
+            }
+            other => panic!("expected Blocks, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn message_with_only_thinking_block_produces_minimal_content() {
+        let tier = SnipTier::new(50);
+        let input = "<thinking>all my deep thoughts</thinking>";
+        let msgs = vec![user_msg(input)];
+        let result = tier.compact(msgs);
+
+        let text = result.messages[0].content.as_text();
+        assert!(
+            text.trim().is_empty(),
+            "message with only thinking block should be empty after snip, got: '{text}'"
+        );
+    }
+
+    #[test]
+    fn mixed_blocks_thinking_in_text_not_in_tool_result() {
+        let tier = SnipTier::new(2);
+        // A message with both Text and ToolResult blocks.
+        // Thinking should be stripped from Text but ToolResult should be trimmed.
+        let long_tool = (0..10)
+            .map(|i| format!("tool line {i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let msgs = vec![Message {
+            role: MessageRole::User,
+            content: MessageContent::Blocks(vec![
+                ContentBlock::Text {
+                    text: "preamble <thinking>secret</thinking> postamble".to_string(),
+                    cache_control: None,
+                },
+                ContentBlock::ToolResult {
+                    tool_use_id: "t1".to_string(),
+                    content: long_tool,
+                    is_error: false,
+                },
+            ]),
+            timestamp: chrono::Utc::now(),
+            metadata: rustycode_protocol::MessageMetadata::default(),
+        }];
+
+        let result = tier.compact(msgs);
+        let text_block = match &result.messages[0].content {
+            MessageContent::Blocks(blocks) => blocks.clone(),
+            other => panic!("expected Blocks, got {other:?}"),
+        };
+
+        // Text block: thinking stripped.
+        if let ContentBlock::Text { text, .. } = &text_block[0] {
+            assert!(
+                !text.contains("secret"),
+                "thinking should be removed from Text block"
+            );
+            assert!(text.contains("preamble") && text.contains("postamble"));
+        }
+
+        // ToolResult: trimmed to 2 lines.
+        if let ContentBlock::ToolResult { content, .. } = &text_block[1] {
+            assert!(
+                content.contains("8 lines truncated"),
+                "tool output should be trimmed"
+            );
+        }
+    }
+
+    #[test]
+    fn user_and_assistant_text_preserved_verbatim_when_no_trimming_needed() {
+        let tier = SnipTier::new(50);
+        let msgs = vec![
+            user_msg("I need to fix the auth bug in src/auth.rs"),
+            assistant_msg("I'll read the file and check the token validation logic."),
+            user_msg("Also check the session expiry handling"),
+            assistant_msg("Found it: the session cookie wasn't being refreshed."),
+        ];
+        let result = tier.compact(msgs);
+
+        assert_eq!(result.messages.len(), 4, "all messages preserved");
+        assert_eq!(
+            result.tokens_removed, 0,
+            "no tokens removed from short text"
+        );
+        assert_eq!(
+            result.messages[0].content.as_text(),
+            "I need to fix the auth bug in src/auth.rs"
+        );
+        assert_eq!(
+            result.messages[1].content.as_text(),
+            "I'll read the file and check the token validation logic."
+        );
+    }
+
+    #[test]
+    fn tool_error_result_is_trimmed_but_not_stripped() {
+        let tier = SnipTier::new(2);
+        let long_error: String = (0..10)
+            .map(|i| format!("error line {i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let msgs = vec![Message {
+            role: MessageRole::User,
+            content: MessageContent::Blocks(vec![ContentBlock::ToolResult {
+                tool_use_id: "err_1".to_string(),
+                content: long_error.clone(),
+                is_error: true,
+            }]),
+            timestamp: chrono::Utc::now(),
+            metadata: rustycode_protocol::MessageMetadata::default(),
+        }];
+
+        let result = tier.compact(msgs);
+        match &result.messages[0].content {
+            MessageContent::Blocks(blocks) => {
+                if let ContentBlock::ToolResult {
+                    content, is_error, ..
+                } = &blocks[0]
+                {
+                    assert!(*is_error, "is_error flag should be preserved");
+                    assert!(
+                        content.contains("8 lines truncated"),
+                        "error output should also be trimmed"
+                    );
+                }
+            }
+            other => panic!("expected Blocks, got {other:?}"),
+        }
+    }
 }

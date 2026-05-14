@@ -293,4 +293,169 @@ mod tests {
             result.tokens_removed
         );
     }
+
+    // -- Extended edge-case tests -------------------------------------------
+
+    #[test]
+    fn single_turn_kept_when_tail_is_one() {
+        let tier = TruncateTier::new(1);
+        let msgs = vec![user_msg("hello"), assistant_msg("world")];
+        let result = tier.compact(msgs);
+
+        assert_eq!(result.messages.len(), 2);
+        assert_eq!(result.messages[0].content.as_text(), "hello");
+        assert_eq!(result.messages[1].content.as_text(), "world");
+        assert_eq!(result.tokens_removed, 0, "nothing removed when only 1 turn");
+    }
+
+    #[test]
+    fn user_without_assistant_at_end() {
+        let tier = TruncateTier::new(1);
+        // Last turn has user but no assistant response.
+        let msgs = vec![
+            user_msg("question 1"),
+            assistant_msg("answer 1"),
+            user_msg("question 2"),
+        ];
+        let result = tier.compact(msgs);
+
+        // Should keep from the last user message onward (just "question 2").
+        assert_eq!(result.messages.len(), 1);
+        assert_eq!(result.messages[0].content.as_text(), "question 2");
+    }
+
+    #[test]
+    fn all_assistant_messages_uses_flat_tail() {
+        let tier = TruncateTier::new(2);
+        let msgs = vec![
+            assistant_msg("first"),
+            assistant_msg("second"),
+            assistant_msg("third"),
+            assistant_msg("fourth"),
+            assistant_msg("fifth"),
+        ];
+        let result = tier.compact(msgs);
+
+        // No user messages → flat tail of last 2.
+        assert_eq!(result.messages.len(), 2);
+        assert_eq!(result.messages[0].content.as_text(), "fourth");
+        assert_eq!(result.messages[1].content.as_text(), "fifth");
+    }
+
+    #[test]
+    fn tool_results_kept_with_their_turn() {
+        let tier = TruncateTier::new(1);
+        // Turn: user("read") + assistant(tool_use) + user(tool_result) + assistant("done")
+        let msgs = vec![
+            user_msg("read"),
+            tool_use_msg("t1", "Read"),
+            tool_result_msg("t1", "file contents"),
+            assistant_msg("done reading"),
+            user_msg("summarize"),
+            assistant_msg("summary"),
+        ];
+        let result = tier.compact(msgs);
+
+        // Should keep only the last turn: user("summarize") + assistant("summary")
+        assert_eq!(result.messages.len(), 2);
+        assert_eq!(result.messages[0].content.as_text(), "summarize");
+        assert_eq!(result.messages[1].content.as_text(), "summary");
+        assert!(
+            result.tokens_removed > 0,
+            "earlier turn with tool results should be removed"
+        );
+    }
+
+    #[test]
+    fn large_turn_count_keeps_only_tail() {
+        let tier = TruncateTier::new(3);
+        let mut msgs = Vec::new();
+        // 10 turns, each user + assistant.
+        for i in 0..10 {
+            msgs.push(user_msg(&format!("q{i}")));
+            msgs.push(assistant_msg(&format!("a{i}")));
+        }
+        let result = tier.compact(msgs);
+
+        // Should keep last 3 turns = 6 messages.
+        assert_eq!(result.messages.len(), 6);
+        assert_eq!(result.messages[0].content.as_text(), "q7");
+        assert_eq!(result.messages[1].content.as_text(), "a7");
+        assert_eq!(result.messages[4].content.as_text(), "q9");
+        assert_eq!(result.messages[5].content.as_text(), "a9");
+    }
+
+    #[test]
+    fn tail_equals_total_turns_keeps_all() {
+        let tier = TruncateTier::new(3);
+        let msgs = vec![
+            user_msg("q1"),
+            assistant_msg("a1"),
+            user_msg("q2"),
+            assistant_msg("a2"),
+            user_msg("q3"),
+            assistant_msg("a3"),
+        ];
+        let result = tier.compact(msgs);
+
+        assert_eq!(
+            result.messages.len(),
+            6,
+            "should keep all when tail equals total turns"
+        );
+        assert_eq!(result.tokens_removed, 0);
+    }
+
+    #[test]
+    fn empty_messages_returns_empty() {
+        let tier = TruncateTier::new(5);
+        let msgs: Vec<Message> = Vec::new();
+        let result = tier.compact(msgs);
+        assert!(result.messages.is_empty());
+        assert_eq!(result.tokens_removed, 0);
+    }
+
+    #[test]
+    fn single_message_no_user_keeps_one() {
+        // Flat tail with 1 message requested.
+        let tier = TruncateTier::new(1);
+        let msgs = vec![assistant_msg("only one")];
+        let result = tier.compact(msgs);
+        assert_eq!(result.messages.len(), 1);
+        assert_eq!(result.messages[0].content.as_text(), "only one");
+    }
+
+    #[test]
+    fn preserves_important_user_instructions_in_tail() {
+        let tier = TruncateTier::new(2);
+        let msgs = vec![
+            user_msg("implement the auth module"),
+            assistant_msg("I'll create the auth module with JWT tokens"),
+            user_msg("also add rate limiting"),
+            assistant_msg("adding rate limiting middleware"),
+            user_msg("now write tests for the auth module"),
+            assistant_msg("writing comprehensive auth tests"),
+            user_msg("IMPORTANT: the token must never expire"),
+            assistant_msg("setting token to never expire"),
+        ];
+        let result = tier.compact(msgs);
+
+        // Last 2 turns should contain the IMPORTANT instruction.
+        assert_eq!(result.messages.len(), 4);
+        let texts: Vec<String> = result
+            .messages
+            .iter()
+            .map(|m| m.content.as_text())
+            .collect();
+        let combined = texts.join(" ");
+        assert!(
+            combined.contains("IMPORTANT"),
+            "tail should preserve the latest user instruction with IMPORTANT keyword"
+        );
+        // Earlier instructions should be gone.
+        assert!(
+            !combined.contains("implement the auth module"),
+            "head should be removed"
+        );
+    }
 }

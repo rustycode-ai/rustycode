@@ -161,4 +161,97 @@ mod tests {
         // correct: the window is too small to hold any conversation.
         assert!(budget.should_compact());
     }
+
+    // -- Extended edge-case tests -------------------------------------------
+
+    #[test]
+    fn exact_threshold_boundary_triggers_compaction() {
+        let mut budget = typical_budget();
+        budget.current_input_tokens = budget.trigger_threshold();
+        assert!(
+            budget.should_compact(),
+            "compaction should trigger when tokens exactly equal the threshold"
+        );
+    }
+
+    #[test]
+    fn one_below_threshold_does_not_trigger() {
+        let mut budget = typical_budget();
+        budget.current_input_tokens = budget.trigger_threshold().saturating_sub(1);
+        assert!(
+            !budget.should_compact(),
+            "compaction should NOT trigger when tokens are 1 below the threshold"
+        );
+    }
+
+    #[test]
+    fn target_is_less_than_trigger() {
+        let budget = typical_budget();
+        assert!(
+            budget.target_size() < budget.trigger_threshold(),
+            "target ({}) should always be less than trigger ({})",
+            budget.target_size(),
+            budget.trigger_threshold()
+        );
+    }
+
+    #[test]
+    fn target_is_less_than_trigger_for_small_window() {
+        let budget = TokenBudget::new(20_000, 4_096);
+        assert!(
+            budget.target_size() < budget.trigger_threshold(),
+            "target should be less than trigger even for small windows"
+        );
+        // Also verify non-zero capacity.
+        assert!(budget.conversation_capacity() > 0);
+    }
+
+    #[test]
+    fn large_context_window_no_overflow() {
+        let budget = TokenBudget::new(1_000_000, 16_384);
+        let capacity = budget.conversation_capacity();
+        assert_eq!(
+            capacity,
+            1_000_000 - 16_384 - 850 - 6_000,
+            "large window should compute exact capacity without overflow"
+        );
+        assert!(budget.trigger_threshold() > 0);
+        assert!(budget.target_size() > 0);
+    }
+
+    #[test]
+    fn zero_context_window_always_compacts() {
+        let budget = TokenBudget::new(0, 0);
+        assert_eq!(budget.conversation_capacity(), 0);
+        assert!(budget.should_compact());
+    }
+
+    #[test]
+    fn capacity_monotonically_increases_with_window() {
+        let b_small = TokenBudget::new(50_000, 8_192);
+        let b_large = TokenBudget::new(200_000, 8_192);
+        assert!(
+            b_small.conversation_capacity() < b_large.conversation_capacity(),
+            "larger context window should yield larger conversation capacity"
+        );
+    }
+
+    #[test]
+    fn trigger_and_target_scale_proportionally() {
+        let budget = typical_budget();
+        let capacity = budget.conversation_capacity() as f64;
+
+        let trigger_ratio = budget.trigger_threshold() as f64 / capacity;
+        let target_ratio = budget.target_size() as f64 / capacity;
+
+        // Allow small floating-point rounding tolerance.
+        assert!(
+            (trigger_ratio - 0.78).abs() < 0.001,
+            "trigger ratio should be ~0.78, got {trigger_ratio:.4}"
+        );
+        assert!(
+            (target_ratio - 0.50).abs() < 0.001,
+            "target ratio should be ~0.50, got {target_ratio:.4}"
+        );
+    }
 }

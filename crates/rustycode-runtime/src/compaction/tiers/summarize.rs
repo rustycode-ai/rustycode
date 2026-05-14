@@ -351,4 +351,147 @@ mod tests {
             "split should be 0 when fewer turns than tail_turns (preserve all)"
         );
     }
+
+    // -- Extended edge-case tests -------------------------------------------
+
+    #[test]
+    fn tail_turns_zero_summarizes_everything() {
+        let messages = vec![
+            user_msg("a"),
+            assistant_msg("A"),
+            user_msg("b"),
+            assistant_msg("B"),
+        ];
+
+        let tier = SummarizeTier::new(SummaryTemplate::Full, 0);
+        let split = tier.find_summary_split(&messages);
+
+        assert_eq!(
+            split,
+            messages.len(),
+            "tail_turns=0 should summarize everything (split at end)"
+        );
+    }
+
+    #[test]
+    fn single_user_message_preserved_when_tail_is_one() {
+        let messages = vec![
+            user_msg("the only question"),
+            assistant_msg("the only answer"),
+        ];
+
+        let tier = SummarizeTier::new(SummaryTemplate::Full, 1);
+        let split = tier.find_summary_split(&messages);
+
+        assert_eq!(
+            split, 0,
+            "single turn with tail_turns=1 should preserve everything (split at 0)"
+        );
+    }
+
+    #[test]
+    fn user_without_following_assistant() {
+        // 3 user messages, only first two have assistant responses.
+        let messages = vec![
+            user_msg("q1"),
+            assistant_msg("a1"),
+            user_msg("q2"),
+            assistant_msg("a2"),
+            user_msg("q3"), // no assistant response
+        ];
+
+        let tier = SummarizeTier::new(SummaryTemplate::Full, 1);
+        let split = tier.find_summary_split(&messages);
+
+        // 3 user messages, tail_turns=1 => split at user_indices[2] = index 4.
+        assert_eq!(split, 4, "should split at last user message");
+        assert_eq!(messages[split].content.as_text(), "q3");
+    }
+
+    #[test]
+    fn split_point_with_tool_results_in_turns() {
+        // Turn 0: user + tool_use + tool_result + assistant
+        // Turn 1: user + assistant
+        // Turn 2: user + assistant
+        let messages = vec![
+            user_msg("read"),        // 0
+            assistant_msg("using"),  // 1 — simplified (real would have ToolUse block)
+            user_msg("result"),      // 2 — simplified (real would have ToolResult block)
+            assistant_msg("done"),   // 3
+            user_msg("edit"),        // 4
+            assistant_msg("edited"), // 5
+            user_msg("test"),        // 6
+            assistant_msg("pass"),   // 7
+        ];
+
+        let tier = SummarizeTier::new(SummaryTemplate::Full, 2);
+        let split = tier.find_summary_split(&messages);
+
+        // 4 user messages (indices 0, 2, 4, 6), tail_turns=2
+        // Split at user_indices[4 - 2] = user_indices[2] = index 4.
+        assert_eq!(
+            split, 4,
+            "should split at 3rd user message, keeping turns 2 and 3"
+        );
+        assert_eq!(messages[split].content.as_text(), "edit");
+    }
+
+    #[test]
+    fn empty_messages_returns_zero() {
+        let messages: Vec<Message> = Vec::new();
+        let tier = SummarizeTier::new(SummaryTemplate::Full, 2);
+        let split = tier.find_summary_split(&messages);
+
+        assert_eq!(split, 0, "empty messages should split at 0");
+    }
+
+    #[test]
+    fn build_prompt_includes_role_labels() {
+        let messages = vec![user_msg("hello world"), assistant_msg("hi there")];
+        let tier = SummarizeTier::new(SummaryTemplate::Full, 2);
+        let prompt = tier.build_prompt(&messages);
+
+        assert!(
+            prompt.contains("[user]"),
+            "prompt should label user messages"
+        );
+        assert!(
+            prompt.contains("[assistant]"),
+            "prompt should label assistant messages"
+        );
+        assert!(
+            prompt.contains("hello world"),
+            "prompt should include user text"
+        );
+        assert!(
+            prompt.contains("hi there"),
+            "prompt should include assistant text"
+        );
+    }
+
+    #[test]
+    fn template_degradation_reduces_prompt_size() {
+        let messages = vec![
+            user_msg(&"long question ".repeat(50)),
+            assistant_msg(&"long answer ".repeat(50)),
+        ];
+
+        let full = SummarizeTier::new(SummaryTemplate::Full, 2).build_prompt(&messages);
+        let compact = SummarizeTier::new(SummaryTemplate::Compact, 2).build_prompt(&messages);
+        let minimal = SummarizeTier::new(SummaryTemplate::Minimal, 2).build_prompt(&messages);
+
+        // Minimal prompt prefix is shorter than Compact which is shorter than Full.
+        assert!(
+            minimal.len() < compact.len(),
+            "minimal prompt ({}) should be shorter than compact ({})",
+            minimal.len(),
+            compact.len()
+        );
+        assert!(
+            compact.len() < full.len(),
+            "compact prompt ({}) should be shorter than full ({})",
+            compact.len(),
+            full.len()
+        );
+    }
 }
