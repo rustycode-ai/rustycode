@@ -303,7 +303,7 @@ impl ExecutionMiddleware {
         self.config.max_session_cost
     }
 
-    /// Set the middleware on a `ToolExecutor`.
+    /// Set the middleware on a `ToolDispatcher`.
     pub fn into_arc(self) -> Arc<Self> {
         Arc::new(self)
     }

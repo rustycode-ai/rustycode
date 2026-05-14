@@ -175,7 +175,7 @@ impl WorkflowToolExecutor for MockToolExecutor {
 /// Real tool executor that dispatches through a boxed function.
 ///
 /// This bridges the workflow engine to any external tool execution backend
-/// (e.g., `ToolExecutor` from rustycode-tools) without coupling to concrete types.
+/// (e.g., `ToolDispatcher` from rustycode-tools) without coupling to concrete types.
 ///
 /// # Example
 ///
@@ -185,7 +185,7 @@ impl WorkflowToolExecutor for MockToolExecutor {
 /// use rustycode_runtime::workflow::{RegistryToolExecutor, WorkflowToolExecutor};
 ///
 /// let executor = RegistryToolExecutor::new(|tool_name: &str, params: &HashMap<String, String>| {
-///     // In production, dispatch to ToolExecutor::execute() here
+///     // In production, dispatch to ToolDispatcher::execute() here
 ///     Ok(serde_json::json!({ "tool": tool_name, "status": "executed" }))
 /// });
 type ToolHandler = dyn Fn(&str, &HashMap<String, String>) -> std::result::Result<serde_json::Value, String>

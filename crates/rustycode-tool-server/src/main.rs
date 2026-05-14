@@ -18,7 +18,7 @@ use axum::{
 };
 use futures_util::{SinkExt, StreamExt};
 use rustycode_protocol::ToolCall;
-use rustycode_tools::{ToolContext, ToolExecutor};
+use rustycode_tools::{ToolContext, ToolDispatcher};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -29,7 +29,7 @@ use tower_http::services::ServeDir;
 
 #[derive(Clone)]
 struct AppState {
-    executor: Arc<Mutex<ToolExecutor>>,
+    executor: Arc<Mutex<ToolDispatcher>>,
     cache: Arc<Mutex<HashMap<String, Value>>>,
 }
 
@@ -59,7 +59,7 @@ async fn async_main() {
 
     let registry = Arc::new(rustycode_tools::default_registry());
     let executor = Arc::new(Mutex::new(
-        ToolExecutor::new(registry, ToolContext::new(PathBuf::from(".")))
+        ToolDispatcher::new(registry, ToolContext::new(PathBuf::from(".")))
             .with_structured_output(true),
     ));
     let cache: Arc<Mutex<HashMap<String, Value>>> = Arc::new(Mutex::new(HashMap::new()));

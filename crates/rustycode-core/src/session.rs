@@ -319,7 +319,7 @@ pub struct ToolRuntimeState {
     pub current_session_tools: Vec<String>,
     pub tool_iteration_count: u32,
     pub pending_tool_call: Option<ToolCall>,
-    pub tool_executor: rustycode_tools::ToolExecutor,
+    pub tool_executor: rustycode_tools::ToolDispatcher,
 }
 
 /// Core session state - independent of UI implementation
@@ -483,7 +483,7 @@ impl SessionState {
                 current_session_tools: Vec::new(),
                 tool_iteration_count: 0,
                 pending_tool_call: None,
-                tool_executor: rustycode_tools::ToolExecutor::from_cwd(cwd.clone()),
+                tool_executor: rustycode_tools::ToolDispatcher::from_cwd(cwd.clone()),
             },
             mode: SessionModeState {
                 ai_mode: AiMode::Act,

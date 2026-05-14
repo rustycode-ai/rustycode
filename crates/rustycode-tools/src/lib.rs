@@ -232,7 +232,7 @@ pub mod worktree {
 }
 
 // Permission functions are now in executor/permission.rs
-pub use executor::{check_permission, check_sandbox_path, check_tool_permission, ToolExecutor};
+pub use executor::{check_permission, check_sandbox_path, check_tool_permission, ToolDispatcher};
 
 // Default registry functions are now in registry/default.rs
 pub use registry::{default_registry, default_registry_filtered};

@@ -190,8 +190,8 @@ pub trait AutoTool: Tool {
 impl<T: Tool> AutoTool for T {}
 
 /// Create an auto tool context from a tool executor
-impl From<crate::ToolExecutor> for AutoToolContext {
-    fn from(executor: crate::ToolExecutor) -> Self {
+impl From<crate::ToolDispatcher> for AutoToolContext {
+    fn from(executor: crate::ToolDispatcher) -> Self {
         Self::new(executor.registry, executor.context)
     }
 }

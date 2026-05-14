@@ -3,7 +3,7 @@
 use crate::protocol::{error_codes, JsonRpcRequest, JsonRpcResponse};
 use crate::types::*;
 use crate::{McpError, McpResult};
-use rustycode_tools::ToolExecutor;
+use rustycode_tools::ToolDispatcher;
 use serde_json::json;
 use std::collections::HashMap;
 use std::io::{self, BufRead, Write};
@@ -50,7 +50,7 @@ impl Default for McpServerConfig {
 /// MCP server for hosting tools and resources
 pub struct McpServer {
     pub config: McpServerConfig,
-    tool_executor: Option<ToolExecutor>,
+    tool_executor: Option<ToolDispatcher>,
     tools: Arc<RwLock<HashMap<String, RegisteredTool>>>,
     pub resources: Arc<RwLock<HashMap<String, McpResourceEntry>>>,
     pub prompts: Arc<RwLock<HashMap<String, McpPromptTemplate>>>,
@@ -92,7 +92,7 @@ impl McpServer {
     }
 
     /// Register a tool executor
-    pub fn register_tool_executor(&mut self, executor: ToolExecutor) {
+    pub fn register_tool_executor(&mut self, executor: ToolDispatcher) {
         self.tool_executor = Some(executor);
     }
 

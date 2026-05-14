@@ -32,7 +32,7 @@ use rustycode_llm::provider::{
 use rustycode_llm::tool_executor::{LLMToolExecutor, ParsedToolCall};
 use rustycode_protocol::team::*;
 use rustycode_protocol::EscalationTarget;
-use rustycode_tools::ToolExecutor;
+use rustycode_tools::ToolDispatcher;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 
@@ -484,7 +484,7 @@ impl TeamOrchestrator {
         let root: PathBuf = project_root.into();
         let registry = std::sync::Arc::new(rustycode_tools::default_registry());
         let context = rustycode_tools::ToolContext::new(root.clone());
-        let tool_executor = LLMToolExecutor::with_executor(ToolExecutor::new(registry, context));
+        let tool_executor = LLMToolExecutor::with_executor(ToolDispatcher::new(registry, context));
         Self {
             project_root: root,
             client,
@@ -512,7 +512,7 @@ impl TeamOrchestrator {
         let root: PathBuf = project_root.into();
         let registry = std::sync::Arc::new(rustycode_tools::default_registry());
         let context = rustycode_tools::ToolContext::new(root.clone());
-        let tool_executor = LLMToolExecutor::with_executor(ToolExecutor::new(registry, context));
+        let tool_executor = LLMToolExecutor::with_executor(ToolDispatcher::new(registry, context));
         Self {
             project_root: root,
             client,
@@ -2058,7 +2058,7 @@ mod tests {
         let root = PathBuf::from("/tmp/rustycode-test");
         let registry = std::sync::Arc::new(rustycode_tools::default_registry());
         let context = rustycode_tools::ToolContext::new(root.clone());
-        let tool_executor = LLMToolExecutor::with_executor(ToolExecutor::new(registry, context));
+        let tool_executor = LLMToolExecutor::with_executor(ToolDispatcher::new(registry, context));
 
         TeamOrchestrator {
             project_root: root,

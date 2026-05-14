@@ -4,7 +4,7 @@
 //! integration with the LLM, and tool execution.
 
 use crate::llm_integration::LLMIntegration;
-use crate::tool_executor::ToolExecutor;
+use crate::tool_executor::AcpToolDispatcher;
 use crate::types::*;
 use anyhow::Result;
 use serde_json::Value;
@@ -35,14 +35,14 @@ pub struct ToolCallResult {
 /// Prompt Handler
 pub struct PromptHandler {
     llm: Arc<Mutex<LLMIntegration>>,
-    tool_executor: Arc<Mutex<ToolExecutor>>,
+    tool_executor: Arc<Mutex<AcpToolDispatcher>>,
 }
 
 impl PromptHandler {
     pub fn new(cwd: String, default_model: String) -> Self {
         Self {
             llm: Arc::new(Mutex::new(LLMIntegration::new(default_model))),
-            tool_executor: Arc::new(Mutex::new(ToolExecutor::new(cwd))),
+            tool_executor: Arc::new(Mutex::new(AcpToolDispatcher::new(cwd))),
         }
     }
 

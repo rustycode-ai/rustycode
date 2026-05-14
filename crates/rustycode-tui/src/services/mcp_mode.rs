@@ -27,7 +27,7 @@ pub struct McpMode {
     /// Server health status
     pub server_health: Vec<ServerHealth>,
     /// Available tools
-    pub tools: Vec<ToolInfo>,
+    pub tools: Vec<McpToolDisplayInfo>,
     /// Tool execution results
     pub execution_results: Vec<ToolExecutionResult>,
     pub search_query: String,
@@ -70,7 +70,7 @@ pub struct ServerHealth {
 
 /// Tool information
 #[derive(Debug, Clone)]
-pub struct ToolInfo {
+pub struct McpToolDisplayInfo {
     /// Tool name
     pub name: String,
     /// Tool description
@@ -266,7 +266,7 @@ impl McpMode {
                                 .collect();
 
                             for proxied_tool in &filtered_tools {
-                                tools.push(ToolInfo {
+                                tools.push(McpToolDisplayInfo {
                                     name: proxied_tool.name().to_string(),
                                     description: proxied_tool.description().to_string(),
                                     server_name: server_id.clone(),

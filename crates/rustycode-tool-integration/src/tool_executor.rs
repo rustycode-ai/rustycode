@@ -3,7 +3,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize)]
-pub struct ToolInfo {
+pub struct ToolCallInfo {
     pub name: String,
     pub description: String,
     pub parameters_schema: Value,
@@ -12,6 +12,6 @@ pub struct ToolInfo {
 }
 
 pub trait ToolExecutorApi: Send + Sync {
-    fn list(&self) -> Vec<ToolInfo>;
+    fn list(&self) -> Vec<ToolCallInfo>;
     fn execute(&self, call: &ToolCall) -> ToolResult;
 }

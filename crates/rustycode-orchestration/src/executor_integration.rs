@@ -1,12 +1,12 @@
-//! Integration adapter connecting [`ExecutionRouter`] to orchestration's [`ToolExecutor`].
+//! Integration adapter connecting [`ExecutionRouter`] to orchestration's [`TaskToolExecutor`].
 
-use crate::musician::ToolExecutor;
+use crate::musician::TaskToolExecutor;
 use crate::types::StepResult;
 use async_trait::async_trait;
 use rustycode_executable::{ExecutionContext, ExecutionInput, ExecutionRouter};
 use std::sync::Arc;
 
-/// Adapts [`ExecutionRouter`] to implement the orchestration [`ToolExecutor`] trait.
+/// Adapts [`ExecutionRouter`] to implement the orchestration [`TaskToolExecutor`] trait.
 pub struct ExecutableToolExecutor {
     router: Arc<ExecutionRouter>,
 }
@@ -18,7 +18,7 @@ impl ExecutableToolExecutor {
 }
 
 #[async_trait]
-impl ToolExecutor for ExecutableToolExecutor {
+impl TaskToolExecutor for ExecutableToolExecutor {
     async fn execute(
         &self,
         _task_id: &str,

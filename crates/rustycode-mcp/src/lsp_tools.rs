@@ -5,7 +5,7 @@ use rustycode_tools::providers::lsp::{
     LspInlineSymbolTool, LspInsertAfterSymbolTool, LspInsertBeforeSymbolTool, LspReferencesTool,
     LspRenameSymbolTool, LspRenameTool, LspReplaceSymbolBodyTool, LspSafeDeleteSymbolTool,
 };
-use rustycode_tools::{ToolContext, ToolExecutor, ToolRegistry};
+use rustycode_tools::{ToolContext, ToolDispatcher, ToolRegistry};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -13,10 +13,10 @@ use std::sync::Arc;
 ///
 /// The standalone MCP server uses this executor so clients can discover and
 /// call the same LSP tools that the TUI exposes for navigation and refactors.
-pub fn build_lsp_tool_executor(workspace_root: PathBuf) -> ToolExecutor {
+pub fn build_lsp_tool_executor(workspace_root: PathBuf) -> ToolDispatcher {
     let mut registry = ToolRegistry::new();
     register_lsp_tools(&mut registry);
-    ToolExecutor::new(Arc::new(registry), ToolContext::new(workspace_root))
+    ToolDispatcher::new(Arc::new(registry), ToolContext::new(workspace_root))
 }
 
 fn register_lsp_tools(registry: &mut ToolRegistry) {

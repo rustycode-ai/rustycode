@@ -8,7 +8,7 @@ pub use cost::{
 };
 pub use rustycode_protocol::tool::{ApiCall, CostTrackerProvider};
 pub use token_counter::{TokenCounter, CHARS_PER_TOKEN, MAX_TOKEN_CACHE_SIZE};
-pub use tool_executor::{ToolExecutorApi, ToolInfo};
+pub use tool_executor::{ToolCallInfo, ToolExecutorApi};
 
 pub trait ToolCostTracker: Send + Sync {
     fn record_llm_cost(&mut self, tokens: u32, model: &str);

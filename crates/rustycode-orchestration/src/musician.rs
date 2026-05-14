@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 #[async_trait::async_trait]
-pub trait ToolExecutor: Send + Sync {
+pub trait TaskToolExecutor: Send + Sync {
     async fn execute(
         &self,
         task_id: &str,
@@ -23,12 +23,12 @@ pub trait ToolExecutor: Send + Sync {
 
 use rustycode_tools_security::sandbox::{Sandbox, SandboxConfig, SandboxLevel};
 
-pub struct ShellToolExecutor {
+pub struct ShellTaskToolExecutor {
     pub cwd: std::path::PathBuf,
 }
 
 #[async_trait::async_trait]
-impl ToolExecutor for ShellToolExecutor {
+impl TaskToolExecutor for ShellTaskToolExecutor {
     async fn execute(
         &self,
         _task_id: &str,
@@ -86,7 +86,7 @@ impl ToolExecutor for ShellToolExecutor {
 }
 
 pub struct Musician {
-    tool_executor: Arc<dyn ToolExecutor>,
+    task_tool_executor: Arc<dyn TaskToolExecutor>,
     lock_manager: LockManager,
     bus: crate::bus::BusHandle,
     isolation: Arc<tokio::sync::RwLock<TierIsolation>>,
@@ -101,7 +101,7 @@ impl Musician {
             PathBuf::from(".")
         });
         Self {
-            tool_executor: Arc::new(ShellToolExecutor { cwd }),
+            task_tool_executor: Arc::new(ShellTaskToolExecutor { cwd }),
             lock_manager: LockManager::in_memory(),
             bus: crate::bus::BusHandle::new(16),
             isolation: Arc::new(tokio::sync::RwLock::new(TierIsolation::with_defaults())),
@@ -116,7 +116,7 @@ impl Musician {
             PathBuf::from(".")
         });
         Self {
-            tool_executor: Arc::new(ShellToolExecutor { cwd }),
+            task_tool_executor: Arc::new(ShellTaskToolExecutor { cwd }),
             lock_manager: LockManager::in_memory(),
             bus,
             isolation: Arc::new(tokio::sync::RwLock::new(TierIsolation::with_defaults())),
@@ -125,9 +125,9 @@ impl Musician {
         }
     }
 
-    pub fn with_tool_executor(tool_executor: Arc<dyn ToolExecutor>) -> Self {
+    pub fn with_task_tool_executor(task_tool_executor: Arc<dyn TaskToolExecutor>) -> Self {
         Self {
-            tool_executor,
+            task_tool_executor,
             lock_manager: LockManager::in_memory(),
             bus: crate::bus::BusHandle::new(16),
             isolation: Arc::new(tokio::sync::RwLock::new(TierIsolation::with_defaults())),
@@ -249,7 +249,7 @@ impl Musician {
         }
 
         let result = match self
-            .tool_executor
+            .task_tool_executor
             .execute(
                 &ctx.task_id,
                 tool_name,
@@ -502,13 +502,13 @@ mod tests {
         let _ = &m;
     }
 
-    struct MockExecutor {
+    struct MockTaskToolExecutor {
         output: String,
         exit_code: Option<i32>,
     }
 
     #[async_trait::async_trait]
-    impl ToolExecutor for MockExecutor {
+    impl TaskToolExecutor for MockTaskToolExecutor {
         async fn execute(
             &self,
             _task_id: &str,
@@ -530,12 +530,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_with_tool_executor_custom() {
-        let executor = Arc::new(MockExecutor {
+    async fn test_with_task_tool_executor_custom() {
+        let executor = Arc::new(MockTaskToolExecutor {
             output: "custom result".into(),
             exit_code: Some(0),
         });
-        let musician = Musician::with_tool_executor(executor);
+        let musician = Musician::with_task_tool_executor(executor);
         let step = make_step("s-custom", Some("Bash"));
         let mut trace = ExecutionTrace::new("t-custom".into());
         let result = musician.play_step(&step, &mut trace).await.unwrap();
@@ -568,8 +568,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_shell_tool_executor_bash() {
-        let executor = ShellToolExecutor {
+    async fn test_shell_task_tool_executor_bash() {
+        let executor = ShellTaskToolExecutor {
             cwd: std::env::current_dir().unwrap_or_default(),
         };
         let result = executor
@@ -581,8 +581,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_shell_tool_executor_noop() {
-        let executor = ShellToolExecutor {
+    async fn test_shell_task_tool_executor_noop() {
+        let executor = ShellTaskToolExecutor {
             cwd: std::env::current_dir().unwrap_or_default(),
         };
         let result = executor
@@ -594,8 +594,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_shell_tool_executor_disallowed_tool() {
-        let executor = ShellToolExecutor {
+    async fn test_shell_task_tool_executor_disallowed_tool() {
+        let executor = ShellTaskToolExecutor {
             cwd: std::env::current_dir().unwrap_or_default(),
         };
         let result = executor
@@ -605,8 +605,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_shell_tool_executor_unknown_tool() {
-        let executor = ShellToolExecutor {
+    async fn test_shell_task_tool_executor_unknown_tool() {
+        let executor = ShellTaskToolExecutor {
             cwd: std::env::current_dir().unwrap_or_default(),
         };
         let result = executor
@@ -682,11 +682,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_failure_trace_entry_for_nonzero_exit() {
-        let executor = Arc::new(MockExecutor {
+        let executor = Arc::new(MockTaskToolExecutor {
             output: "command failed".into(),
             exit_code: Some(1),
         });
-        let musician = Musician::with_tool_executor(executor);
+        let musician = Musician::with_task_tool_executor(executor);
         let step = Step {
             id: "s-fail".into(),
             index: 0,
@@ -713,11 +713,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_success_trace_entry_for_zero_exit() {
-        let executor = Arc::new(MockExecutor {
+        let executor = Arc::new(MockTaskToolExecutor {
             output: "all good".into(),
             exit_code: Some(0),
         });
-        let musician = Musician::with_tool_executor(executor);
+        let musician = Musician::with_task_tool_executor(executor);
         let step = Step {
             id: "s-ok".into(),
             index: 0,
@@ -765,11 +765,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_autonomy_l4_allows_all() {
-        let executor = Arc::new(MockExecutor {
+        let executor = Arc::new(MockTaskToolExecutor {
             output: "done".into(),
             exit_code: Some(0),
         });
-        let musician = Musician::with_tool_executor(executor).with_autonomy(
+        let musician = Musician::with_task_tool_executor(executor).with_autonomy(
             crate::autonomy::AutonomyConfig::new(crate::autonomy::AutonomyLevel::L4),
         );
         let step = Step {
@@ -788,11 +788,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_autonomy_default_backward_compat() {
-        let executor = Arc::new(MockExecutor {
+        let executor = Arc::new(MockTaskToolExecutor {
             output: "default".into(),
             exit_code: Some(0),
         });
-        let musician = Musician::with_tool_executor(executor);
+        let musician = Musician::with_task_tool_executor(executor);
         let step = Step {
             id: "s-default".into(),
             index: 0,

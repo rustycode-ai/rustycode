@@ -86,7 +86,7 @@ use rustycode_llm::{
     anthropic::AnthropicProvider,
     provider::{ChatMessage, CompletionRequest, LLMProvider, ProviderConfig},
 };
-use rustycode_tools::ToolExecutor;
+use rustycode_tools::ToolDispatcher;
 use secrecy::SecretString;
 use std::env;
 use std::fs;
@@ -159,7 +159,7 @@ mod tests {
         }
     };
 
-    let executor = ToolExecutor::from_cwd(test_dir.clone());
+    let executor = ToolDispatcher::from_cwd(test_dir.clone());
 
     // Test 1: Check LSP availability
     println!("📊 Test 1: Check LSP Tools Available");
@@ -410,7 +410,7 @@ mod tests {
     )
     .unwrap();
 
-    let executor = ToolExecutor::from_cwd(test_dir.clone());
+    let executor = ToolDispatcher::from_cwd(test_dir.clone());
 
     println!("🔍 Testing: LSP Document Symbols");
     println!("═══════════════════════════════════════════════════════════\n");
@@ -493,7 +493,7 @@ fn main() {
     )
     .unwrap();
 
-    let executor = ToolExecutor::from_cwd(test_dir.clone());
+    let executor = ToolDispatcher::from_cwd(test_dir.clone());
 
     println!("🔍 Testing: LSP References");
     println!("═══════════════════════════════════════════════════════════\n");
@@ -582,7 +582,7 @@ fn main() {
     )
     .unwrap();
 
-    let executor = ToolExecutor::from_cwd(test_dir.clone());
+    let executor = ToolDispatcher::from_cwd(test_dir.clone());
 
     println!("🔍 Testing: LSP Full Diagnostics");
     println!("═══════════════════════════════════════════════════════════\n");

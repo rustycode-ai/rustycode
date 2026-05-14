@@ -32,7 +32,7 @@ use rustycode_llm::{
     anthropic::AnthropicProvider,
     provider::{ChatMessage, CompletionRequest, LLMProvider, ProviderConfig},
 };
-use rustycode_tools::ToolExecutor;
+use rustycode_tools::ToolDispatcher;
 use secrecy::SecretString;
 use std::env;
 use std::path::PathBuf;
@@ -239,7 +239,7 @@ fn test_direct_tool_execution() {
     let repo_path = setup_test_repo();
     println!("   ✓ Test repo created at: {}", repo_path.display());
 
-    let executor = ToolExecutor::from_cwd(repo_path.clone());
+    let executor = ToolDispatcher::from_cwd(repo_path.clone());
 
     // Test 1: Read file
     println!("\n▶ Test: Read main.rs");

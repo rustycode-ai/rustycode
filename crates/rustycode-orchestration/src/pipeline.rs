@@ -211,7 +211,7 @@ impl OrchestrationPipeline {
                 )
                 .with_interaction(interaction.clone());
                 Arc::new(
-                    Musician::with_tool_executor(Arc::new(executor))
+                    Musician::with_task_tool_executor(Arc::new(executor))
                         .with_isolation(isolation.clone())
                         .with_hooks(hooks.clone())
                         .with_autonomy(config.autonomy.clone()),

@@ -10,3 +10,4 @@ Architecture Decision Records capture durable decisions and the reasoning behind
 - [001 Provider V2 API](001-provider-v2-api.md)
 - [002 SecretString Integration](002-secretstring-integration.md)
 - [003 Macro-Based Providers](003-macro-based-providers.md)
+- [004 Tool Interface Redesign](004-tool-interface-redesign.md)

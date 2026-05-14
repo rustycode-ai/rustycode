@@ -12,7 +12,7 @@ use axum::{
 };
 use futures_util::{SinkExt, StreamExt};
 use rustycode_protocol::ToolCall;
-use rustycode_tools::ToolExecutor;
+use rustycode_tools::ToolDispatcher;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -22,13 +22,13 @@ use tower_http::services::ServeDir;
 
 #[derive(Clone)]
 pub struct AppState {
-    pub executor: Arc<Mutex<ToolExecutor>>,
+    pub executor: Arc<Mutex<ToolDispatcher>>,
     pub cache: Arc<Mutex<HashMap<String, Value>>>,
 }
 
 pub async fn serve_web(port: u16, dir: Option<String>) -> Result<()> {
     let cwd = std::env::current_dir()?;
-    let executor = Arc::new(Mutex::new(ToolExecutor::from_cwd(cwd)));
+    let executor = Arc::new(Mutex::new(ToolDispatcher::from_cwd(cwd)));
     let cache: Arc<Mutex<HashMap<String, Value>>> = Arc::new(Mutex::new(HashMap::new()));
     let state = AppState {
         executor: executor.clone(),

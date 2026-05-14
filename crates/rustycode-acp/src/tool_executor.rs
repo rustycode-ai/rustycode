@@ -13,12 +13,12 @@ use tokio::sync::Mutex;
 use tracing::{debug, error, info, warn};
 
 /// Tool executor
-pub struct ToolExecutor {
+pub struct AcpToolDispatcher {
     tool_registry: Arc<Mutex<Option<rustycode_tools::ToolRegistry>>>,
     cwd: PathBuf,
 }
 
-impl ToolExecutor {
+impl AcpToolDispatcher {
     pub fn new(cwd: String) -> Self {
         Self {
             tool_registry: Arc::new(Mutex::new(None)),
@@ -129,7 +129,7 @@ impl ToolExecutor {
     }
 }
 
-impl Clone for ToolExecutor {
+impl Clone for AcpToolDispatcher {
     fn clone(&self) -> Self {
         Self {
             tool_registry: self.tool_registry.clone(),
@@ -144,38 +144,38 @@ mod tests {
 
     #[test]
     fn test_tool_executor_new() {
-        let executor = ToolExecutor::new("/tmp/project".to_string());
+        let executor = AcpToolDispatcher::new("/tmp/project".to_string());
         assert_eq!(executor.cwd, PathBuf::from("/tmp/project"));
     }
 
     #[test]
     fn test_tool_executor_new_empty_cwd() {
-        let executor = ToolExecutor::new(String::new());
+        let executor = AcpToolDispatcher::new(String::new());
         assert_eq!(executor.cwd, PathBuf::from(""));
     }
 
     #[test]
     fn test_tool_executor_new_dot_cwd() {
-        let executor = ToolExecutor::new(".".to_string());
+        let executor = AcpToolDispatcher::new(".".to_string());
         assert_eq!(executor.cwd, PathBuf::from("."));
     }
 
     #[test]
     fn test_tool_executor_clone() {
-        let executor = ToolExecutor::new("/test".to_string());
+        let executor = AcpToolDispatcher::new("/test".to_string());
         let cloned = executor.clone();
         assert_eq!(cloned.cwd, executor.cwd);
     }
 
     #[tokio::test]
     async fn test_tool_executor_not_available_before_init() {
-        let executor = ToolExecutor::new("/tmp".to_string());
+        let executor = AcpToolDispatcher::new("/tmp".to_string());
         assert!(!executor.is_available().await);
     }
 
     #[tokio::test]
     async fn test_tool_executor_mock_response_without_init() {
-        let executor = ToolExecutor::new("/tmp".to_string());
+        let executor = AcpToolDispatcher::new("/tmp".to_string());
         let result = executor
             .execute_tool("Bash", serde_json::json!({"command": "ls"}))
             .await;
@@ -191,7 +191,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_tool_executor_mock_response_includes_tool_name() {
-        let executor = ToolExecutor::new("/tmp".to_string());
+        let executor = AcpToolDispatcher::new("/tmp".to_string());
         let result = executor
             .execute_tool("Read", serde_json::json!({"path": "/etc/hosts"}))
             .await;
@@ -207,7 +207,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_tool_executor_initialize_sets_available() {
-        let mut executor = ToolExecutor::new("/tmp".to_string());
+        let mut executor = AcpToolDispatcher::new("/tmp".to_string());
         let result = executor.initialize().await;
         // initialize should succeed (tools registry is created)
         assert!(result.is_ok());

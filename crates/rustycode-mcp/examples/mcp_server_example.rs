@@ -15,7 +15,7 @@ use rustycode_mcp::{
     types::{McpContent, McpPromptContent, McpPromptMessage},
     McpServer, McpServerConfig,
 };
-use rustycode_tools::ToolExecutor;
+use rustycode_tools::ToolDispatcher;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -28,7 +28,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Create tool executor
     let cwd = std::env::current_dir()?;
-    let executor = ToolExecutor::from_cwd(cwd);
+    let executor = ToolDispatcher::from_cwd(cwd);
 
     // Create MCP server
     let config = McpServerConfig {

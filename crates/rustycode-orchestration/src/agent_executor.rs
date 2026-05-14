@@ -1,4 +1,4 @@
-//! `AgentSessionExecutor` — implements [`ToolExecutor`] by delegating to
+//! `AgentSessionExecutor` — implements [`TaskToolExecutor`] by delegating to
 //! [`AgentSession::run()`].
 //!
 //! When Musician "plays a step", this executor builds a single-user-message
@@ -9,7 +9,7 @@
 use crate::agent_context::AgentContext;
 use crate::bus::OrchestrationEvent;
 use crate::error::{OrchestrationError, Result};
-use crate::musician::ToolExecutor;
+use crate::musician::TaskToolExecutor;
 use crate::types::StepResult;
 use rustycode_agent_runtime::{
     AgentConfig, AgentEvents, AgentResult, AgentSession, ApprovalDecision, StoppedReason,
@@ -251,10 +251,10 @@ impl EventForwarder {
 
 // AgentSessionExecutor
 
-/// Wraps an [`AgentSession`] to implement the orchestration [`ToolExecutor`]
+/// Wraps an [`AgentSession`] to implement the orchestration [`TaskToolExecutor`]
 /// trait.
 ///
-/// Each call to [`execute`](ToolExecutor::execute) builds a fresh
+/// Each call to [`execute`](TaskToolExecutor::execute) builds a fresh
 /// conversation with the step description as the user message, then runs the
 /// agent loop to completion.
 pub struct AgentSessionExecutor {
@@ -337,7 +337,7 @@ impl AgentSessionExecutor {
     }
 }
 #[async_trait::async_trait]
-impl ToolExecutor for AgentSessionExecutor {
+impl TaskToolExecutor for AgentSessionExecutor {
     async fn execute(
         &self,
         task_id: &str,

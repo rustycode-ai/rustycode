@@ -27,15 +27,15 @@
 use rustycode_llm::tool_executor::{ParsedToolCall, ToolExecutionResult};
 use rustycode_llm::{LLMToolExecutor, MessageRole};
 use rustycode_protocol::{ToolPermission, ToolResult};
-use rustycode_tool_integration::{ToolExecutorApi, ToolInfo};
+use rustycode_tool_integration::{ToolCallInfo, ToolExecutorApi};
 use serde_json::json;
 
 struct FakeToolExecutor;
 
 impl ToolExecutorApi for FakeToolExecutor {
-    fn list(&self) -> Vec<ToolInfo> {
+    fn list(&self) -> Vec<ToolCallInfo> {
         vec![
-            ToolInfo {
+            ToolCallInfo {
                 name: "Bash".to_string(),
                 description: "Execute a shell command".to_string(),
                 parameters_schema: json!({
@@ -49,7 +49,7 @@ impl ToolExecutorApi for FakeToolExecutor {
                 permission: ToolPermission::Execute,
                 defer_loading: None,
             },
-            ToolInfo {
+            ToolCallInfo {
                 name: "ListDir".to_string(),
                 description: "List directory contents".to_string(),
                 parameters_schema: json!({
@@ -63,7 +63,7 @@ impl ToolExecutorApi for FakeToolExecutor {
                 permission: ToolPermission::Read,
                 defer_loading: None,
             },
-            ToolInfo {
+            ToolCallInfo {
                 name: "Read".to_string(),
                 description: "Read a file".to_string(),
                 parameters_schema: json!({

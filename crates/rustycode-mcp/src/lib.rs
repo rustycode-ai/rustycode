@@ -59,7 +59,7 @@
 //!
 //! ```ignore
 //! use rustycode_mcp::{McpClient, McpClientConfig};
-//! use rustycode_tools::ToolExecutor;
+//! use rustycode_tools::ToolDispatcher;
 //! use std::path::PathBuf;
 //!
 //! #[tokio::main]
@@ -97,13 +97,13 @@
 //!
 //! ```no_run
 //! use rustycode_mcp::{McpServer, McpServerConfig};
-//! use rustycode_tools::ToolExecutor;
+//! use rustycode_tools::ToolDispatcher;
 //! use std::path::PathBuf;
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
 //!     // Create tool executor
-//!     let executor = ToolExecutor::from_cwd(PathBuf::from("."));
+//!     let executor = ToolDispatcher::from_cwd(PathBuf::from("."));
 //!
 //!     // Create MCP server
 //!     let config = McpServerConfig::default();

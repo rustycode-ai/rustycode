@@ -26,7 +26,7 @@ pub use batch::BatchTool;
 pub use cache::{CacheConfig, CacheKey, CacheMetrics, CacheStats, CachedToolResult, ToolCache};
 pub use convoy::ConvoyDispatcher;
 pub use decompose::{DecomposeProblemTool, DecompositionResult, Module};
-pub use executor::ToolExecutor;
+pub use executor::ToolDispatcher;
 pub use inspector::{
     BudgetInspector, EgressInspector, InspectionAction, InspectionResult, OsvInspector,
     PermissionInspector, RateLimitInspector, RepetitionInspector, SecurityInspector, ToolCallInfo,

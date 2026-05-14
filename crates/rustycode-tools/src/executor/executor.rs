@@ -1,14 +1,14 @@
 use crate::{ToolContext, ToolInfo, ToolPermission, ToolRegistry};
 use rustycode_protocol::{AgentRole, ToolCall, ToolResult};
 
-/// Tool executor combining a registry and a context.
+/// Tool dispatcher combining a registry and a context.
 /// Used by the `auto_tool` module for programmatic tool invocation.
-pub struct ToolExecutor {
+pub struct ToolDispatcher {
     pub registry: std::sync::Arc<ToolRegistry>,
     pub context: ToolContext,
 }
 
-impl ToolExecutor {
+impl ToolDispatcher {
     pub const fn new(registry: std::sync::Arc<ToolRegistry>, context: ToolContext) -> Self {
         Self { registry, context }
     }
@@ -56,7 +56,7 @@ impl ToolExecutor {
     }
 }
 
-impl Clone for ToolExecutor {
+impl Clone for ToolDispatcher {
     fn clone(&self) -> Self {
         Self {
             registry: self.registry.clone(),
@@ -65,25 +65,27 @@ impl Clone for ToolExecutor {
     }
 }
 
-impl rustycode_tool_integration::tool_executor::ToolExecutorApi for ToolExecutor {
-    fn list(&self) -> Vec<rustycode_tool_integration::tool_executor::ToolInfo> {
+impl rustycode_tool_integration::tool_executor::ToolExecutorApi for ToolDispatcher {
+    fn list(&self) -> Vec<rustycode_tool_integration::tool_executor::ToolCallInfo> {
         self.registry
             .list()
             .into_iter()
-            .map(|info| rustycode_tool_integration::tool_executor::ToolInfo {
-                name: info.name,
-                description: info.description,
-                parameters_schema: info.parameters_schema,
-                permission: match info.permission {
-                    ToolPermission::None => rustycode_protocol::ToolPermission::Blocked,
-                    ToolPermission::Read => rustycode_protocol::ToolPermission::Read,
-                    ToolPermission::Write => rustycode_protocol::ToolPermission::Write,
-                    ToolPermission::Execute => rustycode_protocol::ToolPermission::Execute,
-                    ToolPermission::Network => rustycode_protocol::ToolPermission::Execute,
-                    _ => rustycode_protocol::ToolPermission::RequiresConfirmation,
+            .map(
+                |info| rustycode_tool_integration::tool_executor::ToolCallInfo {
+                    name: info.name,
+                    description: info.description,
+                    parameters_schema: info.parameters_schema,
+                    permission: match info.permission {
+                        ToolPermission::None => rustycode_protocol::ToolPermission::Blocked,
+                        ToolPermission::Read => rustycode_protocol::ToolPermission::Read,
+                        ToolPermission::Write => rustycode_protocol::ToolPermission::Write,
+                        ToolPermission::Execute => rustycode_protocol::ToolPermission::Execute,
+                        ToolPermission::Network => rustycode_protocol::ToolPermission::Execute,
+                        _ => rustycode_protocol::ToolPermission::RequiresConfirmation,
+                    },
+                    defer_loading: info.defer_loading,
                 },
-                defer_loading: info.defer_loading,
-            })
+            )
             .collect()
     }
 

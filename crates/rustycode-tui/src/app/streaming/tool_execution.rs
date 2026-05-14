@@ -15,7 +15,7 @@ use rustycode_guard::pre_tool;
 use rustycode_orchestration::plan_mode::PlanMode;
 use rustycode_protocol::tool_names as tn;
 use rustycode_protocol::ToolCall;
-use rustycode_tools::ToolExecutor;
+use rustycode_tools::ToolDispatcher;
 use rustycode_tools_api::build_canonical_tool_schemas;
 
 pub fn execute_tool(
@@ -181,12 +181,12 @@ pub fn execute_tool(
         let ctx = rustycode_tools::ToolContext::new(cwd)
             .with_registry(Arc::clone(registry))
             .with_allow_outside_workspace(allow_outside_workspace);
-        ToolExecutor::new(Arc::clone(registry), ctx)
+        ToolDispatcher::new(Arc::clone(registry), ctx)
     } else if let Some(_state) = todo_state {
         // todo_state was used to seed the executor; fall back to from_cwd
-        ToolExecutor::from_cwd(cwd.to_path_buf())
+        ToolDispatcher::from_cwd(cwd.to_path_buf())
     } else {
-        ToolExecutor::from_cwd(cwd.to_path_buf())
+        ToolDispatcher::from_cwd(cwd.to_path_buf())
     };
 
     // Wire plan mode gate if provided — enforces role-based tool access

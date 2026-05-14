@@ -3,7 +3,7 @@
 //! This module bridges LLM provider tool calling with the rustycode-tools execution system.
 //! It handles:
 //! - Converting tool calls from LLM responses to ToolCall format
-//! - Executing tools via ToolExecutor
+//! - Executing tools via ToolDispatcher
 //! - Converting tool results back to LLM message format
 //! - Error handling and retries
 
@@ -501,14 +501,14 @@ fn parse_tool_call_item(item: &Value) -> Option<ParsedToolCall> {
 mod tests {
     use super::*;
     use rustycode_protocol::{ToolPermission, ToolResult};
-    use rustycode_tool_integration::ToolInfo;
+    use rustycode_tool_integration::ToolCallInfo;
 
     struct FakeToolExecutor;
 
     impl ToolExecutorApi for FakeToolExecutor {
-        fn list(&self) -> Vec<ToolInfo> {
+        fn list(&self) -> Vec<ToolCallInfo> {
             vec![
-                ToolInfo {
+                ToolCallInfo {
                     name: "Bash".to_string(),
                     description: "Execute a shell command".to_string(),
                     parameters_schema: serde_json::json!({
@@ -523,7 +523,7 @@ mod tests {
                     permission: ToolPermission::Execute,
                     defer_loading: None,
                 },
-                ToolInfo {
+                ToolCallInfo {
                     name: "ListDir".to_string(),
                     description: "List directory contents".to_string(),
                     parameters_schema: serde_json::json!({
@@ -538,7 +538,7 @@ mod tests {
                     permission: ToolPermission::Read,
                     defer_loading: None,
                 },
-                ToolInfo {
+                ToolCallInfo {
                     name: "Read".to_string(),
                     description: "Read a file".to_string(),
                     parameters_schema: serde_json::json!({

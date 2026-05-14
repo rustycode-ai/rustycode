@@ -3,7 +3,7 @@
 use crate::server::McpServer;
 use crate::types::*;
 use crate::{McpError, McpResult};
-use rustycode_tools::ToolExecutor;
+use rustycode_tools::ToolDispatcher;
 use serde_json::json;
 use std::path::PathBuf;
 use tokio::task::JoinHandle;
@@ -35,7 +35,7 @@ impl McpTestContext {
 
     /// Create a test server instance
     pub fn create_test_server(&self) -> McpServer {
-        let executor = ToolExecutor::from_cwd(self.test_dir.clone());
+        let executor = ToolDispatcher::from_cwd(self.test_dir.clone());
         let mut server = McpServer::default_config("test-server");
         server.register_tool_executor(executor);
         server
