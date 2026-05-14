@@ -539,6 +539,12 @@ impl TUI {
                 _ => {}
             },
             Ok(CrosstermEvent::Resize(width, height)) => {
+                if width == 0 || height == 0 {
+                    tracing::warn!(
+                        "Terminal reported zero dimension ({width}x{height}), ignoring resize"
+                    );
+                    return Ok(());
+                }
                 self.ui.message_renderer.invalidate_cache();
                 // Don't reset scroll_offset_line to 0, let it stay where it was
                 // and it will be clamped during next render if necessary.

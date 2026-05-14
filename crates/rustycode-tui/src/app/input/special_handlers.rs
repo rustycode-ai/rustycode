@@ -77,15 +77,18 @@ impl TUI {
                         req.tool_name.clone(),
                         crate::tool_approval::ApprovalState::Approved,
                     );
-                    self.integration
-                        .services
-                        .submit_op(Op::ApproveTool {
-                            tool_id: req.tool_id.clone(),
-                            approved: true,
-                            modified_input: None,
-                            timeout_override: None,
-                        })
-                        .ok();
+                    if let Err(e) = self.integration.services.submit_op(Op::ApproveTool {
+                        tool_id: req.tool_id.clone(),
+                        approved: true,
+                        modified_input: None,
+                        timeout_override: None,
+                    }) {
+                        tracing::error!("Failed to submit tool approval: {e}");
+                        self.add_system_message(format!(
+                            "⚠ Approval for '{}' not delivered — service unavailable",
+                            req.tool_name
+                        ));
+                    }
                 }
                 self.sys.dirty = true;
                 Ok(true)
@@ -97,15 +100,18 @@ impl TUI {
                         req.tool_name.clone(),
                         crate::tool_approval::ApprovalState::Rejected,
                     );
-                    self.integration
-                        .services
-                        .submit_op(Op::ApproveTool {
-                            tool_id: req.tool_id.clone(),
-                            approved: false,
-                            modified_input: None,
-                            timeout_override: None,
-                        })
-                        .ok();
+                    if let Err(e) = self.integration.services.submit_op(Op::ApproveTool {
+                        tool_id: req.tool_id.clone(),
+                        approved: false,
+                        modified_input: None,
+                        timeout_override: None,
+                    }) {
+                        tracing::error!("Failed to submit tool rejection: {e}");
+                        self.add_system_message(format!(
+                            "⚠ Rejection for '{}' not delivered — service unavailable",
+                            req.tool_name
+                        ));
+                    }
                 }
                 self.sys.dirty = true;
                 Ok(true)
@@ -120,15 +126,18 @@ impl TUI {
                         req.tool_name.clone(),
                         crate::tool_approval::ApprovalState::RejectedAll,
                     );
-                    self.integration
-                        .services
-                        .submit_op(Op::ApproveTool {
-                            tool_id: req.tool_id.clone(),
-                            approved: false,
-                            modified_input: None,
-                            timeout_override: None,
-                        })
-                        .ok();
+                    if let Err(e) = self.integration.services.submit_op(Op::ApproveTool {
+                        tool_id: req.tool_id.clone(),
+                        approved: false,
+                        modified_input: None,
+                        timeout_override: None,
+                    }) {
+                        tracing::error!("Failed to submit session-wide rejection: {e}");
+                        self.add_system_message(format!(
+                            "⚠ Session block for '{}' not delivered — service unavailable",
+                            req.tool_name
+                        ));
+                    }
                 }
                 self.sys.dirty = true;
                 Ok(true)
@@ -140,15 +149,18 @@ impl TUI {
                         req.tool_name.clone(),
                         crate::tool_approval::ApprovalState::ApprovedAll,
                     );
-                    self.integration
-                        .services
-                        .submit_op(Op::ApproveTool {
-                            tool_id: req.tool_id.clone(),
-                            approved: true,
-                            modified_input: None,
-                            timeout_override: None,
-                        })
-                        .ok();
+                    if let Err(e) = self.integration.services.submit_op(Op::ApproveTool {
+                        tool_id: req.tool_id.clone(),
+                        approved: true,
+                        modified_input: None,
+                        timeout_override: None,
+                    }) {
+                        tracing::error!("Failed to submit auto-approval: {e}");
+                        self.add_system_message(format!(
+                            "⚠ Auto-approval for '{}' not delivered — service unavailable",
+                            req.tool_name
+                        ));
+                    }
                 }
                 self.sys.dirty = true;
                 Ok(true)
@@ -161,15 +173,14 @@ impl TUI {
                     .front()
                     .map(|req| req.tool_id.clone());
                 self.panels.tool_approval.dismiss_current();
-                self.integration
-                    .services
-                    .submit_op(Op::ApproveTool {
-                        tool_id: tool_id.unwrap_or_default(),
-                        approved: false,
-                        modified_input: None,
-                        timeout_override: None,
-                    })
-                    .ok();
+                if let Err(e) = self.integration.services.submit_op(Op::ApproveTool {
+                    tool_id: tool_id.unwrap_or_default(),
+                    approved: false,
+                    modified_input: None,
+                    timeout_override: None,
+                }) {
+                    tracing::warn!("Failed to submit approval dismissal: {e}");
+                }
                 self.add_system_message("⏸️  Approval cancelled".to_string());
                 self.sys.dirty = true;
                 Ok(true)
@@ -275,10 +286,18 @@ impl TUI {
                     };
 
                     // Send answer through the question channel (resumes streaming)
-                    self.integration
+                    if let Err(e) = self
+                        .integration
                         .services
                         .submit_op(Op::AnswerQuestion { answer })
-                        .ok();
+                    {
+                        tracing::error!("Failed to submit clarification answer: {e}");
+                        self.add_system_message(
+                            "⚠ Answer not delivered — service unavailable. Try again.".to_string(),
+                        );
+                        // Keep clarification state open so user can retry
+                        return Ok(true);
+                    }
 
                     // Reset clarification state
                     self.panels.clarification_panel.reset();
@@ -552,7 +571,12 @@ impl TUI {
                             // the newly loaded session's messages.
                             let was_streaming = self.session.streaming.is_streaming;
                             if was_streaming {
-                                self.integration.services.submit_op(Op::StopStream).ok();
+                                if let Err(e) = self.integration.services.submit_op(Op::StopStream)
+                                {
+                                    tracing::warn!(
+                                        "Failed to stop stream during session load: {e}"
+                                    );
+                                }
                                 self.session.streaming.stream_cancelled = true;
                             }
                             // Apply LoadSession effect inline (private method workaround)

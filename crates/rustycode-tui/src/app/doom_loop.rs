@@ -1,5 +1,7 @@
 //! Doom loop detection for agent tool execution.
 
+use std::collections::VecDeque;
+
 /// Number of identical consecutive failures before declaring a doom loop.
 pub const DOOM_LOOP_THRESHOLD: usize = 3;
 
@@ -43,7 +45,7 @@ impl ToolCallRecord {
 /// target without converging.
 #[derive(Debug, Clone, Default)]
 pub struct DoomLoopDetector {
-    records: Vec<ToolCallRecord>,
+    records: VecDeque<ToolCallRecord>,
 }
 
 impl DoomLoopDetector {
@@ -53,7 +55,7 @@ impl DoomLoopDetector {
 
     /// Record a tool call result.
     pub fn record(&mut self, tool_name: &str, key_arg: Option<&str>, success: bool) {
-        self.records.push(ToolCallRecord {
+        self.records.push_back(ToolCallRecord {
             tool_name: tool_name.to_string(),
             key_arg: key_arg.map(|s| {
                 // Truncate long args to keep memory bounded
@@ -69,7 +71,7 @@ impl DoomLoopDetector {
 
         // Maintain sliding window
         if self.records.len() > WINDOW_SIZE {
-            self.records.remove(0);
+            self.records.pop_front();
         }
     }
 
@@ -167,7 +169,8 @@ impl DoomLoopDetector {
     pub fn reduce_for_retry(&mut self) {
         let keep = DOOM_LOOP_THRESHOLD.saturating_sub(1);
         if self.records.len() > keep {
-            self.records.drain(0..self.records.len() - keep);
+            let drain_count = self.records.len() - keep;
+            self.records.drain(0..drain_count);
         }
     }
 
@@ -302,5 +305,37 @@ mod tests {
         let reason = d.doom_loop_reason().unwrap();
         assert!(reason.contains("Bash"));
         assert!(reason.contains("cargo build"));
+    }
+
+    #[test]
+    fn test_vecdeque_window_stays_bounded() {
+        let mut d = DoomLoopDetector::new();
+        for i in 0..WINDOW_SIZE * 3 {
+            d.record("Edit", Some(&format!("file_{i}.rs")), true);
+        }
+        assert_eq!(d.len(), WINDOW_SIZE);
+    }
+
+    #[test]
+    fn test_reduce_for_retry_keeps_recent() {
+        let mut d = DoomLoopDetector::new();
+        d.record("Edit", Some("a.rs"), false);
+        d.record("Edit", Some("b.rs"), false);
+        d.record("Edit", Some("c.rs"), false);
+        d.record("Edit", Some("d.rs"), false);
+        assert_eq!(d.len(), 4);
+        d.reduce_for_retry();
+        assert_eq!(d.len(), 2);
+        let latest = &d.records[d.len() - 1];
+        assert_eq!(latest.key_arg.as_deref(), Some("d.rs"));
+    }
+
+    #[test]
+    fn test_reduce_for_retry_noop_when_small() {
+        let mut d = DoomLoopDetector::new();
+        d.record("Edit", Some("a.rs"), false);
+        assert_eq!(d.len(), 1);
+        d.reduce_for_retry();
+        assert_eq!(d.len(), 1);
     }
 }

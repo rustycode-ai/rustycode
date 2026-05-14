@@ -46,12 +46,10 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
             }
         }
         CommandEffect::ClearConversation => {
-            // Signal background stream to stop BEFORE clearing state.
-            // Without this, the stream thread keeps running and its Done
-            // handler would trigger auto-continue or queued message on
-            // the now-empty conversation.
             if self.session.streaming.is_streaming {
-                self.integration.services.submit_op(Op::StopStream).ok();
+                if let Err(e) = self.integration.services.submit_op(Op::StopStream) {
+                    tracing::warn!("Failed to stop stream during clear: {e}");
+                }
                 self.session.streaming.stream_cancelled = true;
             }
             self.reset_conversation_state();
@@ -68,9 +66,10 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
             messages,
             summary,
         } => {
-            // Signal background stream to stop before loading new session
             if self.session.streaming.is_streaming {
-                self.integration.services.submit_op(Op::StopStream).ok();
+                if let Err(e) = self.integration.services.submit_op(Op::StopStream) {
+                    tracing::warn!("Failed to stop stream during load: {e}");
+                }
                 self.session.streaming.stream_cancelled = true;
             }
             self.reset_conversation_state();

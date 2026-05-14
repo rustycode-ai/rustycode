@@ -178,11 +178,11 @@ impl PluginManagerUI {
                 true
             }
             (KeyCode::PageUp, _) => {
-                self.page_up();
+                self.page_up(&manager);
                 true
             }
             (KeyCode::PageDown, _) => {
-                self.page_down();
+                self.page_down(&manager);
                 true
             }
             (KeyCode::Home, _) => {
@@ -656,19 +656,28 @@ impl PluginManagerUI {
         self.ensure_visible(count);
     }
 
-    fn page_up(&mut self) {
+    fn page_up(&mut self, manager: &PluginManager) {
+        let count = self.sorted_filtered_plugins(manager).len();
+        if count == 0 {
+            self.reset_selection();
+            return;
+        }
         let rows = self.viewport_rows.get().max(1);
         self.selected_index = self.selected_index.saturating_sub(rows);
         self.scroll_offset = self.scroll_offset.saturating_sub(rows);
+        self.ensure_visible(count);
     }
 
-    // TODO: page_down does not clamp selected_index against the plugin count.
-    // The index is clamped lazily by ensure_visible and render_list, but a
-    // future refactor should accept the plugin count directly (like select_next).
-    fn page_down(&mut self) {
+    fn page_down(&mut self, manager: &PluginManager) {
+        let count = self.sorted_filtered_plugins(manager).len();
+        if count == 0 {
+            self.reset_selection();
+            return;
+        }
         let rows = self.viewport_rows.get().max(1);
         self.selected_index = self.selected_index.saturating_add(rows);
         self.scroll_offset = self.scroll_offset.saturating_add(rows);
+        self.ensure_visible(count);
     }
 
     fn ensure_visible(&mut self, count: usize) {

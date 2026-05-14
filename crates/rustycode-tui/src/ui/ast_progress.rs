@@ -192,7 +192,9 @@ impl<'a> AstPhaseWidget<'a> {
             .min(area.width as usize / 3);
         if bar_width > 0 {
             let bar = self.state.progress_bar(bar_width);
-            let pct = (self.state.progress_fraction() * 100.0).round() as usize;
+            let pct = (self.state.progress_fraction() * 100.0)
+                .round()
+                .clamp(0.0, 100.0) as usize;
             lines.push(Line::from(vec![
                 Span::styled(bar, Style::default().fg(color)),
                 Span::styled(format!(" {}%", pct), Style::default().fg(Color::White)),
@@ -392,5 +394,33 @@ mod tests {
         // Phase 4/6 base = 4/6 ≈ 0.667, plus milestone increment
         assert!(frac > 0.6);
         assert!(frac < 1.0);
+    }
+
+    #[test]
+    fn test_progress_bar_clamps_to_width() {
+        let mut state = AstPhaseState::new();
+        state.activate("Execute", 4, "task");
+        state.update_milestones(100, 10);
+        let bar = state.progress_bar(20);
+        assert_eq!(bar.chars().count(), 20);
+        assert!(bar.starts_with("█"));
+    }
+
+    #[test]
+    fn test_progress_percentage_clamped_to_100() {
+        let mut state = AstPhaseState::new();
+        state.activate("Execute", 4, "task");
+        state.update_milestones(100, 10);
+        let pct = (state.progress_fraction() * 100.0)
+            .round()
+            .clamp(0.0, 100.0) as usize;
+        assert!(pct <= 100, "percentage should never exceed 100, got {pct}");
+    }
+
+    #[test]
+    fn test_progress_bar_zero_width() {
+        let state = AstPhaseState::new();
+        let bar = state.progress_bar(0);
+        assert!(bar.is_empty());
     }
 }

@@ -1,5 +1,6 @@
 //! Polished Header Component
 
+use crate::unicode::display_width;
 use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
@@ -177,7 +178,7 @@ impl Header {
 
         // Left: App name
         let prefix = format!("● {} ", self.app_name);
-        used += prefix.len();
+        used += display_width(&prefix);
         spans.push(Span::styled(
             prefix,
             Style::default()
@@ -211,12 +212,12 @@ impl Header {
         // Git branch (before project, only if room)
         if let Some(branch) = &self.git_branch {
             let bt = format!("{} ", branch);
-            if used + bt.len() + width / 3 < width {
+            if used + display_width(&bt) + width / 3 < width {
                 spans.push(Span::styled(
                     bt.clone(),
                     Style::default().fg(self.secondary_color),
                 ));
-                used += bt.len();
+                used += display_width(&bt);
             }
         }
 
@@ -240,7 +241,7 @@ impl Header {
             self.project_name.clone()
         };
         if !display.is_empty() {
-            used += display.chars().count();
+            used += display_width(&display);
             spans.push(Span::styled(display, Style::default().fg(Color::White)));
         }
 
@@ -251,15 +252,15 @@ impl Header {
                 self.task_count,
                 if self.task_count == 1 { "" } else { "s" }
             );
-            if used + text.len() < width {
-                used += text.len();
+            if used + display_width(&text) < width {
+                used += display_width(&text);
                 spans.push(Span::styled(text, Style::default().fg(self.primary_color)));
             }
         }
 
         if self.pending_tools > 0 {
             let text = format!(" ⚡{}", self.pending_tools);
-            if used + text.len() < width {
+            if used + display_width(&text) < width {
                 spans.push(Span::styled(text, Style::default().fg(Color::Yellow)));
             }
         }
@@ -267,8 +268,7 @@ impl Header {
         // Turn counter (goose pattern: "T:N" shows conversation length at a glance)
         if self.turn_count > 0 {
             let text = format!(" T:{}", self.turn_count);
-            if used + text.len() + 4 < width {
-                let _ = used + text.len(); // Budget check only
+            if used + display_width(&text) + 4 < width {
                 spans.push(Span::styled(
                     text,
                     Style::default().fg(self.secondary_color),
@@ -319,5 +319,50 @@ mod tests {
     fn test_header_project_truncation() {
         let header = Header::new().with_project_name("a".repeat(100));
         assert_eq!(header.project_name.len(), 100);
+    }
+
+    #[test]
+    fn test_header_unicode_project_name_renders() {
+        let header = Header::new().with_project_name("プロジェクト");
+        let backend = ratatui::backend::TestBackend::new(80, 1);
+        let mut terminal = ratatui::Terminal::new(backend).unwrap();
+        terminal
+            .draw(|frame| header.render(frame, Rect::new(0, 0, 80, 1)))
+            .unwrap();
+    }
+
+    #[test]
+    fn test_header_unicode_branch_renders() {
+        let header = Header::new()
+            .with_project_name("test")
+            .with_git_branch(Some("特徴/branch".to_string()));
+        let backend = ratatui::backend::TestBackend::new(120, 1);
+        let mut terminal = ratatui::Terminal::new(backend).unwrap();
+        terminal
+            .draw(|frame| header.render(frame, Rect::new(0, 0, 120, 1)))
+            .unwrap();
+    }
+
+    #[test]
+    fn test_header_emoji_project_name_renders() {
+        let header = Header::new().with_project_name("🦀rusty");
+        let backend = ratatui::backend::TestBackend::new(80, 1);
+        let mut terminal = ratatui::Terminal::new(backend).unwrap();
+        terminal
+            .draw(|frame| header.render(frame, Rect::new(0, 0, 80, 1)))
+            .unwrap();
+    }
+
+    #[test]
+    fn test_header_narrow_terminal_no_panic() {
+        let header = Header::new()
+            .with_project_name("my-super-long-project-name")
+            .with_git_branch(Some("feature/very-long-branch-name".to_string()))
+            .with_counts(999, 99);
+        let backend = ratatui::backend::TestBackend::new(10, 1);
+        let mut terminal = ratatui::Terminal::new(backend).unwrap();
+        terminal
+            .draw(|frame| header.render(frame, Rect::new(0, 0, 10, 1)))
+            .unwrap();
     }
 }

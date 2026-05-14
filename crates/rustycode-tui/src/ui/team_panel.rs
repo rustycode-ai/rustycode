@@ -330,7 +330,7 @@ impl TeamPanel {
         lines.push(Line::from(stats_spans));
 
         // Visual trust bar (10 segments) + step info
-        let filled = (self.trust * 10.0) as usize;
+        let filled = ((self.trust.clamp(0.0, 1.0)) * 10.0).round() as usize;
         let empty = 10 - filled;
         let bar = format!("{}{}", "━".repeat(filled), "╌".repeat(empty));
         lines.push(Line::from(vec![
@@ -708,5 +708,63 @@ mod tests {
             .iter()
             .any(|line| line.spans.iter().any(|s| s.content.contains("SUCCESS")));
         assert!(has_success);
+    }
+
+    #[test]
+    fn trust_bar_clamped_high_trust() {
+        let mut panel = TeamPanel::new();
+        panel.trust = 2.0;
+        panel.visible = true;
+        panel.set_task("test");
+        let content = panel.build_content();
+        let trust_bar_line = content
+            .iter()
+            .find(|line| line.spans.iter().any(|s| s.content.contains("━")));
+        assert!(trust_bar_line.is_some());
+        let bar_text: String = trust_bar_line
+            .unwrap()
+            .spans
+            .iter()
+            .map(|s| &*s.content)
+            .collect();
+        assert!(
+            !bar_text.contains("╌".repeat(100).as_str()),
+            "trust > 1.0 should be clamped to full bar, not underflow"
+        );
+    }
+
+    #[test]
+    fn trust_bar_clamped_negative_trust() {
+        let mut panel = TeamPanel::new();
+        panel.trust = -0.5;
+        panel.visible = true;
+        panel.set_task("test");
+        let content = panel.build_content();
+        let trust_bar_line = content
+            .iter()
+            .find(|line| line.spans.iter().any(|s| s.content.contains("╌")));
+        assert!(trust_bar_line.is_some());
+    }
+
+    #[test]
+    fn trust_bar_zero_trust() {
+        let mut panel = TeamPanel::new();
+        panel.trust = 0.0;
+        panel.visible = true;
+        panel.set_task("test");
+        let content = panel.build_content();
+        let bar_text: String = content
+            .iter()
+            .filter_map(|line| {
+                line.spans
+                    .iter()
+                    .find(|s| s.content.contains("╌"))
+                    .map(|s| s.content.clone())
+            })
+            .collect();
+        assert!(
+            bar_text.starts_with("╌"),
+            "zero trust should have no filled segments"
+        );
     }
 }
