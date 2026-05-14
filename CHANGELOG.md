@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.3] - 2026-05-14
+
+### Refactor
+
+- **tui**: Extract system_prompt module, refactor streaming response handling
+
 ## [0.5.2] - 2026-05-14
 
 ### Features
@@ -13,6 +19,10 @@ All notable changes to this project will be documented in this file.
 ### Documentation
 
 - Add Configuration section with correct JSON format
+
+### Chores
+
+- Bump version to 0.5.2
 
 ## [0.5.1] - 2026-05-14
 
