@@ -73,8 +73,11 @@ impl Protocol for AnthropicProtocol {
             anyhow::bail!("No valid messages to send to Anthropic API after filtering");
         }
 
-        // Enable prompt caching for all Anthropic-compatible endpoints.
-        let use_cache_control = true;
+        // Only enable prompt caching for the official Anthropic API.
+        // Third-party proxies (z.ai, etc.) may reject cache_control parameters.
+        let use_cache_control = std::env::var("ANTHROPIC_BASE_URL")
+            .map(|url| url.contains("anthropic.com"))
+            .unwrap_or(true);
 
         if use_cache_control {
             // Apply cache_control to last 2 conversation messages.
@@ -167,7 +170,8 @@ impl Protocol for AnthropicProtocol {
             parallel_tool_calls: request.parallel_tool_calls,
         };
 
-        Ok(serde_json::to_value(anthropic_request)?)
+        let body = serde_json::to_value(&anthropic_request)?;
+        Ok(body)
     }
 
     fn parse_response(&self, body: &Value) -> Result<CompletionResponse> {

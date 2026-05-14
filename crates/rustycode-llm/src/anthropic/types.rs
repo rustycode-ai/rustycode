@@ -9,6 +9,7 @@ pub struct AnthropicRequest {
     pub model: String,
     pub messages: Vec<AnthropicMessage>,
     pub max_tokens: u32,
+    #[serde(serialize_with = "serialize_temperature")]
     pub temperature: f32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub system: Option<SystemPrompt>,
@@ -295,4 +296,22 @@ pub enum SystemPrompt {
     #[allow(dead_code)] // Used when system prompt doesn't need cache_control
     Text(String),
     Blocks(Vec<SystemContentBlock>),
+}
+
+/// Serialize f32 temperature with clean decimal output (avoids float32 precision artifacts
+/// like 0.20000000298023224 that some providers reject).
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn serialize_temperature<S: serde::Serializer>(val: &f32, s: S) -> Result<S::Ok, S::Error> {
+    s.serialize_f64(f64::from(*val).round_to_precision())
+}
+
+trait RoundToPrecision {
+    fn round_to_precision(self) -> Self;
+}
+
+impl RoundToPrecision for f64 {
+    fn round_to_precision(self) -> Self {
+        // Round to 4 decimal places — sufficient for temperature values
+        (self * 10_000.0).round() / 10_000.0
+    }
 }
