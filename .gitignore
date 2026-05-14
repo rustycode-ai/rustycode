@@ -195,3 +195,13 @@ hello_insert.txt
 lib_bottom.rs
 lib_top.rs
 todo-api-spec.md
+
+# ── GSD baseline (auto-generated) ──
+.gsd
+.next/
+dist/
+build/
+target/
+vendor/
+coverage/
+tmp/
