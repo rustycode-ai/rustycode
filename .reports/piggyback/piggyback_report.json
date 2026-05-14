@@ -1,0 +1,116 @@
+{
+  "timestamp": "2026-05-14T20:03:06",
+  "tests": [
+    {
+      "model": "glm-5.1",
+      "suffix": "normal",
+      "status": "skipped",
+      "text_chars": 2990,
+      "quality": 0,
+      "summary_preview": ""
+    },
+    {
+      "model": "glm-5.1",
+      "suffix": "strong",
+      "status": "skipped",
+      "text_chars": 2676,
+      "quality": 0,
+      "summary_preview": ""
+    },
+    {
+      "model": "glm-4.7",
+      "suffix": "normal",
+      "status": "called",
+      "text_chars": 2015,
+      "quality": 4,
+      "summary_preview": "Building Rust TUI app with ratatui. Discussed event loop architecture (MPSC patt"
+    },
+    {
+      "model": "glm-4.7",
+      "suffix": "strong",
+      "status": "called",
+      "text_chars": 0,
+      "quality": 4,
+      "summary_preview": "User building Rust TUI app with ratatui. Implemented event loop with MPSC patter"
+    },
+    {
+      "model": "glm-4.5-air",
+      "suffix": "normal",
+      "status": "skipped",
+      "text_chars": 1399,
+      "quality": 0,
+      "summary_preview": ""
+    },
+    {
+      "model": "glm-4.5-air",
+      "suffix": "strong",
+      "status": "skipped",
+      "text_chars": 2916,
+      "quality": 0,
+      "summary_preview": ""
+    },
+    {
+      "model": "glm-5.1",
+      "suffix": "normal",
+      "case": "short",
+      "status": "skipped",
+      "text_chars": 81
+    },
+    {
+      "model": "glm-5.1",
+      "suffix": "normal",
+      "case": "with_tools",
+      "status": "called",
+      "text_chars": 0
+    },
+    {
+      "model": "glm-5.1",
+      "suffix": "normal",
+      "case": "non_english",
+      "status": "skipped",
+      "text_chars": 2668
+    },
+    {
+      "model": "glm-4.7",
+      "suffix": "normal",
+      "case": "short",
+      "status": "skipped",
+      "text_chars": 37
+    },
+    {
+      "model": "glm-4.7",
+      "suffix": "normal",
+      "case": "with_tools",
+      "status": "skipped",
+      "text_chars": 0
+    },
+    {
+      "model": "glm-4.7",
+      "suffix": "normal",
+      "case": "non_english",
+      "status": "called",
+      "text_chars": 0
+    },
+    {
+      "model": "glm-4.5-air",
+      "suffix": "normal",
+      "case": "short",
+      "status": "skipped",
+      "text_chars": 83
+    },
+    {
+      "model": "glm-4.5-air",
+      "suffix": "normal",
+      "case": "with_tools",
+      "status": "skipped",
+      "text_chars": 1
+    },
+    {
+      "model": "glm-4.5-air",
+      "suffix": "normal",
+      "case": "non_english",
+      "status": "skipped",
+      "text_chars": 2167
+    }
+  ]
+}

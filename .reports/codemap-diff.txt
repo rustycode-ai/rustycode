@@ -1,0 +1,41 @@
+Codemap Analysis Report — 2026-05-14
+=====================================
+
+## Summary
+
+First codemap generation for RustyCode.
+
+**Project:** 57 crates, 1601 .rs files, ~614K LOC
+**Codemaps generated:** 5 files in docs/CODEMAPS/
+
+## Files Created
+
+| File | Contents | Size |
+|------|----------|------|
+| architecture.md | Layer diagram, dependency flow, key traits, inter-crate comms | ~600 tokens |
+| backend.md | LLM providers (17), tool providers (~50), orchestration modules | ~800 tokens |
+| frontend.md | TUI (284 files), CLI, WS server, HTTP server | ~600 tokens |
+| data.md | Storage, session, protocol types, ID gen, tasks | ~500 tokens |
+| dependencies.md | External deps, service integrations | ~500 tokens |
+
+## Architecture Notes
+
+### Top 5 Crates by Size
+1. rustycode-tui: 110K LOC (284 files) — flagged for extraction
+2. rustycode-tools: 69K LOC (260 files) — flagged for extraction
+3. rustycode-orchestration: 72K LOC (154 files) — largest orchestration surface
+4. rustycode-runtime: 44K LOC (51 files)
+5. rustycode-llm: 42K LOC (104 files)
+
+### LLM Provider Coverage
+17 providers implemented: Anthropic, OpenAI-compatible, Azure, Bedrock,
+Gemini, Ollama, Cohere, Mistral, Copilot, HuggingFace, Perplexity,
+z.ai/GLM, Together, LiteRT (on-device), Replay, Mock, Fallback.
+
+### Key Dependency Breakers
+- rustycode-tool-integration: breaks llm ↔ tools cycle
+- rustycode-protocol: shared types, no circular deps
+
+### Staleness Warnings
+- No previous codemaps to compare against (first generation)
+- Recommend regeneration after major feature additions or crate restructuring
