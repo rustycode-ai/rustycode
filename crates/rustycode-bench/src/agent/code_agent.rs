@@ -1,8 +1,6 @@
-//! Code agent — thin wrapper around AgentSession, same as TuiBenchAgent.
+//! Code agent — thin wrapper around AgentSession.
 //!
-//! Uses the same system prompt and config source as the TUI so benchmarks
-//! measure the actual path users experience. The only difference: optional
-//! symbol tools and thinking guide for complex tasks.
+//! Uses the standard TUI system prompt via `build_tui_system_prompt`.
 
 use std::sync::Arc;
 

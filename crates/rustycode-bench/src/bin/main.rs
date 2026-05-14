@@ -164,7 +164,7 @@ enum Commands {
         agent: String,
 
         /// Max tool-use turns per instance
-        #[arg(long, default_value_t = 30)]
+        #[arg(long, default_value_t = 40)]
         max_turns: usize,
 
         /// Max tokens per LLM response
@@ -172,7 +172,7 @@ enum Commands {
         max_tokens: u32,
 
         /// Timeout per instance in seconds
-        #[arg(long, default_value_t = 600)]
+        #[arg(long, default_value_t = 900)]
         timeout: u64,
 
         /// Specific instance IDs to run (comma-separated)
@@ -187,9 +187,13 @@ enum Commands {
         #[arg(long, default_value = "/tmp/swebench-work")]
         work_dir: PathBuf,
 
-        /// Enable tree-sitter symbol tools (`FindSymbol`, `TsQuery`, `OutlineFile`, `CodeContext`)
+        /// Disable tree-sitter symbol tools (enabled by default for SWE-bench)
         #[arg(long, default_value_t = false)]
-        with_symbol_tools: bool,
+        no_symbol_tools: bool,
+
+        /// Max verification retries after agent finishes (default: 1)
+        #[arg(long, default_value_t = 1)]
+        verify_retries: u32,
 
         /// Disable `thinking_guide` tool (for A/B baseline comparison)
         #[arg(long, default_value_t = false)]
@@ -386,8 +390,9 @@ async fn main() -> Result<()> {
             instance_ids,
             format,
             work_dir,
-            with_symbol_tools,
+            no_symbol_tools,
             no_thinking_guide,
+            verify_retries,
         } => {
             let ids = instance_ids.map(|s| {
                 s.split(',')
@@ -408,10 +413,11 @@ async fn main() -> Result<()> {
                     provider,
                     max_turns,
                     max_tokens,
-                    with_symbol_tools,
+                    with_symbol_tools: !no_symbol_tools,
                     with_thinking_guide: !no_thinking_guide,
                 },
                 timeout_secs: timeout,
+                verify_retries,
             };
             run_swebench(config).await?;
             Ok(())

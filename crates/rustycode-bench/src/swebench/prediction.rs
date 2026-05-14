@@ -7,6 +7,9 @@ use serde::{Deserialize, Serialize};
 pub struct SweBenchPrediction {
     pub instance_id: String,
     pub model_patch: String,
+    /// Number of agent attempts (1 = no retry).
+    #[serde(default)]
+    pub attempts: u32,
 }
 
 /// Load predictions from a JSON or JSONL file.
@@ -41,6 +44,7 @@ pub fn save_predictions(
                 "instance_id": p.instance_id,
                 "model_patch": p.model_patch,
                 "model_name_or_path": model_name,
+                "attempts": p.attempts,
             })
         })
         .collect();
@@ -70,6 +74,7 @@ mod tests {
         let preds = vec![SweBenchPrediction {
             instance_id: "test-1".to_string(),
             model_patch: "diff --git a/file.txt".to_string(),
+            attempts: 1,
         }];
         save_predictions(&preds, &path, "json", "test-model").unwrap();
         let content = std::fs::read_to_string(&path).unwrap();
@@ -85,10 +90,12 @@ mod tests {
             SweBenchPrediction {
                 instance_id: "a".to_string(),
                 model_patch: "p1".to_string(),
+                attempts: 1,
             },
             SweBenchPrediction {
                 instance_id: "b".to_string(),
                 model_patch: "p2".to_string(),
+                attempts: 2,
             },
         ];
         save_predictions(&preds, &path, "jsonl", "model").unwrap();

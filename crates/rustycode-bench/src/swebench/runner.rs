@@ -32,6 +32,147 @@ pub struct SweBenchConfig {
     pub agent_config: CodeAgentConfig,
     /// Wall-clock timeout per instance in seconds.
     pub timeout_secs: u64,
+    /// Max verification retries after agent finishes (default: 1).
+    pub verify_retries: u32,
+}
+
+/// Detected test runner type.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TestRunner {
+    Pytest,
+    Django,
+    Unittest,
+    Unknown,
+}
+
+/// Detect the test runner used by a repo.
+fn detect_test_runner(repo_dir: &Path) -> TestRunner {
+    if repo_dir.join("tests").join("runtests.py").exists()
+        || repo_dir.join("runtests.py").exists()
+        || repo_dir.join("django").is_dir()
+    {
+        TestRunner::Django
+    } else if repo_dir.join("pytest.ini").exists()
+        || repo_dir.join("pyproject.toml").exists()
+        || repo_dir.join("setup.cfg").exists()
+    {
+        TestRunner::Pytest
+    } else if repo_dir.join("tests").is_dir()
+        && !repo_dir.join("pytest.ini").exists()
+        && !repo_dir.join("pyproject.toml").exists()
+        && !repo_dir.join("setup.cfg").exists()
+    {
+        TestRunner::Unittest
+    } else {
+        TestRunner::Unknown
+    }
+}
+
+/// Build a test invocation command for the given runner and test names.
+fn build_test_command(runner: TestRunner, test_names: &[String], repo_dir: &Path) -> Vec<String> {
+    if test_names.is_empty() {
+        return vec![];
+    }
+    match runner {
+        TestRunner::Django => {
+            let runtests = if repo_dir.join("tests").join("runtests.py").exists() {
+                "tests/runtests.py"
+            } else {
+                "runtests.py"
+            };
+            let modules: Vec<String> = test_names
+                .iter()
+                .filter_map(|t| {
+                    if let Some(start) = t.find('(') {
+                        let inner = &t[start + 1..];
+                        let end = inner.find(')').unwrap_or(inner.len());
+                        inner[..end].split('.').next().map(|s| s.to_string())
+                    } else {
+                        Some(t.clone())
+                    }
+                })
+                .collect();
+            let mut cmd = vec!["python3".to_string(), runtests.to_string()];
+            cmd.extend(modules);
+            cmd
+        }
+        TestRunner::Unittest => {
+            let mut cmd = vec![
+                "python3".to_string(),
+                "-m".to_string(),
+                "unittest".to_string(),
+            ];
+            cmd.extend(test_names.iter().cloned());
+            cmd
+        }
+        TestRunner::Pytest | TestRunner::Unknown => {
+            let mut cmd = vec![
+                "python3".to_string(),
+                "-m".to_string(),
+                "pytest".to_string(),
+                "-x".to_string(),
+                "--no-header".to_string(),
+                "-q".to_string(),
+                "--tb".to_string(),
+                "short".to_string(),
+            ];
+            cmd.extend(test_names.iter().cloned());
+            cmd
+        }
+    }
+}
+
+/// Result of running FAIL_TO_PASS tests against a patched repo.
+enum VerifyResult {
+    /// All tests passed.
+    Pass,
+    /// Tests failed — contains truncated output.
+    Fail(String),
+    /// Could not run tests.
+    Error(String),
+    /// No FAIL_TO_PASS tests to run.
+    NoTests,
+}
+
+/// Run FAIL_TO_PASS tests against the patched repo to verify the fix.
+fn verify_patch(repo_dir: &Path, test_names: &[String]) -> VerifyResult {
+    if test_names.is_empty() {
+        return VerifyResult::NoTests;
+    }
+    let runner = detect_test_runner(repo_dir);
+    let cmd_args = build_test_command(runner, test_names, repo_dir);
+    if cmd_args.is_empty() {
+        return VerifyResult::NoTests;
+    }
+    let output = std::process::Command::new(&cmd_args[0])
+        .args(&cmd_args[1..])
+        .current_dir(repo_dir)
+        .env("PYTHONPATH", "..")
+        .output();
+    match output {
+        Ok(out) => {
+            let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+            let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+            let combined = format!("{stdout}\n{stderr}");
+            if out.status.success() {
+                VerifyResult::Pass
+            } else {
+                let truncated = if combined.len() > 4000 {
+                    format!("...\n{}", &combined[combined.len() - 4000..])
+                } else {
+                    combined
+                };
+                VerifyResult::Fail(truncated)
+            }
+        }
+        Err(e) => VerifyResult::Error(e.to_string()),
+    }
+}
+
+/// Result of running a single SWE-bench instance.
+struct InstanceResult {
+    patch: String,
+    attempts: u32,
 }
 
 /// Run SWE-bench predictions.
@@ -78,16 +219,19 @@ pub async fn run_swebench(config: SweBenchConfig) -> Result<Vec<SweBenchPredicti
         );
 
         match run_single_instance(inst, &config).await {
-            Ok(patch) => {
-                let has_patch = !patch.is_empty();
+            Ok(result) => {
+                let has_patch = !result.patch.is_empty();
                 println!(
-                    "  → {} ({} bytes)",
+                    "  → {} ({} bytes, {} attempt{})",
                     if has_patch { "PATCH" } else { "EMPTY" },
-                    patch.len()
+                    result.patch.len(),
+                    result.attempts,
+                    if result.attempts > 1 { "s" } else { "" }
                 );
                 predictions.push(SweBenchPrediction {
                     instance_id: inst.instance_id.clone(),
-                    model_patch: patch,
+                    model_patch: result.patch,
+                    attempts: result.attempts,
                 });
             }
             Err(e) => {
@@ -96,6 +240,7 @@ pub async fn run_swebench(config: SweBenchConfig) -> Result<Vec<SweBenchPredicti
                 predictions.push(SweBenchPrediction {
                     instance_id: inst.instance_id.clone(),
                     model_patch: String::new(),
+                    attempts: 1,
                 });
             }
         }
@@ -126,8 +271,11 @@ pub async fn run_swebench(config: SweBenchConfig) -> Result<Vec<SweBenchPredicti
     Ok(predictions)
 }
 
-/// Run a single SWE-bench instance: clone → agent → diff.
-async fn run_single_instance(inst: &SweBenchInstance, config: &SweBenchConfig) -> Result<String> {
+/// Run a single SWE-bench instance: clone → agent → verify → (retry) → diff.
+async fn run_single_instance(
+    inst: &SweBenchInstance,
+    config: &SweBenchConfig,
+) -> Result<InstanceResult> {
     let instance_dir = config.work_dir.join(&inst.instance_id);
     std::fs::create_dir_all(&instance_dir)?;
 
@@ -183,7 +331,7 @@ async fn run_single_instance(inst: &SweBenchInstance, config: &SweBenchConfig) -
         .status();
 
     // Build file tree for context (saves ~10 turns of exploration)
-    let file_tree = build_file_tree(&clone_dir, 2);
+    let file_tree = build_file_tree(&clone_dir, 3);
 
     // Build hints section if available
     let hints_section = if inst.hints_text.is_empty() {
@@ -192,14 +340,49 @@ async fn run_single_instance(inst: &SweBenchInstance, config: &SweBenchConfig) -
         format!("\n## Hints\n\n{}\n", inst.hints_text)
     };
 
+    // Build test names section — critical for verification
+    let ftp_tests = parse_test_list(&inst.fail_to_pass);
+    let ptp_tests = parse_test_list(&inst.pass_to_pass);
+    let tests_section = if ftp_tests.is_empty() {
+        String::new()
+    } else {
+        let ftp_list = ftp_tests
+            .iter()
+            .map(|t| format!("- {t}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let ptp_info = if ptp_tests.is_empty() {
+            String::new()
+        } else {
+            format!(
+                "\n\n### Tests that must STAY passing (sample)\n{}",
+                ptp_tests
+                    .iter()
+                    .take(10)
+                    .map(|t| format!("- {t}"))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            )
+        };
+        format!(
+            "\n## Tests to Fix (FAIL_TO_PASS)\n\
+             These tests currently FAIL. Your fix must make them PASS.\n\
+             {ftp_list}\
+             {ptp_info}\n"
+        )
+    };
+
     // Build install hint — tells the agent to use the repo's code, not system packages
     let install_hint = if clone_dir.join("setup.py").exists()
         || clone_dir.join("pyproject.toml").exists()
     {
-        "\n5. When testing, ALWAYS use `PYTHONPATH=.. python3 test.py` (or `pip install -e .`) to import from THIS repo, not the system package.\n"
+        "\n- When testing, ALWAYS use `PYTHONPATH=.. python3 test.py` (or `pip install -e .`) to import from THIS repo, not the system package."
     } else {
         ""
     };
+
+    // Detect test runner for the prompt
+    let test_runner_hint = detect_test_runner_hint(&clone_dir);
 
     // Build prompt — honest, no tricks, but includes context to reduce exploration turns
     let prompt = format!(
@@ -207,29 +390,81 @@ async fn run_single_instance(inst: &SweBenchInstance, config: &SweBenchConfig) -
          ## Repository Structure\n\n```\n{file_tree}\n```\n\n\
          ## Issue\n\n{}\n\
          {hints_section}\
+         {tests_section}\
          ## Instructions\n\n\
-         1. Use MULTIPLE tool calls per turn (e.g. read several files at once, or grep + glob together).\n\
-         2. Make minimal, targeted changes to fix the issue.\n\
-         3. Do NOT add tests — only fix the source code.\n\
-         4. Prefer editing over reading — once you understand the bug, fix it immediately.{install_hint}",
+         1. **Reproduce first**: Run the FAIL_TO_PASS tests above to see the exact error.{test_runner_hint}\n\
+         2. **Read relevant code**: Use grep/find_symbol to locate the bug. Read only files related to the error.\n\
+         3. **Make minimal fix**: Edit only the source code needed. Do NOT add or modify tests.\n\
+         4. **Verify**: Re-run the FAIL_TO_PASS tests. If they pass, stop. If not, fix and retry.\n\
+         5. Use MULTIPLE tool calls per turn (e.g. read several files at once, or grep + glob together).{install_hint}",
         inst.problem_statement
     );
 
-    // Create agent via factory (supports code, real, oracle, nop)
-    let agent = crate::config::create_agent(
-        &config.agent_name,
-        &config.agent_config.model,
-        clone_dir.clone(),
-        Some(&config.agent_config.provider),
-        config.agent_config.with_symbol_tools,
-        config.agent_config.with_thinking_guide,
-    )
-    .with_context(|| format!("Failed to create '{}' agent", config.agent_name))?;
+    // Retry loop: initial attempt + optional verification retries
+    let max_attempts = 1u32 + config.verify_retries;
+    let mut current_prompt = prompt;
+    let mut patch = String::new();
+    let mut attempts = 0u32;
 
-    run_agent_with_timeout(agent, &prompt, &clone_dir, config.timeout_secs).await?;
+    for attempt in 0..max_attempts {
+        attempts = attempt + 1;
 
-    // Capture diff
-    capture_diff(&clone_dir)
+        let agent = crate::config::create_agent(
+            &config.agent_name,
+            &config.agent_config.model,
+            clone_dir.clone(),
+            Some(&config.agent_config.provider),
+            config.agent_config.with_symbol_tools,
+            config.agent_config.with_thinking_guide,
+        )
+        .with_context(|| format!("Failed to create '{}' agent", config.agent_name))?;
+
+        if let Err(e) =
+            run_agent_with_timeout(agent, &current_prompt, &clone_dir, config.timeout_secs).await
+        {
+            if attempt == 0 {
+                return Err(e);
+            }
+            tracing::warn!("[{}] Retry {attempts} failed: {e:#}", inst.instance_id);
+            break;
+        }
+
+        patch = capture_diff(&clone_dir)?;
+
+        if patch.is_empty() || attempt + 1 >= max_attempts || ftp_tests.is_empty() {
+            break;
+        }
+
+        // Verify fix against FAIL_TO_PASS tests
+        let verify = verify_patch(&clone_dir, &ftp_tests);
+        match verify {
+            VerifyResult::Pass => {
+                tracing::info!("[{}] Tests PASS on attempt {attempts}", inst.instance_id);
+                break;
+            }
+            VerifyResult::NoTests => break,
+            VerifyResult::Error(msg) => {
+                tracing::warn!("[{}] Verification error: {msg}", inst.instance_id);
+                break;
+            }
+            VerifyResult::Fail(output) => {
+                tracing::info!(
+                    "[{}] Tests FAIL on attempt {attempts}, retrying",
+                    inst.instance_id
+                );
+                current_prompt = format!(
+                    "{current_prompt}\n\n\
+                     ## Verification Result (Attempt {attempts})\n\n\
+                     The FAIL_TO_PASS tests produced the following output:\n\n\
+                     ```\n{output}\n```\n\n\
+                     Please fix the remaining issues. The code already has changes \
+                     from a previous attempt — modify them or make new changes."
+                );
+            }
+        }
+    }
+
+    Ok(InstanceResult { patch, attempts })
 }
 
 /// Run the agent against a workspace directory with a timeout.
@@ -289,6 +524,31 @@ fn capture_diff(repo_dir: &Path) -> Result<String> {
 
 fn truncate(s: &str, max: usize) -> String {
     rustycode_protocol::text::truncate_with_ellipsis(s, max)
+}
+
+/// Parse a JSON-encoded test list from SWE-bench instance fields.
+fn parse_test_list(raw: &str) -> Vec<String> {
+    if raw.is_empty() {
+        return Vec::new();
+    }
+    serde_json::from_str(raw).unwrap_or_else(|_| {
+        raw.split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect()
+    })
+}
+
+/// Detect the test runner and return a prompt hint with the correct invocation.
+fn detect_test_runner_hint(repo_dir: &Path) -> String {
+    match detect_test_runner(repo_dir) {
+        TestRunner::Django => " Use `python3 tests/runtests.py <module>` for Django projects.",
+        TestRunner::Pytest => " Use `python3 -m pytest <test_path>` for pytest projects.",
+        TestRunner::Unittest | TestRunner::Unknown => {
+            " Use `python3 -m pytest` or `python3 -m unittest` as appropriate."
+        }
+    }
+    .to_string()
 }
 
 /// Build a compact file tree (top-level + one level of subdirs) for prompt context.
@@ -364,8 +624,114 @@ mod tests {
             agent_name: "code".to_string(),
             agent_config: CodeAgentConfig::default(),
             timeout_secs: 600,
+            verify_retries: 1,
         };
         assert_eq!(config.format, "json");
         assert_eq!(config.timeout_secs, 600);
+        assert_eq!(config.verify_retries, 1);
+    }
+
+    #[test]
+    fn detect_django_runner() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(tmp.path().join("tests")).unwrap();
+        std::fs::write(tmp.path().join("tests").join("runtests.py"), "").unwrap();
+        assert_eq!(detect_test_runner(tmp.path()), TestRunner::Django);
+    }
+
+    #[test]
+    fn detect_pytest_runner() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("pytest.ini"), "[pytest]\n").unwrap();
+        assert_eq!(detect_test_runner(tmp.path()), TestRunner::Pytest);
+    }
+
+    #[test]
+    fn detect_unittest_runner() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(tmp.path().join("tests")).unwrap();
+        // Has tests/ dir but no pytest or Django markers
+        assert_eq!(detect_test_runner(tmp.path()), TestRunner::Unittest);
+    }
+
+    #[test]
+    fn detect_unknown_runner() {
+        let tmp = tempfile::tempdir().unwrap();
+        assert_eq!(detect_test_runner(tmp.path()), TestRunner::Unknown);
+    }
+
+    #[test]
+    fn build_pytest_command() {
+        let tmp = tempfile::tempdir().unwrap();
+        let names = vec!["tests/test_foo.py::test_bar".to_string()];
+        let cmd = build_test_command(TestRunner::Pytest, &names, tmp.path());
+        assert_eq!(cmd[0], "python3");
+        assert!(cmd.contains(&"-m".to_string()));
+        assert!(cmd.contains(&"pytest".to_string()));
+        assert!(cmd.contains(&"tests/test_foo.py::test_bar".to_string()));
+    }
+
+    #[test]
+    fn build_django_command_extracts_module() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(tmp.path().join("tests")).unwrap();
+        std::fs::write(tmp.path().join("tests").join("runtests.py"), "").unwrap();
+        let names = vec![
+            "test_something (auth.tests.TestAuth)".to_string(),
+            "test_other (contenttypes.tests.TestCT)".to_string(),
+        ];
+        let cmd = build_test_command(TestRunner::Django, &names, tmp.path());
+        assert_eq!(cmd[0], "python3");
+        assert_eq!(cmd[1], "tests/runtests.py");
+        assert!(cmd.contains(&"auth".to_string()));
+        assert!(cmd.contains(&"contenttypes".to_string()));
+    }
+
+    #[test]
+    fn build_unittest_command() {
+        let tmp = tempfile::tempdir().unwrap();
+        let names = vec!["tests.test_foo.TestBar.test_baz".to_string()];
+        let cmd = build_test_command(TestRunner::Unittest, &names, tmp.path());
+        assert_eq!(cmd[0], "python3");
+        assert!(cmd.contains(&"-m".to_string()));
+        assert!(cmd.contains(&"unittest".to_string()));
+        assert!(cmd.contains(&"tests.test_foo.TestBar.test_baz".to_string()));
+    }
+
+    #[test]
+    fn build_test_command_empty_names() {
+        let tmp = tempfile::tempdir().unwrap();
+        let cmd = build_test_command(TestRunner::Pytest, &[], tmp.path());
+        assert!(cmd.is_empty());
+    }
+
+    #[test]
+    fn verify_patch_no_tests() {
+        let tmp = tempfile::tempdir().unwrap();
+        assert!(matches!(
+            verify_patch(tmp.path(), &[]),
+            VerifyResult::NoTests
+        ));
+    }
+
+    #[test]
+    fn parse_test_list_json_array() {
+        let raw = r#"["tests/test_a.py::test_one", "tests/test_a.py::test_two"]"#;
+        let list = parse_test_list(raw);
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[0], "tests/test_a.py::test_one");
+    }
+
+    #[test]
+    fn parse_test_list_comma_separated() {
+        let raw = "test_one, test_two, test_three";
+        let list = parse_test_list(raw);
+        assert_eq!(list.len(), 3);
+    }
+
+    #[test]
+    fn parse_test_list_empty() {
+        let list = parse_test_list("");
+        assert!(list.is_empty());
     }
 }

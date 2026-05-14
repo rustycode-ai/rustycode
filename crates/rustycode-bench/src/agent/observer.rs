@@ -54,7 +54,7 @@ impl AgentEvents for BenchObserver {
                     self.errors += 1;
                 }
             }
-            StreamEvent::Done => {
+            StreamEvent::TurnStarted { .. } => {
                 self.turns += 1;
             }
             StreamEvent::TextDelta { .. } => {
@@ -185,7 +185,7 @@ mod tests {
                 is_error: true,
             })
             .await;
-            obs.on_event(StreamEvent::Done).await;
+            obs.on_event(StreamEvent::TurnStarted { turn: 1 }).await;
             assert_eq!(obs.tool_calls, 2);
             assert_eq!(obs.errors, 1);
             assert_eq!(obs.turns, 1);
