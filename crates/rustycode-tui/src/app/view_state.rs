@@ -71,8 +71,12 @@ impl ViewState {
             if self.scroll_offset_line > max_scroll {
                 self.scroll_offset_line = max_scroll;
             }
+            if self.scroll_offset_line == max_scroll {
+                self.clear_user_scroll();
+            }
         } else {
             self.scroll_offset_line = 0;
+            self.clear_user_scroll();
         }
     }
 }
@@ -147,5 +151,42 @@ mod tests {
         let rect = Rect::new(5, 10, 80, 24);
         vs.messages_area.set(rect);
         assert_eq!(vs.messages_area.get(), rect);
+    }
+
+    #[test]
+    fn clamp_scroll_clears_user_scrolled_at_bottom() {
+        let mut vs = ViewState::new();
+        vs.viewport_height = 10;
+        vs.scroll_offset_line = 95;
+        vs.mark_user_scrolled();
+        assert!(vs.user_scrolled);
+
+        vs.clamp_scroll(100);
+        assert_eq!(vs.scroll_offset_line, 90);
+        assert!(!vs.user_scrolled);
+    }
+
+    #[test]
+    fn clamp_scroll_keeps_user_scrolled_when_not_at_bottom() {
+        let mut vs = ViewState::new();
+        vs.viewport_height = 10;
+        vs.scroll_offset_line = 30;
+        vs.mark_user_scrolled();
+
+        vs.clamp_scroll(100);
+        assert_eq!(vs.scroll_offset_line, 30);
+        assert!(vs.user_scrolled);
+    }
+
+    #[test]
+    fn clamp_scroll_clears_user_scrolled_when_content_fits() {
+        let mut vs = ViewState::new();
+        vs.viewport_height = 100;
+        vs.scroll_offset_line = 50;
+        vs.mark_user_scrolled();
+
+        vs.clamp_scroll(50);
+        assert_eq!(vs.scroll_offset_line, 0);
+        assert!(!vs.user_scrolled);
     }
 }

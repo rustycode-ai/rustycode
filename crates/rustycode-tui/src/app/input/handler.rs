@@ -354,6 +354,15 @@ impl TUI {
                     return Ok(());
                 }
 
+                // Handle theme preview toggle (Ctrl+Shift+T)
+                if key.code == KeyCode::Char('T')
+                    && key.modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT)
+                {
+                    self.theme.theme_preview.toggle();
+                    self.sys.dirty = true;
+                    return Ok(());
+                }
+
                 // Handle tool panel navigation
                 if self.panels.tool_panel.showing_tool_panel && self.handle_tool_panel_input(key)? {
                     return Ok(());

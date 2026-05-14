@@ -3,6 +3,7 @@
 pub mod adapter;
 pub mod events;
 pub mod response;
+pub mod system_prompt;
 pub mod tool_detection;
 pub mod tool_execution;
 

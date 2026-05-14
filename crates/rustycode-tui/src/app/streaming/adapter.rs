@@ -305,6 +305,8 @@ impl StreamEventAdapter {
                 tier, used, limit, ..
             } => {
                 tracing::warn!(tier, used, limit, "context budget exceeded");
+                // Clear stale tool entries on stream end
+                self.active_tools.clear();
                 self.emit(StreamChunk::Error(StreamError::ContextBudgetExceeded));
             }
             OrchestrationEvent::EnsembleStarted {
@@ -330,6 +332,8 @@ impl StreamEventAdapter {
             }
             OrchestrationEvent::StepFailed { signal, .. } => {
                 tracing::warn!(message = %signal.message, "orchestration step failed");
+                // Clear stale tool entries on stream end
+                self.active_tools.clear();
                 self.emit(StreamChunk::Error(StreamError::OrchestrationStepFailed {
                     message: signal.message.clone(),
                 }));
@@ -412,6 +416,8 @@ impl AgentEvents for StreamEventAdapter {
                 self.emit(StreamChunk::SystemMessage(format!("Turn {turn} started")));
             }
             StreamEvent::Done => {
+                // Clear stale tool entries on stream end
+                self.active_tools.clear();
                 self.emit(StreamChunk::Done);
             }
             _ => {}
@@ -637,7 +643,10 @@ impl AgentEvents for StreamEventAdapter {
             .and_then(|rx| rx.recv_timeout(Duration::from_mins(2)).ok())
     }
 
-    async fn on_done(&mut self, _result: &AgentResult) {}
+    async fn on_done(&mut self, _result: &AgentResult) {
+        // Clear stale tool entries on stream end
+        self.active_tools.clear();
+    }
 }
 
 #[cfg(test)]

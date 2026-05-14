@@ -662,15 +662,15 @@ impl BrutalistRenderer<'_> {
 
         let size = frame.area();
 
-        frame.render_widget(Clear, size);
-        let bg = Block::default().style(Style::default().bg(Color::Black));
-        frame.render_widget(bg, size);
-
         let colors = self
             .theme_colors
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .clone();
+
+        frame.render_widget(Clear, size);
+        let bg = Block::default().style(Style::default().bg(colors.background));
+        frame.render_widget(bg, size);
 
         let header_height: u16 = if self.header_collapsed { 0 } else { 1 };
         let footer_height: u16 = if self.footer_collapsed { 0 } else { 1 };
@@ -946,7 +946,7 @@ impl BrutalistRenderer<'_> {
         }
 
         // Content with inline markdown rendering
-        let mut in_code_block = false;
+        let mut code_block_fence: Option<(char, usize)> = None;
         let mut code_block_line_count: usize = 0;
         let mut in_table = false;
 
@@ -980,7 +980,7 @@ impl BrutalistRenderer<'_> {
             let trimmed = content_line.trim();
 
             // Detect markdown table rows: | ... | ... |
-            if !in_code_block
+            if code_block_fence.is_none()
                 && trimmed.starts_with('|')
                 && trimmed.ends_with('|')
                 && trimmed.contains('|')
@@ -1070,35 +1070,40 @@ impl BrutalistRenderer<'_> {
             // Detect code block fences
             let trimmed = content_line.trim();
             if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
-                if in_code_block {
-                    // Close code block — show truncation indicator if lines were hidden
-                    let hidden = code_block_line_count.saturating_sub(MAX_CODE_BLOCK_LINES);
-                    if hidden > 0 {
-                        lines.push(Line::from(vec![
-                            Span::styled("  │ ", Style::default().fg(colors.muted)),
-                            Span::styled(
-                                format!(
-                                    "... {} more line{}",
-                                    hidden,
-                                    if hidden != 1 { "s" } else { "" }
+                let fence_char = if trimmed.starts_with("```") { '`' } else { '~' };
+                let fence_len = trimmed.chars().take_while(|c| *c == fence_char).count();
+                if let Some((open_char, open_len)) = code_block_fence {
+                    if fence_char == open_char && fence_len >= open_len {
+                        // Close code block — show truncation indicator if lines were hidden
+                        let hidden = code_block_line_count.saturating_sub(MAX_CODE_BLOCK_LINES);
+                        if hidden > 0 {
+                            lines.push(Line::from(vec![
+                                Span::styled("  │ ", Style::default().fg(colors.muted)),
+                                Span::styled(
+                                    format!(
+                                        "... {} more line{}",
+                                        hidden,
+                                        if hidden != 1 { "s" } else { "" }
+                                    ),
+                                    Style::default()
+                                        .fg(Color::Rgb(100, 100, 120))
+                                        .add_modifier(Modifier::DIM),
                                 ),
-                                Style::default()
-                                    .fg(Color::Rgb(100, 100, 120))
-                                    .add_modifier(Modifier::DIM),
-                            ),
-                        ]));
+                            ]));
+                        }
+                        code_block_fence = None;
+                        code_block_line_count = 0;
+                        lines.push(Line::from(vec![Span::styled(
+                            "  ╰",
+                            Style::default().fg(colors.muted),
+                        )]));
+                        line_idx += 1;
+                        continue;
                     }
-                    in_code_block = false;
-                    code_block_line_count = 0;
-                    lines.push(Line::from(vec![Span::styled(
-                        "  ╰",
-                        Style::default().fg(colors.muted),
-                    )]));
-                    line_idx += 1;
-                    continue;
+                    // Fence type/length doesn't match — treat as code block content
                 } else {
                     // Open code block — extract language tag
-                    in_code_block = true;
+                    code_block_fence = Some((fence_char, fence_len));
                     code_block_line_count = 0;
                     let lang_str = trimmed.trim_start_matches(['`', '~']).trim();
                     let lang_badge = if lang_str.is_empty() {
@@ -1115,7 +1120,7 @@ impl BrutalistRenderer<'_> {
                 }
             }
 
-            if in_code_block {
+            if code_block_fence.is_some() {
                 code_block_line_count += 1;
                 if code_block_line_count > MAX_CODE_BLOCK_LINES {
                     // Skip lines beyond the limit, but keep counting
@@ -1149,7 +1154,7 @@ impl BrutalistRenderer<'_> {
         }
 
         // Handle unclosed code block — show truncation + close indicator
-        if in_code_block {
+        if code_block_fence.is_some() {
             let hidden = code_block_line_count.saturating_sub(MAX_CODE_BLOCK_LINES);
             if hidden > 0 {
                 lines.push(Line::from(vec![

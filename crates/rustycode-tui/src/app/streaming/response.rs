@@ -405,97 +405,14 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
         ))?
     };
 
-    let mut system_parts = vec![
-        "You are RustyCode, an AI coding assistant.\n\
-        \n\
-        Output complete working code. No placeholders, no TODOs, no explanations of what you would do.\n\
-        \n\
-        - Read files before modifying them\n\
-        - Make targeted changes, not broad refactors\n\
-        - Run tests to verify your changes\n\
-        - Use parallel tool calls when operations are independent\n\
-        - For complex tasks: write code incrementally, verify each step, then continue"
-            .to_string(),
-        workspace_context
-            .map(|context| format!("## Project\n{}", context))
-            .unwrap_or_else(|| "No workspace context available.".to_string()),
-        format!(
-            "Platform: {} | Date: {}",
-            std::env::consts::OS,
-            chrono::Utc::now().format("%Y-%m-%d")
-        ),
-        "Planning mode policy:\n\
-        - If a requested action is blocked by planning mode, say you are stalled, name the blocker briefly, and ask the user to switch to implementation mode with /plan.\n\
-        - If a required instruction file is missing or empty, say so explicitly and stop.\n\
-        - If planning appears complete, say you are ready to switch to implementation mode and wait for the user's confirmation.\n\
-        - Do not silently stop after a blocker; explain the next step."
-            .to_string(),
-    ];
-
-    if let Some(mode) = agent_mode {
-        system_parts.push(mode.system_prompt_suffix().to_string());
-    }
-
-    system_parts.push(
-        "Orchestration tier guidance:\n\
-        - For simple tasks (reading files, listing, searching): proceed directly with available tools.\n\
-        - For complex tasks (refactoring, multi-file changes, debugging): break the task into steps, verify each step, and escalate if stuck.\n\
-        - If you detect you are repeating the same failed approach, switch strategy rather than retrying.\n\
-        - After making changes, always verify (build/test/lint) before declaring success."
-            .to_string(),
-    );
-
-    if let Some(ref guidance) = orchestration_guidance {
-        system_parts.push(guidance.clone());
-    }
-
-    if let Some(ref ctx) = phase_context {
-        system_parts.push(format!("Previous orchestration context:\n{}", ctx));
-    }
-
-    if let Ok(custom_prompt) = std::env::var("RUSTYCODE_SYSTEM_PROMPT") {
-        if !custom_prompt.is_empty() {
-            system_parts.push(custom_prompt);
-        }
-    } else if let Ok(prompt_file) = std::env::var("RUSTYCODE_SYSTEM_PROMPT_FILE") {
-        if !prompt_file.is_empty() {
-            if let Ok(content) = tokio::fs::read_to_string(&prompt_file).await {
-                if !content.trim().is_empty() {
-                    system_parts.push(content);
-                }
-            }
-        }
-    }
-
-    if let Some(cwd_str) = cwd.to_str() {
-        let project_prompt = Path::new(cwd_str).join(".rustycode_system_prompt");
-        if tokio::fs::metadata(&project_prompt).await.is_ok() {
-            if let Ok(content) = tokio::fs::read_to_string(&project_prompt).await {
-                if !content.trim().is_empty() {
-                    system_parts.push(content);
-                }
-            }
-        }
-
-        let agents_md = Path::new(cwd_str).join("AGENTS.md");
-        if tokio::fs::metadata(&agents_md).await.is_ok() {
-            if let Ok(content) = tokio::fs::read_to_string(&agents_md).await {
-                if !content.trim().is_empty() {
-                    system_parts.push(format!("## Project Instructions (AGENTS.md)\n{}", content));
-                }
-            }
-        }
-
-        // Inject memory instructions (project-scoped)
-        let mem_dir = rustycode_memory::memory_dir(Path::new(cwd_str));
-        if let Some(mem_instructions) =
-            rustycode_memory::read_path::build_memory_instructions(&mem_dir)
-        {
-            system_parts.push(mem_instructions);
-        }
-    }
-
-    let system_message = system_parts.join("\n\n");
+    let system_message = super::system_prompt::build_system_prompt(
+        &cwd,
+        workspace_context.as_deref(),
+        agent_mode.as_ref(),
+        orchestration_guidance.as_deref(),
+        phase_context.as_deref(),
+    )
+    .await;
     let mut messages = vec![rustycode_llm::provider::ChatMessage::system(
         system_message.clone(),
     )];

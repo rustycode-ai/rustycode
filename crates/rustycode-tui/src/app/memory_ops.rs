@@ -288,6 +288,7 @@ impl TUI {
                 }
                 self.ui.view.scroll_offset_line = 0;
                 self.ui.view.user_scrolled = false;
+                self.ui.view.last_total_lines.set(0);
 
                 self.sys
                     .compaction

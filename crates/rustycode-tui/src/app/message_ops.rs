@@ -221,6 +221,9 @@ impl TUI {
         if self.ui.view.scroll_offset_line > max_scroll {
             self.ui.view.scroll_offset_line = max_scroll;
         }
+        if self.ui.view.scroll_offset_line == max_scroll {
+            self.ui.view.user_scrolled = false;
+        }
     }
 
     /// Build conversation history from TUI messages for multi-turn LLM context.

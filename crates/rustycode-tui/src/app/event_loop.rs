@@ -1647,14 +1647,24 @@ impl TUI {
             return Ok(());
         }
 
-        if content.contains('\n') {
+        // Strip control characters (NUL, BEL, ESC, etc.) from pasted content,
+        // preserving tab, newline, and carriage return which are legitimate in pastes.
+        let sanitized: String = content
+            .chars()
+            .filter(|c| !c.is_control() || matches!(c, '\t' | '\n' | '\r'))
+            .collect();
+
+        if sanitized.contains('\n') {
             self.ui.input_handler.state.mode = crate::ui::input_state::InputMode::MultiLine;
         }
-        self.ui.input_handler.state.insert_text_at_cursor(content);
+        self.ui
+            .input_handler
+            .state
+            .insert_text_at_cursor(&sanitized);
 
         // Switch to multi-line mode when pasting content with newlines,
         // matching the behavior of the Ctrl+V paste handler.
-        if content.contains('\n') {
+        if sanitized.contains('\n') {
             self.ui.input_handler.state.mode = crate::ui::input_state::InputMode::MultiLine;
             self.sys.input_mode = crate::ui::input_state::InputMode::MultiLine;
         }
@@ -1888,6 +1898,7 @@ impl TUI {
             if let Some(effect) = effect {
                 self.apply_slash_command_effect(effect)?;
                 self.ui.view.user_scrolled = false;
+                self.ui.view.last_total_lines.set(0);
                 self.sys.dirty = true;
                 return Ok(());
             }
@@ -2279,3 +2290,43 @@ pub type AsyncEventSender = mpsc::Sender<AsyncEvent>;
 
 /// Receiver for async events
 pub type AsyncEventReceiver = mpsc::Receiver<AsyncEvent>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bracketed_paste_strips_nul_bytes() {
+        let mut tui = TUI::new_for_test();
+        tui.handle_bracketed_paste("hel\x00lo").unwrap();
+        assert_eq!(tui.ui.input_handler.state.all_text(), "hello");
+    }
+
+    #[test]
+    fn bracketed_paste_preserves_newlines() {
+        let mut tui = TUI::new_for_test();
+        tui.handle_bracketed_paste("line1\nline2").unwrap();
+        assert_eq!(tui.ui.input_handler.state.all_text(), "line1\nline2");
+    }
+
+    #[test]
+    fn bracketed_paste_preserves_tabs() {
+        let mut tui = TUI::new_for_test();
+        tui.handle_bracketed_paste("tab\there").unwrap();
+        assert_eq!(tui.ui.input_handler.state.all_text(), "tab\there");
+    }
+
+    #[test]
+    fn bracketed_paste_strips_c0_controls() {
+        let mut tui = TUI::new_for_test();
+        tui.handle_bracketed_paste("a\x01b\x02c\x07d\x1be").unwrap();
+        assert_eq!(tui.ui.input_handler.state.all_text(), "abcde");
+    }
+
+    #[test]
+    fn bracketed_paste_strips_del_char() {
+        let mut tui = TUI::new_for_test();
+        tui.handle_bracketed_paste("ab\x7fcd").unwrap();
+        assert_eq!(tui.ui.input_handler.state.all_text(), "abcd");
+    }
+}

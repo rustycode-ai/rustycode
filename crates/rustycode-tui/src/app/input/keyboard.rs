@@ -553,12 +553,6 @@ impl TUI {
                 self.overlays.last_esc_press = Some(now);
             }
             // REMOVED: '?' key handler moved to event_loop.rs (early intercept before InputHandler)
-            (KeyCode::Char('t'), KeyModifiers::CONTROL) => {
-                if !self.is_any_overlay_open() || self.theme.theme_preview.is_visible() {
-                    self.theme.theme_preview.toggle();
-                    self.sys.dirty = true;
-                }
-            }
             (KeyCode::Char('t'), KeyModifiers::ALT) => {
                 if let Some(theme) = self.theme.theme_switcher.next_theme() {
                     self.theme
@@ -698,6 +692,7 @@ impl TUI {
             || self.team.worker_panel.visible
             || self.team.team_panel.visible
             || self.model.show_task_dashboard
+            || self.session.session_sidebar.is_visible()
     }
 
     /// Dismiss the topmost overlay (if any). Returns true if one was dismissed.
@@ -832,6 +827,7 @@ mod tests {
     #[test]
     fn test_overlay_open_when_showing_tool_result() {
         let mut tui = TUI::default();
+        tui.session.session_sidebar.hide();
         assert!(!tui.is_any_overlay_open());
         tui.panels.tool_panel.showing_tool_result = true;
         assert!(tui.is_any_overlay_open());
@@ -862,6 +858,15 @@ mod tests {
     fn test_overlay_open_when_task_dashboard_visible() {
         let mut tui = TUI::default();
         tui.model.show_task_dashboard = true;
+        assert!(tui.is_any_overlay_open());
+    }
+
+    #[test]
+    fn test_overlay_open_when_session_sidebar_visible() {
+        let mut tui = TUI::default();
+        tui.session.session_sidebar.hide();
+        assert!(!tui.is_any_overlay_open());
+        tui.session.session_sidebar.show();
         assert!(tui.is_any_overlay_open());
     }
 }

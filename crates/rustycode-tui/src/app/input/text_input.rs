@@ -820,6 +820,7 @@ mod tests {
         let mut tui = TUI::new_for_test();
         // Wizard auto-starts when config is missing (CI has no config)
         tui.session.wizard.showing_wizard = false;
+        tui.session.session_sidebar.hide();
 
         tui.handle_global_shortcut(KeyCode::Char('k'), KeyModifiers::CONTROL)
             .unwrap();
