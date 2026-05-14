@@ -22,35 +22,54 @@ use crate::environment::BenchEnvironment;
 
 pub fn build_tui_system_prompt(cwd: &Path) -> String {
     let mut parts = vec![
+        // ── Identity ──
         "You are RustyCode, an AI coding assistant.\n\
          \n\
-         Output complete working code. No placeholders, no TODOs, no explanations of what you would do.\n\
-         \n\
+         Output complete working code. No placeholders, no TODOs, no explanations of what you would do."
+            .to_string(),
+
+        // ── Core Rules ──
+        "## Core Rules\n\
          - Read files before modifying them\n\
          - Make targeted changes, not broad refactors\n\
          - Run tests to verify your changes\n\
          - Use parallel tool calls when operations are independent\n\
-         - For complex tasks: write code incrementally, verify each step, then continue"
+         - After making changes, always verify (build/test/lint) before declaring success\n\
+         - If repeating the same failed approach, switch strategy rather than retrying"
             .to_string(),
+
         format!(
-            "Platform: {} | Date: {}",
+            "## Environment\nPlatform: {} | Date: {}",
             std::env::consts::OS,
             chrono::Utc::now().format("%Y-%m-%d")
         ),
-        "Orchestration tier guidance:\n\
-         - For simple tasks (reading files, listing, searching): proceed directly with available tools.\n\
-         - For complex tasks (refactoring, multi-file changes, debugging): break the task into steps, verify each step, and escalate if stuck.\n\
-         - If you detect you are repeating the same failed approach, switch strategy rather than retrying.\n\
-         - After making changes, always verify (build/test/lint) before declaring success."
-            .to_string(),
-        "Thinking workflow (mandatory for complex tasks):\n\
-         - Call thinking_guide BEFORE each action to track your reasoning phase.\n\
-         - Phase progression: explore -> locate -> plan -> execute -> done.\n\
-         - NEVER regress to an earlier phase (e.g. from locate back to explore) — it wastes turns.\n\
+
+        // ── Thinking Workflow ──
+        "## Thinking Workflow\n\
+         Call `thinking_guide` BEFORE each action to track your reasoning phase.\n\
+         \n\
+         ### Simple tasks (single bug fix, small change)\n\
+         Flow: explore → locate → plan → execute → done\n\
+         - When confidence >= 85 and past explore, stop reading and start editing.\n\
+         \n\
+         ### Complex tasks (multi-file, refactor, architectural)\n\
+         On your FIRST call, set `scope` to \"complex\" or `phase` to \"scope\".\n\
+         Flow: scope → decompose → expand → revise → execute → verify → done\n\
+         \n\
+         **decompose**: Write a numbered plan with specific items:\n\
+         \"1. Fix auth validation in src/auth.rs\\n2. Update middleware in src/mw.rs\\n3. Add tests\"\n\
+         \n\
+         **expand**: For each item, describe the concrete approach before doing it.\n\
+         \n\
+         **revise**: After learning from reading code, update your plan. Drop items that aren't needed.\n\
+         \n\
+         During execute, follow your plan item by item. Check: does the next item still make sense?\n\
+         \n\
+         ### Warnings and nudges\n\
          - If thinking_guide returns a 'warning', correct course immediately.\n\
-         - If thinking_guide returns a 'nudge', follow its advice (e.g. 'make the edit now').\n\
-         - Respect the turn budget — fewer turns remaining means act faster.\n\
-         - When confidence >= 85 and past explore, stop reading and start editing."
+         - If thinking_guide returns a 'nudge', follow its advice.\n\
+         - If thinking_guide returns 'escalation', narrow scope to the most critical sub-task.\n\
+         - Respect the turn budget — fewer turns remaining means act faster."
             .to_string(),
     ];
 
@@ -128,7 +147,7 @@ impl BenchAgent for TuiBenchAgent {
         let system_prompt = build_tui_system_prompt(&cwd);
         let messages = user_message(instruction);
 
-        let registry = build_bench_registry();
+        let registry = build_bench_registry(true);
         let tools_list = registry.list();
         let schemas: Vec<Value> = build_canonical_tool_schemas(&tools_list);
 
@@ -196,7 +215,8 @@ mod tests {
         let prompt = build_tui_system_prompt(tmp.path());
         assert!(prompt.contains("Platform:"));
         assert!(prompt.contains("RustyCode"));
-        assert!(prompt.contains("Orchestration tier guidance"));
+        assert!(prompt.contains("## Core Rules"));
+        assert!(prompt.contains("## Thinking Workflow"));
     }
 
     #[test]

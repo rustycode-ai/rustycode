@@ -32,6 +32,8 @@ pub struct CodeAgentConfig {
     pub max_tokens: u32,
     /// Enable tree-sitter symbol tools (find_symbol, ts_query, outline_file, code_context).
     pub with_symbol_tools: bool,
+    /// Enable thinking_guide workflow tool (set false for A/B baseline).
+    pub with_thinking_guide: bool,
 }
 
 impl Default for CodeAgentConfig {
@@ -42,6 +44,7 @@ impl Default for CodeAgentConfig {
             max_turns: 30,
             max_tokens: 8192,
             with_symbol_tools: false,
+            with_thinking_guide: true,
         }
     }
 }
@@ -97,17 +100,19 @@ impl BenchAgent for CodeAgent {
             .workspace_path()
             .context("workspace_path required for CodeAgent — use native runner")?;
 
-        // Configure thinking guide with turn budget
-        super::thinking_guide::configure(self.config.max_turns as u32);
+        // Configure thinking guide with turn budget (only if enabled)
+        if self.config.with_thinking_guide {
+            super::thinking_guide::configure(self.config.max_turns as u32);
+        }
 
         let system_prompt = build_tui_system_prompt(&cwd);
         let messages = user_message(instruction);
 
-        // Build tool registry — optionally with symbol tools
+        // Build tool registry — optionally with symbol tools and thinking guide
         let registry = if self.config.with_symbol_tools {
-            build_bench_registry_with_symbol_tools()
+            build_bench_registry_with_symbol_tools(self.config.with_thinking_guide)
         } else {
-            build_bench_registry()
+            build_bench_registry(self.config.with_thinking_guide)
         };
         let tools_list = registry.list();
         let schemas: Vec<Value> = build_canonical_tool_schemas(&tools_list);
@@ -161,7 +166,7 @@ mod tests {
 
     #[test]
     fn build_tool_schemas_has_core_tools() {
-        let registry = build_bench_registry();
+        let registry = build_bench_registry(true);
         let tools_list = registry.list();
         let schemas = build_canonical_tool_schemas(&tools_list);
         let names: Vec<&str> = schemas
@@ -188,8 +193,8 @@ mod tests {
 
     #[test]
     fn symbol_tools_registry_adds_extra_tools() {
-        let base = build_bench_registry();
-        let with_sym = build_bench_registry_with_symbol_tools();
+        let base = build_bench_registry(true);
+        let with_sym = build_bench_registry_with_symbol_tools(true);
 
         // Symbol tools registry should be a superset
         assert!(with_sym.list().len() > base.list().len());
@@ -197,7 +202,7 @@ mod tests {
 
     #[test]
     fn build_tool_schemas_strips_metadata_and_simplifies_null_types() {
-        let registry = build_bench_registry();
+        let registry = build_bench_registry(true);
         let tools_list = registry.list();
         let schemas = build_canonical_tool_schemas(&tools_list);
         for schema in &schemas {

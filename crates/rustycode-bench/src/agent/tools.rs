@@ -15,7 +15,10 @@ use super::thinking_guide::ThinkingGuideTool;
 ///
 /// Uses the same real tools as the TUI. Interactive tools (AskUser, Question)
 /// and LSP tools (no language server in bench containers) are excluded.
-pub fn build_bench_registry() -> ToolRegistry {
+///
+/// When `with_thinking_guide` is true, registers the thinking_guide tool for
+/// workflow phase tracking. Set to false for A/B baseline comparisons.
+pub fn build_bench_registry(with_thinking_guide: bool) -> ToolRegistry {
     let mut registry = ToolRegistry::new();
 
     // File tools — operate on ctx.cwd (workspace path from environment)
@@ -35,8 +38,10 @@ pub fn build_bench_registry() -> ToolRegistry {
     registry.register(GitDiffTool);
     registry.register(GitLogTool);
 
-    // Thinking guide — lightweight workflow nudge
-    registry.register(ThinkingGuideTool::new());
+    // Thinking guide — lightweight workflow nudge (optional for A/B testing)
+    if with_thinking_guide {
+        registry.register(ThinkingGuideTool::new());
+    }
 
     registry
 }
@@ -44,8 +49,8 @@ pub fn build_bench_registry() -> ToolRegistry {
 /// Build a tool registry with tree-sitter symbol tools added.
 ///
 /// Same as [`build_bench_registry`] plus symbol tools for precise code navigation.
-pub fn build_bench_registry_with_symbol_tools() -> ToolRegistry {
-    let mut registry = build_bench_registry();
+pub fn build_bench_registry_with_symbol_tools(with_thinking_guide: bool) -> ToolRegistry {
+    let mut registry = build_bench_registry(with_thinking_guide);
 
     // Symbol tools — tree-sitter based code navigation
     registry.register(FindSymbolTool);

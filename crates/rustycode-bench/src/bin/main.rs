@@ -106,6 +106,10 @@ enum Commands {
         /// Save a formatted report to file (format derived from --output)
         #[arg(long)]
         report: Option<String>,
+
+        /// Disable `thinking_guide` tool (for A/B baseline comparison)
+        #[arg(long, default_value_t = false)]
+        no_thinking_guide: bool,
     },
 
     /// List datasets and tasks
@@ -186,6 +190,10 @@ enum Commands {
         /// Enable tree-sitter symbol tools (`FindSymbol`, `TsQuery`, `OutlineFile`, `CodeContext`)
         #[arg(long, default_value_t = false)]
         with_symbol_tools: bool,
+
+        /// Disable `thinking_guide` tool (for A/B baseline comparison)
+        #[arg(long, default_value_t = false)]
+        no_thinking_guide: bool,
     },
 
     /// Evaluate SWE-bench predictions (apply patches + run tests)
@@ -265,7 +273,9 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::new("info"))
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
         .init();
 
     match cli.command {
@@ -287,6 +297,7 @@ async fn main() -> Result<()> {
             timeout,
             output,
             report,
+            no_thinking_guide,
         } => {
             let dataset_ref = dataset.or(dataset_ref);
             let cfg = if let Some(config_path) = &config {
@@ -317,6 +328,7 @@ async fn main() -> Result<()> {
                     } else {
                         Some(output)
                     },
+                    if no_thinking_guide { Some(true) } else { None },
                 )
             } else {
                 BenchConfig {
@@ -340,6 +352,7 @@ async fn main() -> Result<()> {
                     },
                     output,
                     provider,
+                    no_thinking_guide,
                     ..Default::default()
                 }
             };
@@ -374,6 +387,7 @@ async fn main() -> Result<()> {
             format,
             work_dir,
             with_symbol_tools,
+            no_thinking_guide,
         } => {
             let ids = instance_ids.map(|s| {
                 s.split(',')
@@ -395,6 +409,7 @@ async fn main() -> Result<()> {
                     max_turns,
                     max_tokens,
                     with_symbol_tools,
+                    with_thinking_guide: !no_thinking_guide,
                 },
                 timeout_secs: timeout,
             };
@@ -543,8 +558,16 @@ async fn run_benchmark(cfg: &BenchConfig, report_path: Option<&str>) -> Result<(
     }
 
     let provider_override = cfg.provider.clone();
+    let thinking_guide_enabled = !cfg.no_thinking_guide;
     let agent_factory: AgentFactory = Box::new(move |name: &str, mdl: &str, sol_dir: PathBuf| {
-        create_agent(name, mdl, sol_dir, provider_override.as_deref(), false)
+        create_agent(
+            name,
+            mdl,
+            sol_dir,
+            provider_override.as_deref(),
+            false,
+            thinking_guide_enabled,
+        )
     });
 
     let results = match cfg.env.as_str() {

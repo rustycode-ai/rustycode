@@ -71,6 +71,7 @@ fn code_factory(_name: &str, model: &str, _solution_dir: PathBuf) -> Result<Box<
     let cfg = CodeAgentConfig {
         provider,
         model: model_name,
+        with_thinking_guide: true,
         ..Default::default()
     };
     let agent = CodeAgent::auto(cfg)?;

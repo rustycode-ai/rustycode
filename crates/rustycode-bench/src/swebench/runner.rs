@@ -222,6 +222,7 @@ async fn run_single_instance(inst: &SweBenchInstance, config: &SweBenchConfig) -
         clone_dir.clone(),
         Some(&config.agent_config.provider),
         config.agent_config.with_symbol_tools,
+        config.agent_config.with_thinking_guide,
     )
     .with_context(|| format!("Failed to create '{}' agent", config.agent_name))?;
 

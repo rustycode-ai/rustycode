@@ -91,7 +91,7 @@ impl BenchAgent for RealBenchAgent {
         let mut session = AgentSession::new(config, cwd).with_tier(ToolTier::Full);
 
         // Build registry with real production tools (includes thinking_guide)
-        let registry = build_bench_registry();
+        let registry = build_bench_registry(true);
         let tools_list = registry.list();
         let schemas: Vec<Value> = build_canonical_tool_schemas(&tools_list);
 
@@ -165,7 +165,7 @@ mod tests {
 
     #[test]
     fn bench_registry_has_core_tools() {
-        let reg = build_bench_registry();
+        let reg = build_bench_registry(true);
         let infos = reg.list();
         let names: Vec<&str> = infos.iter().map(|i| i.name.as_str()).collect();
         // File tools
