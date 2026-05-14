@@ -175,9 +175,9 @@ impl<'a> AstPhaseWidget<'a> {
 
         if !self.state.task_summary.is_empty() {
             let max_len = area.width.saturating_sub(3) as usize;
-            let display_summary = if self.state.task_summary.len() > max_len && max_len > 0 {
-                let end = self.state.task_summary.floor_char_boundary(max_len);
-                format!("{}...", &self.state.task_summary[..end])
+            let summary_width = crate::unicode::display_width(&self.state.task_summary);
+            let display_summary = if summary_width > max_len && max_len > 0 {
+                crate::unicode::truncate_display(&self.state.task_summary, max_len)
             } else {
                 self.state.task_summary.clone()
             };

@@ -491,16 +491,10 @@ fn contains_clarification_keywords(sentence: &str) -> bool {
     keywords.iter().any(|kw| lower.contains(*kw))
 }
 
-/// Truncate text to max length with ellipsis
+/// Truncate text to max display width with ellipsis, using display-width-aware
+/// truncation so that wide characters (CJK, emoji) are handled correctly.
 fn truncate_text(text: &str, max_len: usize) -> String {
-    if text.len() <= max_len {
-        text.to_string()
-    } else if max_len > 3 {
-        let trunc_at = text.floor_char_boundary(max_len - 3);
-        format!("{}...", &text[..trunc_at])
-    } else {
-        "...".to_string()
-    }
+    crate::unicode::truncate_display(text, max_len)
 }
 
 #[cfg(test)]

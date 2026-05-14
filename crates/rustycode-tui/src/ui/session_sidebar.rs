@@ -614,9 +614,9 @@ impl SessionSidebar {
     /// Set recovery preview for a session
     pub fn set_recovery_preview(&mut self, session_id: &str, preview: String) {
         if let Some(session) = self.sessions.iter_mut().find(|s| s.id == session_id) {
-            // Truncate preview if too long
-            let truncated = if preview.len() > 500 {
-                format!("{}...", preview.chars().take(497).collect::<String>())
+            // Truncate preview if too long (by display width, not bytes)
+            let truncated = if crate::unicode::display_width(&preview) > 500 {
+                crate::unicode::truncate_display(&preview, 500)
             } else {
                 preview
             };
@@ -636,9 +636,9 @@ impl SessionSidebar {
             session.recovery_file = Some(recovery_file);
             session.crash_time = Some(Instant::now());
 
-            // Truncate preview if too long
-            let truncated = if preview.len() > 500 {
-                format!("{}...", preview.chars().take(497).collect::<String>())
+            // Truncate preview if too long (by display width, not bytes)
+            let truncated = if crate::unicode::display_width(&preview) > 500 {
+                crate::unicode::truncate_display(&preview, 500)
             } else {
                 preview
             };
@@ -954,21 +954,9 @@ impl SessionSidebar {
                 let mut conflict_lines = Vec::new();
 
                 for conflict in active_conflicts {
-                    let file_display = if conflict.path.display().to_string().len() > 20 {
-                        format!(
-                            "...{}",
-                            &conflict
-                                .path
-                                .display()
-                                .to_string()
-                                .chars()
-                                .rev()
-                                .take(17)
-                                .collect::<String>()
-                                .chars()
-                                .rev()
-                                .collect::<String>()
-                        )
+                    let path_str = conflict.path.display().to_string();
+                    let file_display = if crate::unicode::display_width(&path_str) > 20 {
+                        crate::unicode::truncate_display(&path_str, 20)
                     } else {
                         conflict.path.display().to_string()
                     };

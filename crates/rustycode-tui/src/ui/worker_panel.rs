@@ -201,14 +201,7 @@ impl WorkerPanel {
 
                 let task_width = unicode_width::UnicodeWidthStr::width(worker.task.as_str());
                 let task_display = if task_width > 30 {
-                    let truncate_at = worker
-                        .task
-                        .char_indices()
-                        .take_while(|(i, _)| *i < 27)
-                        .last()
-                        .map(|(i, c)| i + c.len_utf8())
-                        .unwrap_or(0);
-                    format!("{}...", &worker.task[..truncate_at])
+                    crate::unicode::truncate_display(&worker.task, 30)
                 } else {
                     worker.task.clone()
                 };

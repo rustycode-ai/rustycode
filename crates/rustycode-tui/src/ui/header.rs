@@ -1,6 +1,6 @@
 //! Polished Header Component
 
-use crate::unicode::display_width;
+use crate::unicode::{display_width, truncate_display};
 use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
@@ -203,7 +203,7 @@ impl Header {
                 status_text.clone(),
                 Style::default().fg(self.status.color()),
             ));
-            used += status_text.len();
+            used += display_width(&status_text);
         }
 
         // AI mode label intentionally not rendered — the header status

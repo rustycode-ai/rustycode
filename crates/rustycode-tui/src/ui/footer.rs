@@ -8,6 +8,8 @@ use ratatui::{
     Frame,
 };
 
+use crate::unicode::display_width;
+
 /// Footer component displaying session metadata
 pub struct Footer {
     /// Session duration (e.g., "2h 34m")
@@ -106,6 +108,9 @@ impl Footer {
 
     /// Render the footer. Width-aware: sections are skipped if they don't fit.
     pub fn render(&self, frame: &mut Frame, area: Rect) {
+        if area.width == 0 {
+            return;
+        }
         let width = area.width as usize;
         let mut spans: Vec<Span> = Vec::new();
         let mut used: usize = 0;
