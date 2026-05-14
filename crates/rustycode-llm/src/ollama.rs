@@ -22,7 +22,7 @@ use crate::provider_metadata::{
     PromptTemplate, ProviderMetadata, ToolCallingMetadata, ToolFormat,
 };
 use crate::route::Route;
-use crate::transport::{HttpSseTransport, HttpTransport};
+use crate::transport::http::HttpTransport;
 use crate::wire::ollama_chat::OllamaChatProtocol;
 
 /// Default Ollama server endpoint.
@@ -80,16 +80,10 @@ impl OllamaProvider {
         let route = Route::new(
             format!("{}/api/chat", base_url),
             Box::new(OllamaChatProtocol),
-            Box::new(crate::transport::fallback::TransportFallback::new(
-                Box::new(
-                    HttpTransport::new(timeout_secs)
-                        .map_err(|e| ProviderError::Configuration(e.to_string()))?,
-                ),
-                Box::new(
-                    HttpSseTransport::new(timeout_secs)
-                        .map_err(|e| ProviderError::Configuration(e.to_string()))?,
-                ),
-            )),
+            Box::new(
+                HttpTransport::new(timeout_secs)
+                    .map_err(|e| ProviderError::Configuration(e.to_string()))?,
+            ),
             Box::new(NoAuth),
         )
         .with_name("ollama-chat");
@@ -832,9 +826,10 @@ mod tests {
         // Content delta
         let line =
             r#"{"message":{"role":"assistant","content":"Hello"},"model":"llama3.2","done":false}"#;
-        let event = protocol.parse_sse_event(line).unwrap();
-        match event {
-            Some(rustycode_protocol::stream_event::StreamEvent::TextDelta { content }) => {
+        let events = protocol.parse_sse_event(line).unwrap();
+        assert_eq!(events.len(), 1);
+        match &events[0] {
+            rustycode_protocol::stream_event::StreamEvent::TextDelta { content } => {
                 assert_eq!(content, "Hello");
             }
             other => panic!("Expected TextDelta, got {:?}", other),
@@ -842,9 +837,10 @@ mod tests {
 
         // Done event
         let done_line = r#"{"message":{"role":"assistant","content":""},"model":"llama3.2","done":true,"prompt_eval_count":10,"eval_count":5}"#;
-        let event = protocol.parse_sse_event(done_line).unwrap();
-        match event {
-            Some(rustycode_protocol::stream_event::StreamEvent::TurnCompleted { stop_reason }) => {
+        let events = protocol.parse_sse_event(done_line).unwrap();
+        assert_eq!(events.len(), 1);
+        match &events[0] {
+            rustycode_protocol::stream_event::StreamEvent::TurnCompleted { stop_reason } => {
                 assert_eq!(stop_reason, "end_turn");
             }
             other => panic!("Expected TurnCompleted, got {:?}", other),

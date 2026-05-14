@@ -85,4 +85,14 @@ pub trait Agent: Send + Sync {
         let _ = task_description;
         true
     }
+
+    /// Called when an agent is added to a session
+    async fn on_boarding(&self, _context: &str) -> Result<()> {
+        Ok(())
+    }
+
+    /// Called when an agent is removed from a session, returns a handoff state
+    async fn on_offboarding(&self) -> Result<String> {
+        Ok(String::new())
+    }
 }

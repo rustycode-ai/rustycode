@@ -3,6 +3,7 @@
 pub mod agent_cmd;
 pub mod ast_cmd;
 pub mod cli_args;
+pub mod ensemble_cmd;
 pub mod harness_cmd;
 pub mod history_cmd;
 pub mod memory;

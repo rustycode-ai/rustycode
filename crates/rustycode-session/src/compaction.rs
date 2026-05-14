@@ -14,6 +14,17 @@ use std::collections::HashMap;
 use std::path::Path;
 use thiserror::Error;
 
+/// Summary of an agent handoff preserved across compaction.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HandoffSummary {
+    /// Agent that produced the handoff.
+    pub from_agent: String,
+    /// Brief description of what was handed off.
+    pub summary: String,
+    /// Whether the handoff was successful.
+    pub success: bool,
+}
+
 // CompactionSnapshot holds WIP state before compaction and is restored after.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompactionSnapshot {
@@ -25,6 +36,9 @@ pub struct CompactionSnapshot {
     pub pending_tool_call: Option<String>,
     pub token_count: usize,
     pub custom_state: HashMap<String, String>,
+    /// Summaries of agent handoffs that should survive compaction.
+    #[serde(default)]
+    pub handoff_summaries: Vec<HandoffSummary>,
 }
 
 impl CompactionSnapshot {
@@ -844,6 +858,11 @@ mod tests {
             pending_tool_call: Some("call_1".to_string()),
             token_count: 42,
             custom_state: HashMap::new(),
+            handoff_summaries: vec![HandoffSummary {
+                from_agent: "builder_1".to_string(),
+                summary: "Fixed auth bug".to_string(),
+                success: true,
+            }],
         };
         let json = serde_json::to_string(&snapshot).unwrap();
         let de: CompactionSnapshot = serde_json::from_str(&json).unwrap();
@@ -864,6 +883,7 @@ mod tests {
             pending_tool_call: None,
             token_count: 5,
             custom_state: HashMap::new(),
+            handoff_summaries: vec![],
         };
         let dir = fs::canonicalize(".").unwrap().join("test_session_snapshot");
         let _ = fs::create_dir_all(&dir);
@@ -873,5 +893,78 @@ mod tests {
         CompactionSnapshot::cleanup(&dir).unwrap();
         let removed = dir.clone().join("compaction-snapshot.json");
         assert!(!removed.exists());
+    }
+
+    #[test]
+    fn test_compaction_snapshot_backward_compat_no_handoff() {
+        // Old snapshots don't have handoff_summaries — should deserialize with empty vec
+        let old_json = r#"{
+            "session_id": "sess_old",
+            "snapshot_at": "2026-01-01T00:00:00Z",
+            "current_task": null,
+            "active_files": {},
+            "pending_changes_summary": null,
+            "pending_tool_call": null,
+            "token_count": 10,
+            "custom_state": {}
+        }"#;
+        let snapshot: CompactionSnapshot = serde_json::from_str(old_json).unwrap();
+        assert_eq!(snapshot.session_id, "sess_old");
+        assert!(snapshot.handoff_summaries.is_empty());
+    }
+
+    #[test]
+    fn test_handoff_summary_serialization() {
+        let summary = HandoffSummary {
+            from_agent: "builder_1".to_string(),
+            summary: "Fixed auth module".to_string(),
+            success: true,
+        };
+        let json = serde_json::to_string(&summary).unwrap();
+        let parsed: HandoffSummary = serde_json::from_str(&json).unwrap();
+        assert!(parsed.success);
+        assert_eq!(parsed.from_agent, "builder_1");
+    }
+
+    #[test]
+    fn compaction_snapshot_with_handoff_summaries() {
+        let snapshot = CompactionSnapshot {
+            session_id: "sess_handoff".to_string(),
+            snapshot_at: Utc::now(),
+            current_task: Some("Multi-agent task".to_string()),
+            active_files: HashMap::new(),
+            pending_changes_summary: None,
+            pending_tool_call: None,
+            token_count: 100,
+            custom_state: HashMap::new(),
+            handoff_summaries: vec![
+                HandoffSummary {
+                    from_agent: "builder_1".to_string(),
+                    summary: "Fixed auth bug".to_string(),
+                    success: true,
+                },
+                HandoffSummary {
+                    from_agent: "tester_1".to_string(),
+                    summary: "Tests passed".to_string(),
+                    success: true,
+                },
+                HandoffSummary {
+                    from_agent: "reviewer_1".to_string(),
+                    summary: "Review failed".to_string(),
+                    success: false,
+                },
+            ],
+        };
+
+        let json = serde_json::to_string_pretty(&snapshot).unwrap();
+        let de: CompactionSnapshot = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(de.session_id, "sess_handoff");
+        assert_eq!(de.handoff_summaries.len(), 3);
+        assert_eq!(de.handoff_summaries[0].from_agent, "builder_1");
+        assert!(de.handoff_summaries[0].success);
+        assert_eq!(de.handoff_summaries[1].summary, "Tests passed");
+        assert!(!de.handoff_summaries[2].success);
+        assert_eq!(de.handoff_summaries[2].from_agent, "reviewer_1");
     }
 }

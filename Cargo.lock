@@ -5855,6 +5855,7 @@ dependencies = [
  "rustycode-protocol",
  "rustycode-tools",
  "rustycode-tools-api",
+ "serde",
  "serde_json",
  "tokio",
  "tracing",

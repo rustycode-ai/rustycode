@@ -1,9 +1,10 @@
-//! RealBenchAgent — thin wrapper delegating to AgentSession with real tools.
+//! RealBenchAgent — thin wrapper delegating to `AgentSession` with real tool
+//! implementations.
 //!
-//! Uses the same tool implementations as the TUI (ReadFileTool, EditFile, etc.)
-//! instead of hand-rolled docker-exec wrappers. For native mode, tools operate
-//! directly on the host workspace. For Docker mode, the environment must provide
-//! a workspace mount so tools can access container files.
+//! Delegates to the shared `AgentSession` loop (same one the TUI uses) but
+//! wires in the full production tool registry so the agent operates on real
+//! files and shells. For Docker mode, the environment must provide a workspace
+//! mount so tools can access container files.
 
 #![cfg(feature = "real-agent")]
 
@@ -12,64 +13,16 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use rustycode_agent_runtime::{AgentConfig, AgentEvents, AgentResult, AgentSession};
+use rustycode_agent_runtime::{AgentConfig, AgentSession};
 use rustycode_llm::provider::{ChatMessage, MessageContent, MessageRole};
-use rustycode_protocol::stream_event::{ApprovalDecision, StreamEvent};
 use rustycode_tools_api::build_canonical_tool_schemas;
 use rustycode_tools_api::tiers::ToolTier;
 use serde_json::Value;
 
+use super::observer::{create_bench_provider, BenchObserver};
 use crate::agent::tools::build_bench_registry;
 use crate::agent::BenchAgent;
 use crate::environment::BenchEnvironment;
-
-// BenchObserver — collects metrics from the agent loop
-
-struct BenchObserver {
-    turns: usize,
-    tool_calls: usize,
-    errors: usize,
-    final_text: String,
-}
-
-impl BenchObserver {
-    fn new() -> Self {
-        Self {
-            turns: 0,
-            tool_calls: 0,
-            errors: 0,
-            final_text: String::new(),
-        }
-    }
-}
-
-#[async_trait]
-impl AgentEvents for BenchObserver {
-    async fn on_event(&mut self, event: StreamEvent) {
-        match event {
-            StreamEvent::ToolCallStarted { .. } => {
-                self.tool_calls += 1;
-            }
-            StreamEvent::ToolExecCompleted { is_error, .. } => {
-                if is_error {
-                    self.errors += 1;
-                }
-            }
-            StreamEvent::Done => {
-                self.turns += 1;
-            }
-            _ => {}
-        }
-    }
-
-    async fn on_approval_needed(&mut self, _tool_name: &str, _input: &Value) -> ApprovalDecision {
-        ApprovalDecision::AutoApproved
-    }
-
-    async fn on_done(&mut self, result: &AgentResult) {
-        self.final_text = result.final_text.clone();
-    }
-}
 
 // System prompt
 
@@ -90,7 +43,7 @@ make test, or whatever test runner the project uses.
 - grep, glob, apply_patch: Code search and patching
 - bash: Run commands (tests, installs, scripts)
 - git_status, git_diff, git_log: Inspect repository state
-- structured_thinking: Decompose complex tasks into steps
+- thinking_guide: Track reasoning phase and get workflow guidance
 
 ## Rules
 - Run tests AFTER every implementation. Do not batch changes without verifying.
@@ -125,6 +78,8 @@ impl BenchAgent for RealBenchAgent {
             .workspace_path()
             .context("workspace_path required for real-agent — use native runner or mount /app/")?;
 
+        super::thinking_guide::configure(self.max_turns as u32);
+
         let config = AgentConfig {
             max_turns: self.max_turns,
             timeout_secs: self.timeout_secs,
@@ -135,7 +90,7 @@ impl BenchAgent for RealBenchAgent {
         };
         let mut session = AgentSession::new(config, cwd).with_tier(ToolTier::Full);
 
-        // Build registry with real production tools (includes structured thinking via feature gate)
+        // Build registry with real production tools (includes thinking_guide)
         let registry = build_bench_registry();
         let tools_list = registry.list();
         let schemas: Vec<Value> = build_canonical_tool_schemas(&tools_list);
@@ -186,77 +141,13 @@ pub fn real_agent_factory(
     _solution_dir: PathBuf,
 ) -> Result<Box<dyn BenchAgent>> {
     let (provider, model_name) = crate::config::resolve_provider_model(model)?;
-    let llm_provider = create_provider(&provider, &model_name)?;
+    let llm_provider = create_bench_provider(&provider, &model_name)?;
     Ok(Box::new(RealBenchAgent {
         provider: llm_provider,
         model: model_name,
         max_turns: 30,
         timeout_secs: 900,
     }) as Box<dyn BenchAgent>)
-}
-
-fn create_provider(provider: &str, model: &str) -> Result<Arc<dyn rustycode_llm::LLMProvider>> {
-    match provider {
-        "anthropic" | "claude" => {
-            let api_key =
-                std::env::var("ANTHROPIC_API_KEY").context("ANTHROPIC_API_KEY not set")?;
-            let config = rustycode_llm::ProviderConfig {
-                api_key: Some(secrecy::SecretString::new(api_key.into())),
-                base_url: std::env::var("ANTHROPIC_BASE_URL").ok(),
-                timeout_seconds: Some(120),
-                extra_headers: None,
-                retry_config: None,
-            };
-            let p = rustycode_llm::AnthropicProvider::new(config, model.to_string())?;
-            Ok(Arc::new(p) as Arc<dyn rustycode_llm::LLMProvider>)
-        }
-        "openai" | "gpt" => {
-            let api_key = std::env::var("OPENAI_API_KEY").context("OPENAI_API_KEY not set")?;
-            let config = rustycode_llm::ProviderConfig {
-                api_key: Some(secrecy::SecretString::new(api_key.into())),
-                base_url: std::env::var("OPENAI_BASE_URL").ok(),
-                timeout_seconds: Some(120),
-                extra_headers: None,
-                retry_config: None,
-            };
-            let p = rustycode_llm::OpenAiProvider::new(config, model.to_string())?;
-            Ok(Arc::new(p) as Arc<dyn rustycode_llm::LLMProvider>)
-        }
-        "gemini" => {
-            let api_key = std::env::var("GOOGLE_API_KEY").context("GOOGLE_API_KEY not set")?;
-            let config = rustycode_llm::ProviderConfig {
-                api_key: Some(secrecy::SecretString::new(api_key.into())),
-                base_url: None,
-                timeout_seconds: Some(120),
-                extra_headers: None,
-                retry_config: None,
-            };
-            let p = rustycode_llm::GeminiProvider::new(config)?;
-            Ok(Arc::new(p) as Arc<dyn rustycode_llm::LLMProvider>)
-        }
-        "zhipu" | "glm" => {
-            // GLM models run via OpenAI-compatible endpoint (e.g. z.ai)
-            let api_key = std::env::var("OPENAI_API_KEY").context("OPENAI_API_KEY not set")?;
-            let base_url = std::env::var("OPENAI_BASE_URL")
-                .ok()
-                .or_else(|| std::env::var("ZHIPU_BASE_URL").ok())
-                .unwrap_or_else(|| "https://open.bigmodel.cn/api/paas/v4".to_string());
-            let config = rustycode_llm::ProviderConfig {
-                api_key: Some(secrecy::SecretString::new(api_key.into())),
-                base_url: Some(base_url),
-                timeout_seconds: Some(120),
-                extra_headers: None,
-                retry_config: None,
-            };
-            let p = rustycode_llm::OpenAiProvider::new(config, model.to_string())?;
-            Ok(Arc::new(p) as Arc<dyn rustycode_llm::LLMProvider>)
-        }
-        other => {
-            anyhow::bail!(
-                "Unsupported provider: '{other}'. Supported: anthropic, openai, gemini, zhipu"
-            )
-        }
-    }
 }
 
 // Tests
@@ -306,42 +197,6 @@ mod tests {
             !names.contains(&"GitCommit"),
             "git_commit should not be registered"
         );
-    }
-
-    #[test]
-    fn observer_counts_events() {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async {
-            let mut obs = BenchObserver::new();
-            obs.on_event(StreamEvent::ToolCallStarted {
-                id: "c1".into(),
-                name: "Bash".into(),
-            })
-            .await;
-            obs.on_event(StreamEvent::ToolExecCompleted {
-                id: "c1".into(),
-                name: "Bash".into(),
-                output: "file.txt".into(),
-                is_error: false,
-            })
-            .await;
-            obs.on_event(StreamEvent::ToolCallStarted {
-                id: "c2".into(),
-                name: "Bash".into(),
-            })
-            .await;
-            obs.on_event(StreamEvent::ToolExecCompleted {
-                id: "c2".into(),
-                name: "Bash".into(),
-                output: "not found".into(),
-                is_error: true,
-            })
-            .await;
-            obs.on_event(StreamEvent::Done).await;
-            assert_eq!(obs.tool_calls, 2);
-            assert_eq!(obs.errors, 1);
-            assert_eq!(obs.turns, 1);
-        });
     }
 
     #[test]

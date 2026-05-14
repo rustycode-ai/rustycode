@@ -220,7 +220,7 @@ pub use zhipu::ZhipuProvider;
 pub use provider::{
     sanitize_error_message, validate_endpoint, ApiMode, ChatMessage, CompletionRequest,
     CompletionResponse, LLMProvider, MessageRole, ProviderConfig, ProviderError, ProviderType,
-    StreamChunk, Usage,
+    StreamChunk, ToolChoice, Usage,
 };
 
 pub use provider_error_policy::{retry_plan_for_error, user_facing_error_for, RetryPlan};

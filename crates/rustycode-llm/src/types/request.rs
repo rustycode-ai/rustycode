@@ -3,6 +3,22 @@ use serde::{Deserialize, Serialize};
 use super::config::{EffortLevel, OutputConfig, ThinkingConfig, ThinkingType};
 use super::message::{ApiMode, ChatMessage, SkillRef};
 
+/// Typed tool choice for controlling how the model selects tools.
+///
+/// Replaces untyped `serde_json::Value` to provide compile-time exhaustiveness
+/// checking. Each variant maps to provider-specific wire formats in the wire layers.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ToolChoice {
+    /// Model decides whether to use tools (default)
+    Auto,
+    /// Model must use at least one tool
+    Required,
+    /// Model must not use any tools
+    None,
+    /// Model must use the specified tool
+    Named(String),
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompletionRequest {
     pub model: String,
@@ -22,10 +38,8 @@ pub struct CompletionRequest {
     /// Contains skill references that enable code execution for document generation.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub container: Option<serde_json::Value>,
-    /// Tool choice: controls how the model selects tools.
-    /// None = provider default, Some("auto")/Some("none")/Some({"type":"any"}) etc.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tool_choice: Option<serde_json::Value>,
+    pub tool_choice: Option<ToolChoice>,
     /// Enable parallel tool calls — model may emit multiple tool_use blocks per turn.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parallel_tool_calls: Option<bool>,
@@ -84,11 +98,7 @@ impl CompletionRequest {
         self
     }
 
-    /// Set tool choice to control how the model selects tools.
-    ///
-    /// Common values: `"auto"` (default), `"required"` (force tool use),
-    /// `"none"` (disable tools), or `{"type": "tool", "name": "Edit"}`.
-    pub fn with_tool_choice(mut self, choice: serde_json::Value) -> Self {
+    pub fn with_tool_choice(mut self, choice: ToolChoice) -> Self {
         self.tool_choice = Some(choice);
         self
     }
@@ -264,5 +274,67 @@ impl CompletionRequest {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tool_choice_serializes_auto() {
+        let tc = ToolChoice::Auto;
+        let json = serde_json::to_string(&tc).unwrap();
+        assert_eq!(json, "\"Auto\"");
+    }
+
+    #[test]
+    fn tool_choice_serializes_required() {
+        let tc = ToolChoice::Required;
+        let json = serde_json::to_string(&tc).unwrap();
+        assert_eq!(json, "\"Required\"");
+    }
+
+    #[test]
+    fn tool_choice_serializes_none_variant() {
+        let tc = ToolChoice::None;
+        let json = serde_json::to_string(&tc).unwrap();
+        assert_eq!(json, "\"None\"");
+    }
+
+    #[test]
+    fn tool_choice_serializes_named() {
+        let tc = ToolChoice::Named("Bash".to_string());
+        let json = serde_json::to_string(&tc).unwrap();
+        assert_eq!(json, "{\"Named\":\"Bash\"}");
+    }
+
+    #[test]
+    fn tool_choice_roundtrip() {
+        let variants = vec![
+            ToolChoice::Auto,
+            ToolChoice::Required,
+            ToolChoice::None,
+            ToolChoice::Named("Edit".to_string()),
+        ];
+        for original in variants {
+            let json = serde_json::to_string(&original).unwrap();
+            let restored: ToolChoice = serde_json::from_str(&json).unwrap();
+            assert_eq!(original, restored);
+        }
+    }
+
+    #[test]
+    fn tool_choice_equality() {
+        assert_eq!(ToolChoice::Auto, ToolChoice::Auto);
+        assert_ne!(ToolChoice::Auto, ToolChoice::Required);
+        assert_eq!(
+            ToolChoice::Named("Read".to_string()),
+            ToolChoice::Named("Read".to_string())
+        );
+        assert_ne!(
+            ToolChoice::Named("Read".to_string()),
+            ToolChoice::Named("Write".to_string())
+        );
     }
 }

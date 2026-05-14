@@ -32,6 +32,9 @@ pub struct OpenAiRequest {
     /// Request usage stats in final streaming chunk
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stream_options: Option<serde_json::Value>,
+    /// Enable tool call streaming (z.ai/GLM providers)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_stream: Option<bool>,
     /// Cache routing key — groups related requests for higher prompt cache hit rates.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prompt_cache_key: Option<String>,

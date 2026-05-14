@@ -10,6 +10,7 @@ use crate::provider::{
 };
 use crate::schema::normalizer::WireFormat;
 use crate::schema::tool_schema::ToolSchema;
+use crate::types::request::ToolChoice;
 use crate::wire::Protocol;
 use rustycode_protocol::stream_event::StreamEvent;
 use rustycode_tools_api::{ToolMetadataProvider, ToolRegistry};
@@ -157,11 +158,11 @@ impl Protocol for AnthropicProtocol {
             ),
             output_config: request.output_config.clone(),
             container: request.container.clone(),
-            tool_choice: request.tool_choice.as_ref().map(|tc| match tc.as_str() {
-                Some("required") => json!({"type": "any"}),
-                Some("auto") => json!({"type": "auto"}),
-                Some("none") => json!({"type": "none"}),
-                _ => tc.clone(),
+            tool_choice: request.tool_choice.as_ref().map(|tc| match tc {
+                ToolChoice::Auto => json!({"type": "auto"}),
+                ToolChoice::Required => json!({"type": "any"}),
+                ToolChoice::None => json!({"type": "none"}),
+                ToolChoice::Named(name) => json!({"type": "tool", "name": name}),
             }),
             parallel_tool_calls: request.parallel_tool_calls,
         };
@@ -299,9 +300,9 @@ impl Protocol for AnthropicProtocol {
         })
     }
 
-    fn parse_sse_event(&self, data: &str) -> Result<Option<StreamEvent>> {
+    fn parse_sse_event(&self, data: &str) -> Result<Vec<StreamEvent>> {
         if data == "[DONE]" {
-            return Ok(Some(StreamEvent::Done));
+            return Ok(vec![StreamEvent::Done]);
         }
 
         let val: Value = serde_json::from_str(data)?;
@@ -313,7 +314,7 @@ impl Protocol for AnthropicProtocol {
             .map_err(|e| anyhow::anyhow!("Anthropic stream state lock poisoned: {e}"))?;
 
         match event_type {
-            Some("message_start") => Ok(None),
+            Some("message_start") => Ok(vec![]),
             Some("content_block_start") => {
                 if let Some(block_obj) = val.get("content_block") {
                     let index = val.get("index").and_then(|i| i.as_u64()).unwrap_or(0) as usize;
@@ -329,16 +330,16 @@ impl Protocol for AnthropicProtocol {
                                 .and_then(|n| n.as_str())
                                 .unwrap_or_default();
                             state.tool_ids_by_index.insert(index, id.to_string());
-                            Ok(Some(StreamEvent::ToolCallStarted {
+                            Ok(vec![StreamEvent::ToolCallStarted {
                                 id: id.to_string(),
                                 name: name.to_string(),
-                            }))
+                            }])
                         }
                         Some("thinking") => {
                             state
                                 .thinking_block_types
                                 .insert(index, "thinking".to_string());
-                            Ok(None)
+                            Ok(vec![])
                         }
                         Some("redacted_thinking") => {
                             state
@@ -350,12 +351,12 @@ impl Protocol for AnthropicProtocol {
                                 .unwrap_or_default()
                                 .to_string();
                             state.redacted_data.insert(index, data);
-                            Ok(None)
+                            Ok(vec![])
                         }
-                        _ => Ok(None),
+                        _ => Ok(vec![]),
                     }
                 } else {
-                    Ok(None)
+                    Ok(vec![])
                 }
             }
             Some("content_block_delta") => {
@@ -368,9 +369,9 @@ impl Protocol for AnthropicProtocol {
                                 .get("text")
                                 .and_then(|t| t.as_str())
                                 .unwrap_or_default();
-                            Ok(Some(StreamEvent::TextDelta {
+                            Ok(vec![StreamEvent::TextDelta {
                                 content: text.to_string(),
-                            }))
+                            }])
                         }
                         Some("input_json_delta") => {
                             let partial = delta
@@ -378,12 +379,12 @@ impl Protocol for AnthropicProtocol {
                                 .and_then(|j| j.as_str())
                                 .unwrap_or_default();
                             if let Some(id) = state.tool_ids_by_index.get(&index) {
-                                Ok(Some(StreamEvent::ToolInputDelta {
+                                Ok(vec![StreamEvent::ToolInputDelta {
                                     id: id.clone(),
                                     chunk: partial.to_string(),
-                                }))
+                                }])
                             } else {
-                                Ok(None)
+                                Ok(vec![])
                             }
                         }
                         Some("thinking_delta") => {
@@ -391,9 +392,9 @@ impl Protocol for AnthropicProtocol {
                                 .get("thinking")
                                 .and_then(|t| t.as_str())
                                 .unwrap_or_default();
-                            Ok(Some(StreamEvent::ThinkingDelta {
+                            Ok(vec![StreamEvent::ThinkingDelta {
                                 content: thinking.to_string(),
-                            }))
+                            }])
                         }
                         Some("signature_delta") => {
                             if let Some(sig) = delta.get("signature").and_then(|s| s.as_str()) {
@@ -403,12 +404,12 @@ impl Protocol for AnthropicProtocol {
                                     .and_modify(|existing| existing.push_str(sig))
                                     .or_insert_with(|| sig.to_string());
                             }
-                            Ok(None)
+                            Ok(vec![])
                         }
-                        _ => Ok(None),
+                        _ => Ok(vec![]),
                     }
                 } else {
-                    Ok(None)
+                    Ok(vec![])
                 }
             }
             Some("content_block_stop") => {
@@ -417,16 +418,18 @@ impl Protocol for AnthropicProtocol {
                 if let Some(block_type) = state.thinking_block_types.remove(&index) {
                     let signature = state.thinking_signatures.remove(&index).unwrap_or_default();
                     let data = state.redacted_data.remove(&index).unwrap_or_default();
-                    Ok(Some(StreamEvent::ThinkingBlockCompleted {
+                    Ok(vec![StreamEvent::ThinkingBlockCompleted {
                         block_type,
                         signature,
                         data,
-                    }))
+                    }])
                 } else {
-                    Ok(None)
+                    Ok(vec![])
                 }
             }
             Some("message_delta") => {
+                let mut events = Vec::new();
+
                 if let Some(usage_val) = val.get("usage") {
                     let input_tokens = usage_val
                         .get("input_tokens")
@@ -437,28 +440,30 @@ impl Protocol for AnthropicProtocol {
                         .and_then(|i| i.as_u64())
                         .unwrap_or(0);
 
-                    if let Some(stop_reason) = val
-                        .get("delta")
-                        .and_then(|d| d.get("stop_reason"))
-                        .and_then(|s| s.as_str())
-                    {
-                        let normalized = crate::provider::normalize_stop_reason(Some(stop_reason))
-                            .unwrap_or_else(|| stop_reason.to_string());
-                        return Ok(Some(StreamEvent::TurnCompleted {
-                            stop_reason: normalized,
-                        }));
+                    if input_tokens > 0 || output_tokens > 0 {
+                        events.push(StreamEvent::TokenUsage {
+                            input_tokens,
+                            output_tokens,
+                        });
                     }
-
-                    Ok(Some(StreamEvent::TokenUsage {
-                        input_tokens,
-                        output_tokens,
-                    }))
-                } else {
-                    Ok(None)
                 }
+
+                if let Some(stop_reason) = val
+                    .get("delta")
+                    .and_then(|d| d.get("stop_reason"))
+                    .and_then(|s| s.as_str())
+                {
+                    let normalized = crate::provider::normalize_stop_reason(Some(stop_reason))
+                        .unwrap_or_else(|| stop_reason.to_string());
+                    events.push(StreamEvent::TurnCompleted {
+                        stop_reason: normalized,
+                    });
+                }
+
+                Ok(events)
             }
-            Some("message_stop") => Ok(Some(StreamEvent::Done)),
-            _ => Ok(None),
+            Some("message_stop") => Ok(vec![StreamEvent::Done]),
+            _ => Ok(vec![]),
         }
     }
 

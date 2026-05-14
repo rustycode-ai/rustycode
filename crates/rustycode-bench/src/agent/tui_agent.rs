@@ -20,7 +20,7 @@ use crate::environment::BenchEnvironment;
 
 // ── System prompt (mirrors TUI's response.rs) ────────────────────────
 
-fn build_tui_system_prompt(cwd: &Path) -> String {
+pub fn build_tui_system_prompt(cwd: &Path) -> String {
     let mut parts = vec![
         "You are RustyCode, an AI coding assistant.\n\
          \n\
@@ -42,6 +42,15 @@ fn build_tui_system_prompt(cwd: &Path) -> String {
          - For complex tasks (refactoring, multi-file changes, debugging): break the task into steps, verify each step, and escalate if stuck.\n\
          - If you detect you are repeating the same failed approach, switch strategy rather than retrying.\n\
          - After making changes, always verify (build/test/lint) before declaring success."
+            .to_string(),
+        "Thinking workflow (mandatory for complex tasks):\n\
+         - Call thinking_guide BEFORE each action to track your reasoning phase.\n\
+         - Phase progression: explore -> locate -> plan -> execute -> done.\n\
+         - NEVER regress to an earlier phase (e.g. from locate back to explore) — it wastes turns.\n\
+         - If thinking_guide returns a 'warning', correct course immediately.\n\
+         - If thinking_guide returns a 'nudge', follow its advice (e.g. 'make the edit now').\n\
+         - Respect the turn budget — fewer turns remaining means act faster.\n\
+         - When confidence >= 85 and past explore, stop reading and start editing."
             .to_string(),
     ];
 
@@ -115,6 +124,7 @@ impl BenchAgent for TuiBenchAgent {
 
         // Mirror TUI: use from_env() for config
         let agent_config = AgentConfig::from_env();
+        super::thinking_guide::configure(agent_config.max_turns as u32);
         let system_prompt = build_tui_system_prompt(&cwd);
         let messages = user_message(instruction);
 

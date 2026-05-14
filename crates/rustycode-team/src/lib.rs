@@ -43,7 +43,9 @@
 pub mod agent_timeline;
 pub mod architect;
 pub mod briefing;
+pub mod consensus;
 pub mod coordinator;
+pub mod ensemble;
 pub mod environment_bootstrap;
 pub mod event_engine;
 pub mod execution_trace;
@@ -61,11 +63,18 @@ pub mod team_status;
 pub mod tmux_viz;
 pub mod tool_generator;
 
+// Multi-agent context forwarding types
+pub mod convergence;
+pub mod team_context;
+
 pub use agent_timeline::{
     AgentState, AgentSummary, AgentTimeline, AgentTimelineSummary, AgentTrack, TaskStatus,
     TimelineEvent,
 };
 pub use architect::ArchitectPhase;
+pub use ensemble::{
+    EnsembleConfig, EnsembleError, EnsembleOrchestrator, EnsembleResult, EnsembleStrategy,
+};
 pub use environment_bootstrap::{ProfileCache, ProjectProfile, ProjectProfiler};
 pub use event_engine::{AgentAction, AgentListener, EventEngine, TeamEventType};
 pub use execution_trace::{

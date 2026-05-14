@@ -40,7 +40,8 @@ mod tests {
         let mut ctx = TaskContext::new("task-1".into(), "request".into());
         ctx.current_tier = 255;
         ctx.escalate();
-        assert_eq!(ctx.current_tier, 255);
+        // Tiers cap at 5 (max tier); 255.saturating_add(1).min(5) == 5
+        assert_eq!(ctx.current_tier, 5);
     }
 
     #[test]

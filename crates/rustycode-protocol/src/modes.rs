@@ -35,6 +35,9 @@ pub enum WorkingMode {
 
     /// Team mode: Multi-agent team collaboration (Architect, Builder, Skeptic, Judge, Scalpel)
     Team,
+
+    /// Ensemble mode: Multiple teams with consensus mechanisms
+    Ensemble,
 }
 
 impl WorkingMode {
@@ -48,6 +51,7 @@ impl WorkingMode {
             WorkingMode::Plan => Self::plan_prompt(),
             WorkingMode::Test => Self::test_prompt(),
             WorkingMode::Team => Self::team_prompt(),
+            WorkingMode::Ensemble => Self::ensemble_prompt(),
         }
     }
 
@@ -61,6 +65,7 @@ impl WorkingMode {
             WorkingMode::Plan => 0.4,        // More creative for planning
             WorkingMode::Test => 0.1,        // Very deterministic for tests
             WorkingMode::Team => 0.15,       // Balanced for team collaboration
+            WorkingMode::Ensemble => 0.15,   // Same as team for consistency
         }
     }
 
@@ -74,6 +79,7 @@ impl WorkingMode {
             WorkingMode::Plan => 10,        // Moderate for planning
             WorkingMode::Test => 15,        // Moderate for testing
             WorkingMode::Team => 50,        // Many iterations for multi-agent workflows
+            WorkingMode::Ensemble => 60,    // Even more for multi-team consensus
         }
     }
 
@@ -86,7 +92,8 @@ impl WorkingMode {
             WorkingMode::Orchestrate => true,
             WorkingMode::Plan => false, // Planning is fast
             WorkingMode::Test => true,
-            WorkingMode::Team => false, // Team mode batches LLM calls
+            WorkingMode::Team => false,     // Team mode batches LLM calls
+            WorkingMode::Ensemble => false, // Ensemble batches across teams
         }
     }
 
@@ -707,6 +714,50 @@ Focus on:
 - **Escalation**: Know when to involve Architect
 - **Efficiency**: Use Scalpel for quick compile fixes"#
     }
+
+    fn ensemble_prompt() -> &'static str {
+        r#"You are an ensemble coordinator managing multiple independent teams.
+
+## Your Role
+- Dispatch sub-tasks to parallel teams
+- Aggregate team results through consensus mechanisms
+- Surface dissenting opinions for human review
+- Track convergence across all teams
+
+## Consensus Strategies
+
+### Simple Majority
+- >50% of teams agree → consensus reached
+- Best for binary decisions (approve/reject)
+
+### Weighted Confidence
+- Each team's vote weighted by confidence score
+- Best for numerical answers with varying certainty
+
+### Unanimous
+- All teams must agree → single dissent blocks
+- Best for critical changes (production config, security)
+
+## Workflow
+
+1. **Decompose Task**: Split into independent sub-tasks
+2. **Dispatch Teams**: Assign sub-tasks to parallel teams
+3. **Collect Results**: Gather TeamContext from each team
+4. **Evaluate Consensus**: Apply chosen strategy
+5. **Report**: Aggregated result with dissenting opinions
+
+## Best Practices
+- Use majority for most tasks
+- Reserve unanimous for high-stakes decisions
+- Always surface dissenting opinions
+- Track token budget across all teams
+
+Focus on:
+- **Parallelism**: Maximize concurrent team execution
+- **Consensus**: Choose appropriate strategy per task
+- **Transparency**: Surface disagreements clearly
+- **Budget**: Monitor aggregate resource usage"#
+    }
 }
 
 impl std::str::FromStr for WorkingMode {
@@ -721,8 +772,9 @@ impl std::str::FromStr for WorkingMode {
             "plan" => Ok(Self::Plan),
             "test" => Ok(Self::Test),
             "team" => Ok(Self::Team),
+            "ensemble" => Ok(Self::Ensemble),
             _ => Err(format!(
-                "Unknown mode: {}. Valid modes: code, debug, ask, orchestrate, plan, test, team",
+                "Unknown mode: {}. Valid modes: code, debug, ask, orchestrate, plan, test, team, ensemble",
                 s
             )),
         }
@@ -739,6 +791,7 @@ impl std::fmt::Display for WorkingMode {
             Self::Plan => write!(f, "plan"),
             Self::Test => write!(f, "test"),
             Self::Team => write!(f, "team"),
+            Self::Ensemble => write!(f, "ensemble"),
         }
     }
 }
@@ -775,5 +828,36 @@ mod tests {
         assert_eq!(WorkingMode::Code.max_iterations(), 20);
         assert_eq!(WorkingMode::Ask.max_iterations(), 5);
         assert_eq!(WorkingMode::Orchestrate.max_iterations(), 30);
+    }
+
+    #[test]
+    fn test_ensemble_mode_from_str() {
+        assert_eq!(
+            WorkingMode::from_str("ensemble").unwrap(),
+            WorkingMode::Ensemble
+        );
+        assert_eq!(
+            WorkingMode::from_str("ENSEMBLE").unwrap(),
+            WorkingMode::Ensemble
+        );
+    }
+
+    #[test]
+    fn test_ensemble_mode_display() {
+        assert_eq!(WorkingMode::Ensemble.to_string(), "ensemble");
+    }
+
+    #[test]
+    fn test_ensemble_mode_properties() {
+        assert_eq!(WorkingMode::Ensemble.temperature(), 0.15);
+        assert_eq!(WorkingMode::Ensemble.max_iterations(), 60);
+        assert!(!WorkingMode::Ensemble.use_streaming());
+    }
+
+    #[test]
+    fn test_ensemble_mode_has_prompt() {
+        let prompt = WorkingMode::Ensemble.system_prompt();
+        assert!(!prompt.is_empty());
+        assert!(prompt.contains("ensemble"));
     }
 }

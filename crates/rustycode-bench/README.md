@@ -12,6 +12,8 @@ Provides a comprehensive benchmarking framework for evaluating autonomous agents
 - `BenchAgent` — Agent abstraction (trait for different agent implementations)
 - `OracleAgent` — Reference agent implementation
 - `CodeAgent` — Autonomous code generation agent
+- `TuiBenchAgent` — Mirrors the TUI runtime path for benchmarking
+- `RealBenchAgent` — Feature-gated agent using real tools (behind `real-agent` feature)
 - `Trial` — Single benchmark task execution
 - `Job` — Manages concurrent trials
 - `TaskConfig` — Harbor task.toml configuration parser
@@ -54,4 +56,3 @@ let results = job.run_trials().await?;
 
 - `rustycode-execution` — Plan execution engine
 - `rustycode-tools` — Tool execution for agents
-- `rustycode-load` — Load testing utilities

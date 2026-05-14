@@ -182,6 +182,10 @@ enum Commands {
         /// Working directory for cloned repos (default: /tmp/swebench-work)
         #[arg(long, default_value = "/tmp/swebench-work")]
         work_dir: PathBuf,
+
+        /// Enable tree-sitter symbol tools (`FindSymbol`, `TsQuery`, `OutlineFile`, `CodeContext`)
+        #[arg(long, default_value_t = false)]
+        with_symbol_tools: bool,
     },
 
     /// Evaluate SWE-bench predictions (apply patches + run tests)
@@ -369,6 +373,7 @@ async fn main() -> Result<()> {
             instance_ids,
             format,
             work_dir,
+            with_symbol_tools,
         } => {
             let ids = instance_ids.map(|s| {
                 s.split(',')
@@ -389,7 +394,7 @@ async fn main() -> Result<()> {
                     provider,
                     max_turns,
                     max_tokens,
-                    ..Default::default()
+                    with_symbol_tools,
                 },
                 timeout_secs: timeout,
             };
@@ -539,7 +544,7 @@ async fn run_benchmark(cfg: &BenchConfig, report_path: Option<&str>) -> Result<(
 
     let provider_override = cfg.provider.clone();
     let agent_factory: AgentFactory = Box::new(move |name: &str, mdl: &str, sol_dir: PathBuf| {
-        create_agent(name, mdl, sol_dir, provider_override.as_deref())
+        create_agent(name, mdl, sol_dir, provider_override.as_deref(), false)
     });
 
     let results = match cfg.env.as_str() {

@@ -72,11 +72,11 @@ impl Protocol for LiteRTProtocol {
         })
     }
 
-    fn parse_sse_event(&self, data: &str) -> Result<Option<StreamEvent>> {
+    fn parse_sse_event(&self, data: &str) -> Result<Vec<StreamEvent>> {
         // LiteRT streaming is just raw text tokens
-        Ok(Some(StreamEvent::TextDelta {
+        Ok(vec![StreamEvent::TextDelta {
             content: data.to_string(),
-        }))
+        }])
     }
 
     fn serialize_tools(&self, _tools: &[ToolSchema]) -> Vec<Value> {

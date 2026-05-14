@@ -1077,19 +1077,6 @@ impl fmt::Display for RiskLevel {
     }
 }
 
-impl fmt::Display for TeamRole {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Builder => write!(f, "builder"),
-            Self::Skeptic => write!(f, "skeptic"),
-            Self::Judge => write!(f, "judge"),
-            Self::Coordinator => write!(f, "coordinator"),
-            Self::Architect => write!(f, "architect"),
-            Self::Scalpel => write!(f, "scalpel"),
-        }
-    }
-}
-
 // STRUCTURED TURNS — typed agent outputs, not free-form prose
 
 /// A single file change with a diff summary, not the full diff.

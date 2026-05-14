@@ -243,35 +243,39 @@ impl Route {
         let stream = self.transport.stream(&self.endpoint, body, headers).await?;
         let protocol = self.protocol.clone_with_fresh_state();
 
-        let event_stream = stream.filter_map(move |line_result: Result<String>| {
-            let protocol = protocol.clone_box();
-            async move {
-                match line_result {
-                    Ok(line) => {
-                        let payload = match line.strip_prefix("data: ") {
-                            Some(data) => data,
-                            None => {
-                                tracing::debug!(
-                                    target: "llm::route",
-                                    line = %line,
-                                    "SSE line dropped (no 'data: ' prefix)"
-                                );
-                                return None;
+        let event_stream = stream
+            .then(move |line_result: Result<String>| {
+                let protocol = protocol.clone_box();
+                async move {
+                    match line_result {
+                        Ok(line) => {
+                            let payload = match line.strip_prefix("data: ") {
+                                Some(data) => data,
+                                None => {
+                                    tracing::debug!(
+                                        target: "llm::route",
+                                        line = %line,
+                                        "SSE line dropped (no 'data: ' prefix)"
+                                    );
+                                    return vec![];
+                                }
+                            };
+                            tracing::debug!(
+                                target: "llm::route",
+                                payload_len = payload.len(),
+                                payload = %if payload.len() > 300 { &payload[..300] } else { payload },
+                                "SSE payload before parse"
+                            );
+                            match protocol.parse_sse_event(payload) {
+                                Ok(events) => events.into_iter().map(Ok).collect(),
+                                Err(e) => vec![Err(e)],
                             }
-                        };
-                        tracing::debug!(
-                            target: "llm::route",
-                            payload_len = payload.len(),
-                            payload = %if payload.len() > 300 { &payload[..300] } else { payload },
-                            "SSE payload before parse"
-                        );
-                        let res: Result<Option<StreamEvent>> = protocol.parse_sse_event(payload);
-                        res.transpose()
+                        }
+                        Err(e) => vec![Err(e)],
                     }
-                    Err(e) => Some(Err(e)),
                 }
-            }
-        });
+            })
+            .flat_map(futures::stream::iter);
 
         Ok(Box::pin(event_stream))
     }

@@ -330,6 +330,7 @@ fn update_ast_phase_state(tui: &mut TUI, result: &ToolResult) {
                         phase_num,
                         "Structured thinking",
                     );
+                    tui.terminal_progress.set_progress(0);
                 } else {
                     tui.panels.ast_phase_state.phase = phase_name.to_string();
                     tui.panels.ast_phase_state.phase_index = phase_num;
@@ -339,8 +340,14 @@ fn update_ast_phase_state(tui: &mut TUI, result: &ToolResult) {
                     .ast_phase_state
                     .update_milestones(confidence, 100);
 
+                if tui.terminal_progress.enabled {
+                    let fraction = tui.panels.ast_phase_state.progress_fraction();
+                    tui.terminal_progress.set_progress((fraction * 100.0) as u8);
+                }
+
                 if !next_needed {
                     tui.panels.ast_phase_state.complete();
+                    tui.terminal_progress.set_progress(100);
                 }
 
                 // Surface loop warning as a system message
@@ -359,6 +366,7 @@ fn update_ast_phase_state(tui: &mut TUI, result: &ToolResult) {
         }
         ToolOutput::Error(_) | ToolOutput::Timeout => {
             tui.panels.ast_phase_state.deactivate();
+            tui.terminal_progress.clear();
         }
     }
 }

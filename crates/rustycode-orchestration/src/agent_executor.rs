@@ -6,6 +6,7 @@
 //! orchestration layer handles tiered planning; the agent handles the thin
 //! tool-calling loop.
 
+use crate::agent_context::AgentContext;
 use crate::bus::OrchestrationEvent;
 use crate::error::{OrchestrationError, Result};
 use crate::musician::ToolExecutor;
@@ -14,7 +15,11 @@ use rustycode_agent_runtime::{
     AgentConfig, AgentEvents, AgentResult, AgentSession, ApprovalDecision, StoppedReason,
 };
 use rustycode_llm::provider::{ChatMessage, LLMProvider, MessageContent, MessageRole};
+use rustycode_protocol::{
+    agent_protocol::AgentRole, cost_budget::CostBudget, tool_scope::ToolScope,
+};
 use rustycode_tools::ToolRegistry;
+use rustycode_tools_api::ToolMetadataProvider;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -290,6 +295,32 @@ impl AgentSessionExecutor {
         self
     }
 
+    /// Build an [`AgentContext`] from this executor's configured state.
+    pub fn build_agent_context(
+        &self,
+        task_id: impl Into<String>,
+        session_id: impl Into<String>,
+        max_tokens: u64,
+        max_cost_usd: f64,
+    ) -> AgentContext {
+        let tool_names: Vec<String> = self
+            .tool_registry
+            .list_tools()
+            .iter()
+            .map(|t| t.name.clone())
+            .collect();
+        AgentContext {
+            task_id: task_id.into(),
+            session_id: session_id.into(),
+            agent_role: AgentRole::Builder,
+            tool_scope: ToolScope::allow_only(tool_names),
+            budget: CostBudget::new(max_tokens, max_cost_usd),
+            conversation_history: vec![],
+            files_in_scope: vec![],
+            reasoning_from_parent: None,
+        }
+    }
+
     pub fn with_interaction(
         mut self,
         interaction: Arc<tokio::sync::Mutex<Option<Arc<dyn crate::pipeline::PipelineInteraction>>>>,
@@ -305,7 +336,6 @@ impl AgentSessionExecutor {
         rustycode_tools_api::build_canonical_tool_schemas(&tools)
     }
 }
-
 #[async_trait::async_trait]
 impl ToolExecutor for AgentSessionExecutor {
     async fn execute(
@@ -318,7 +348,21 @@ impl ToolExecutor for AgentSessionExecutor {
     ) -> Result<StepResult> {
         use std::sync::Arc;
 
+        // Construct context from params (Task 2.11)
+        let _context = AgentContext {
+            task_id: task_id.to_string(),
+            session_id: "N/A".to_string(), // TODO: extract from state
+            agent_role: AgentRole::Builder,
+            tool_scope: ToolScope::full(),
+            budget: CostBudget::new(100_000, 1.0),
+            conversation_history: vec![],
+            files_in_scope: vec![],
+            reasoning_from_parent: None,
+        };
+
         let mut session = AgentSession::new(self.config.clone(), &self.cwd);
+
+        // ... configuration using context ...
 
         // Wire a sync adapter over the async mailbox router for send_message.
         let mailbox = crate::mailbox_router::MailboxRouter::new(self.bus.clone());

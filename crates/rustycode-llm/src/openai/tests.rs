@@ -118,6 +118,7 @@ fn test_openai_request_serialization() {
         thinking: None,
         stream_options: None,
         prompt_cache_key: None,
+        tool_stream: None,
     };
     let json = serde_json::to_string(&request).unwrap();
     assert!(json.contains("\"model\":\"gpt-4o\""));
@@ -152,6 +153,7 @@ fn test_openai_request_serialization_with_tools() {
         thinking: None,
         stream_options: None,
         prompt_cache_key: None,
+        tool_stream: None,
     };
     let json = serde_json::to_string(&request).unwrap();
     assert!(json.contains("\"tools\""));
@@ -185,6 +187,7 @@ fn test_openai_request_reasoning_model() {
         thinking: None,
         stream_options: None,
         prompt_cache_key: None,
+        tool_stream: None,
     };
     let json = serde_json::to_string(&request).unwrap();
     assert!(json.contains("\"model\":\"o4-mini\""));
@@ -211,6 +214,7 @@ fn test_stream_options_included_when_streaming() {
         thinking: None,
         stream_options: Some(serde_json::json!({"include_usage": true})),
         prompt_cache_key: None,
+        tool_stream: None,
     };
     let json = serde_json::to_string(&request).unwrap();
     assert!(json.contains("\"stream_options\""));
@@ -220,6 +224,7 @@ fn test_stream_options_included_when_streaming() {
         stream: Some(false),
         stream_options: None,
         prompt_cache_key: None,
+        tool_stream: None,
         ..request
     };
     let json_no_stream = serde_json::to_string(&request_no_stream).unwrap();
@@ -636,6 +641,7 @@ fn test_openai_request_with_tool_choice() {
         thinking: None,
         stream_options: None,
         prompt_cache_key: None,
+        tool_stream: None,
     };
     let json = serde_json::to_string(&request).unwrap();
     assert!(json.contains("\"tool_choice\":\"auto\""));

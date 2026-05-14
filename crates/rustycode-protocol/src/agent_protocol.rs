@@ -1535,3 +1535,14 @@ mod tests {
         assert_eq!(AgentRole::from(TeamRole::Scalpel), AgentRole::Scalpel);
     }
 }
+
+/// A snapshot of file content relevant to the current task.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileSnippet {
+    /// File path relative to project root.
+    pub path: String,
+    /// The content (may be truncated).
+    pub content: String,
+    /// Line range if truncated.
+    pub line_range: Option<(usize, usize)>,
+}

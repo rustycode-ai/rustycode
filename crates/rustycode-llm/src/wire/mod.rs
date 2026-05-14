@@ -48,9 +48,9 @@ pub trait Protocol: Send + Sync {
     /// Parse a non-streaming JSON response body.
     fn parse_response(&self, body: &Value) -> Result<CompletionResponse>;
 
-    /// Parse a single SSE data line into a stream event.
-    /// Returns None for keep-alive or skip lines.
-    fn parse_sse_event(&self, data: &str) -> Result<Option<StreamEvent>>;
+    /// Parse a single SSE data line into zero or more stream events.
+    /// Returns an empty vec for keep-alive or skip lines.
+    fn parse_sse_event(&self, data: &str) -> Result<Vec<StreamEvent>>;
 
     /// Convert tool definitions into this format's tool schema.
     fn serialize_tools(&self, tools: &[ToolSchema]) -> Vec<Value>;

@@ -381,6 +381,7 @@ impl Session {
             pending_tool_call,
             token_count,
             custom_state,
+            handoff_summaries: vec![],
         })
     }
 
@@ -403,6 +404,23 @@ impl Session {
             restoration.push_str(&format!(" Active files: [{files}]."));
         }
         restoration.push_str(&format!(" Tokens snapshot: {}.", snapshot.token_count));
+
+        // Include handoff summaries so the LLM knows about prior agent handoffs.
+        if !snapshot.handoff_summaries.is_empty() {
+            let summaries: Vec<String> = snapshot
+                .handoff_summaries
+                .iter()
+                .map(|h| {
+                    format!(
+                        "{}: {} ({})",
+                        h.from_agent,
+                        h.summary,
+                        if h.success { "ok" } else { "failed" }
+                    )
+                })
+                .collect();
+            restoration.push_str(&format!(" Handoff summaries: [{}].", summaries.join("; ")));
+        }
 
         self.add_message(Message::system(restoration));
 
@@ -830,6 +848,45 @@ mod tests {
         // Post-compact should insert a system restoration message
         session.post_compact(&snapshot).unwrap();
         assert!(session.message_count() >= 2);
+    }
+
+    #[test]
+    fn test_post_compact_includes_handoff_summaries_in_restoration() {
+        use crate::compaction::HandoffSummary;
+
+        let mut session = Session::new("HandoffTest");
+        session.add_message(Message::user("Hello"));
+
+        let snapshot = CompactionSnapshot {
+            session_id: "sess_handoff".to_string(),
+            snapshot_at: chrono::Utc::now(),
+            current_task: Some("Multi-agent work".to_string()),
+            active_files: std::collections::HashMap::new(),
+            pending_changes_summary: None,
+            pending_tool_call: None,
+            token_count: 50,
+            custom_state: std::collections::HashMap::new(),
+            handoff_summaries: vec![
+                HandoffSummary {
+                    from_agent: "builder_1".to_string(),
+                    summary: "Fixed auth bug".to_string(),
+                    success: true,
+                },
+                HandoffSummary {
+                    from_agent: "reviewer_1".to_string(),
+                    summary: "Review failed".to_string(),
+                    success: false,
+                },
+            ],
+        };
+
+        session.post_compact(&snapshot).unwrap();
+
+        let last_msg = session.last_message().unwrap();
+        let text = last_msg.text();
+        assert!(text.contains("Handoff summaries:"));
+        assert!(text.contains("builder_1: Fixed auth bug (ok)"));
+        assert!(text.contains("reviewer_1: Review failed (failed)"));
     }
 
     #[test]

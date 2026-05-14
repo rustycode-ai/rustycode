@@ -475,6 +475,30 @@ pub enum HarnessCommand {
     },
 }
 
+/// Ensemble multi-team consensus commands
+#[derive(Debug, Subcommand)]
+#[non_exhaustive]
+pub enum EnsembleCommand {
+    /// Run a task through multi-team ensemble with consensus resolution
+    #[command(about = "Run a task through multi-team ensemble with consensus resolution")]
+    Run {
+        /// Task description to execute across teams
+        task: String,
+        /// Number of parallel teams to run (default: 3)
+        #[arg(short = 'n', long, default_value_t = 3)]
+        teams: usize,
+        /// Consensus strategy: majority, unanimous, weighted (default: majority)
+        #[arg(short, long, default_value = "majority")]
+        strategy: String,
+        /// Total token budget across all teams (0 = unlimited)
+        #[arg(short, long, default_value_t = 0)]
+        budget: u64,
+        /// Output format: human (default) or json
+        #[arg(long, default_value = "human")]
+        format: String,
+    },
+}
+
 /// AST (Adaptive Structured Thinking) pipeline commands
 #[derive(Debug, Subcommand)]
 #[non_exhaustive]

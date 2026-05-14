@@ -14,6 +14,7 @@ mod context;
 pub mod event_convert;
 mod intelligence;
 pub mod plugins;
+pub mod provider_context;
 mod session;
 mod tool_exec;
 pub(crate) mod turn;
@@ -24,7 +25,8 @@ pub use intelligence::{
     SymbolRef,
 };
 pub use plugins::{
-    AgentPlugin, ConversationTrace, EarlyStopPolicy, RepetitionDetector, TurnContext,
+    AgentPlugin, ConversationTrace, EarlyStopPolicy, LifecyclePlugin, OffboardingResult,
+    RepetitionDetector, TurnContext,
 };
 pub use rustycode_protocol::stream_event::ApprovalDecision;
 pub use session::{

@@ -164,7 +164,8 @@ pub fn classify_tool(tool_name: &str) -> ToolCapability {
             ToolCapability::Read
         }
         tn::WRITE | "write" | tn::EDIT | "edit" | tn::NOTEBOOK_EDIT => ToolCapability::Write,
-        _ => ToolCapability::Read,
+        tn::BASH | tn::POWERSHELL => ToolCapability::Exec,
+        _ => ToolCapability::Exec,
     }
 }
 

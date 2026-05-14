@@ -31,7 +31,7 @@ use crate::provider::{
 };
 use crate::provider_metadata::{ConfigField, ConfigFieldType, ConfigSchema, ProviderMetadata};
 use crate::route::Route;
-use crate::transport::{HttpSseTransport, HttpTransport};
+use crate::transport::HttpTransport;
 use crate::wire::bedrock::BedrockProtocol;
 
 use anyhow::Result;
@@ -132,7 +132,7 @@ impl BedrockProvider {
         let stream_route = Route::new(
             stream_endpoint,
             Box::new(BedrockProtocol),
-            Box::new(HttpSseTransport::new(timeout)?),
+            Box::new(HttpTransport::new(timeout)?),
             auth,
         )
         .with_name("bedrock-stream");
@@ -345,7 +345,7 @@ impl LLMProvider for BedrockProvider {
             resolved_endpoint,
             self.stream_route.protocol.clone_box(),
             Box::new(
-                HttpSseTransport::new(self.config.timeout_seconds.unwrap_or(DEFAULT_TIMEOUT_SECS))
+                HttpTransport::new(self.config.timeout_seconds.unwrap_or(DEFAULT_TIMEOUT_SECS))
                     .map_err(|e| ProviderError::Configuration(e.to_string()))?,
             ),
             self.stream_route.auth.clone_box(),
@@ -387,6 +387,7 @@ impl LLMProvider for BedrockProvider {
 mod tests {
     use super::*;
     use crate::provider::{ChatMessage, MessageRole};
+    use crate::types::request::ToolChoice;
     use crate::wire::bedrock::BedrockProtocol;
     use crate::wire::Protocol;
     use rustycode_protocol::{ContentBlock, MessageContent};
@@ -517,27 +518,34 @@ mod tests {
 
         // auto
         let req = CompletionRequest::new("test-model", msgs.clone())
-            .with_tool_choice(json!("auto"))
+            .with_tool_choice(ToolChoice::Auto)
             .with_tools(vec![json!({"name": "X"})]);
         let body = protocol.serialize_body(&req, None).unwrap();
         assert_eq!(body["toolConfig"]["toolChoice"], json!({"auto": {}}));
 
         // required
         let req = CompletionRequest::new("test-model", msgs.clone())
-            .with_tool_choice(json!("required"))
+            .with_tool_choice(ToolChoice::Required)
             .with_tools(vec![json!({"name": "X"})]);
         let body = protocol.serialize_body(&req, None).unwrap();
         assert_eq!(body["toolConfig"]["toolChoice"], json!({"any": {}}));
 
         // named tool
-        let req = CompletionRequest::new("test-model", msgs)
-            .with_tool_choice(json!("Bash"))
+        let req = CompletionRequest::new("test-model", msgs.clone())
+            .with_tool_choice(ToolChoice::Named("Bash".to_string()))
             .with_tools(vec![json!({"name": "Bash"})]);
         let body = protocol.serialize_body(&req, None).unwrap();
         assert_eq!(
             body["toolConfig"]["toolChoice"],
             json!({"tool": {"name": "Bash"}})
         );
+
+        // none — toolConfig must be absent
+        let req = CompletionRequest::new("test-model", msgs)
+            .with_tool_choice(ToolChoice::None)
+            .with_tools(vec![json!({"name": "X"})]);
+        let body = protocol.serialize_body(&req, None).unwrap();
+        assert!(body.get("toolConfig").is_none());
     }
 
     #[test]
@@ -571,7 +579,7 @@ mod tests {
         })];
         let request = CompletionRequest::new("test-model", msgs)
             .with_tools(tools)
-            .with_tool_choice(json!("auto"));
+            .with_tool_choice(ToolChoice::Auto);
         let protocol = BedrockProtocol;
         let body = protocol.serialize_body(&request, None).unwrap();
         let body_str = serde_json::to_string(&body).unwrap();

@@ -8,6 +8,7 @@
 use crate::isolation::{ContextBudget, TierIsolation};
 use crate::state_machine::TaskContext;
 use crate::types::ExecutionTier;
+use rustycode_protocol::reasoning_summary::ReasoningSummary;
 use serde::{Deserialize, Serialize};
 
 /// Budget summary included in handoff to inform next tier of remaining resources.
@@ -71,6 +72,9 @@ pub struct HandoffPackage {
     pub budget_summary: Option<BudgetSummary>,
     /// Task ID for tracing.
     pub task_id: String,
+    /// Structured reasoning summary from the previous tier.
+    #[serde(default)]
+    pub reasoning_summary: Option<ReasoningSummary>,
 }
 
 /// A code snippet included in the handoff.
@@ -164,6 +168,7 @@ impl HandoffBuilder {
             previous_assessment: self.previous_assessment,
             budget_summary: self.budget_summary,
             task_id: self.task_id,
+            reasoning_summary: None,
         }
     }
 }
@@ -211,6 +216,7 @@ impl HandoffPackage {
             previous_assessment: assessment,
             budget_summary,
             task_id: ctx.task_id.clone(),
+            reasoning_summary: None,
         }
     }
 

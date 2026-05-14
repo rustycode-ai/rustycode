@@ -79,6 +79,10 @@ pub mod handoff;
 pub mod harness;
 pub mod hook_points;
 pub mod isolation;
+
+// Multi-agent context forwarding types
+pub mod agent_context;
+pub mod agent_outcome;
 pub mod judge;
 pub mod mailbox_router;
 pub mod mailbox_sender;

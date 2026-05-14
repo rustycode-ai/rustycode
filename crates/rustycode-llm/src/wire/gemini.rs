@@ -6,7 +6,7 @@ use serde_json::{json, Value};
 use crate::schema::normalizer::WireFormat;
 use crate::schema::tool_schema::ToolSchema;
 use crate::types::config::OutputFormatType;
-use crate::types::request::CompletionRequest;
+use crate::types::request::{CompletionRequest, ToolChoice};
 use crate::types::response::CompletionResponse;
 use crate::types::streaming::StreamEvent;
 use crate::wire::Protocol;
@@ -41,20 +41,12 @@ impl Protocol for GeminiProtocol {
             }])
         });
 
-        let tool_config = request.tool_choice.as_ref().and_then(|choice| {
-            match choice {
-                Value::String(s) => match s.as_str() {
-                    "auto" => Some(json!({"functionCallingConfig": {"mode": "AUTO"}})),
-                    "none" => Some(json!({"functionCallingConfig": {"mode": "NONE"}})),
-                    "required" => Some(json!({"functionCallingConfig": {"mode": "ANY"}})),
-                    _ => None,
-                },
-                Value::Object(map) => {
-                    map.get("name")
-                        .and_then(|v| v.as_str())
-                        .map(|name| json!({"functionCallingConfig": {"mode": "ANY", "allowedFunctionNames": [name]}}))
-                }
-                _ => None,
+        let tool_config = request.tool_choice.as_ref().map(|tc| match tc {
+            ToolChoice::Auto => json!({"functionCallingConfig": {"mode": "AUTO"}}),
+            ToolChoice::None => json!({"functionCallingConfig": {"mode": "NONE"}}),
+            ToolChoice::Required => json!({"functionCallingConfig": {"mode": "ANY"}}),
+            ToolChoice::Named(name) => {
+                json!({"functionCallingConfig": {"mode": "ANY", "allowedFunctionNames": [name]}})
             }
         });
 
@@ -195,7 +187,7 @@ impl Protocol for GeminiProtocol {
         })
     }
 
-    fn parse_sse_event(&self, data: &str) -> Result<Option<StreamEvent>> {
+    fn parse_sse_event(&self, data: &str) -> Result<Vec<StreamEvent>> {
         let val: Value = match serde_json::from_str(data) {
             Ok(v) => v,
             Err(e) => {
@@ -215,9 +207,9 @@ impl Protocol for GeminiProtocol {
             .and_then(|r| r.as_str())
         {
             tracing::warn!(target: "llm::gemini", block_reason, "Gemini promptFeedback block");
-            return Ok(Some(StreamEvent::TurnCompleted {
+            return Ok(vec![StreamEvent::TurnCompleted {
                 stop_reason: block_reason.to_string(),
-            }));
+            }]);
         }
 
         if let Some(candidates) = val.get("candidates").and_then(|c| c.as_array()) {
@@ -230,17 +222,17 @@ impl Protocol for GeminiProtocol {
                     for part in parts {
                         if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
                             if !text.is_empty() {
-                                return Ok(Some(StreamEvent::TextDelta {
+                                return Ok(vec![StreamEvent::TextDelta {
                                     content: text.to_string(),
-                                }));
+                                }]);
                             }
                         }
                         if let Some(fc) = part.get("functionCall") {
                             let name = fc.get("name").and_then(|n| n.as_str()).unwrap_or("unknown");
-                            return Ok(Some(StreamEvent::ToolCallStarted {
+                            return Ok(vec![StreamEvent::ToolCallStarted {
                                 id: format!("call_{}", name),
                                 name: name.to_string(),
-                            }));
+                            }]);
                         }
                     }
                 }
@@ -252,9 +244,9 @@ impl Protocol for GeminiProtocol {
                         finish_reason,
                         "Gemini finishReason received"
                     );
-                    return Ok(Some(StreamEvent::TurnCompleted {
+                    return Ok(vec![StreamEvent::TurnCompleted {
                         stop_reason: finish_reason.to_string(),
-                    }));
+                    }]);
                 }
             }
         }
@@ -274,19 +266,19 @@ impl Protocol for GeminiProtocol {
                 output_tokens = output,
                 "Gemini usageMetadata"
             );
-            return Ok(Some(StreamEvent::TokenUsage {
+            return Ok(vec![StreamEvent::TokenUsage {
                 input_tokens: input,
                 output_tokens: output,
-            }));
+            }]);
         }
 
         tracing::debug!(
             target: "llm::gemini",
             keys = ?val.as_object().map(|o| o.keys().collect::<Vec<_>>()),
-            "Gemini SSE event matched no handler → returning None"
+            "Gemini SSE event matched no handler → returning empty"
         );
 
-        Ok(None)
+        Ok(vec![])
     }
 
     fn serialize_tools(&self, tools: &[ToolSchema]) -> Vec<Value> {

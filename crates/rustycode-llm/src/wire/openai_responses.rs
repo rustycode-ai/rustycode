@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use crate::schema::normalizer::WireFormat;
 use crate::schema::tool_schema::ToolSchema;
-use crate::types::request::CompletionRequest;
+use crate::types::request::{CompletionRequest, ToolChoice};
 use crate::types::response::CompletionResponse;
 use crate::types::streaming::StreamEvent;
 use crate::wire::Protocol;
@@ -106,7 +106,14 @@ impl Protocol for OpenAIResponsesProtocol {
             max_output_tokens: request.max_tokens,
             stream: Some(request.stream),
             previous_response_id: prev_id,
-            tool_choice: request.tool_choice.clone(),
+            tool_choice: request.tool_choice.as_ref().map(|tc| match tc {
+                ToolChoice::Auto => json!("auto"),
+                ToolChoice::Required => json!("required"),
+                ToolChoice::None => json!("none"),
+                ToolChoice::Named(name) => {
+                    json!({"type": "function", "function": {"name": name}})
+                }
+            }),
             parallel_tool_calls: request.parallel_tool_calls,
             reasoning,
             include,
@@ -129,21 +136,10 @@ impl Protocol for OpenAIResponsesProtocol {
             .map_err(|e| anyhow::anyhow!(e))
     }
 
-    fn parse_sse_event(&self, data: &str) -> Result<Option<StreamEvent>> {
-        // Responses API SSE format is different from Chat Completions.
-        // It uses `event: ...` lines.
-        // The existing `parse_responses_sse_lines` handles a batch of lines.
-        // For a single event string, we can try to wrap it.
-
+    fn parse_sse_event(&self, data: &str) -> Result<Vec<StreamEvent>> {
         let state = ResponsesSseState::default();
         let events = crate::openai_compatible::parse_responses_sse_lines(data, &state);
-
-        // Return the first successful event
-        if let Some(ev) = events.into_iter().flatten().next() {
-            return Ok(Some(ev));
-        }
-
-        Ok(None)
+        Ok(events.into_iter().flatten().collect())
     }
 
     fn serialize_tools(&self, tools: &[ToolSchema]) -> Vec<Value> {

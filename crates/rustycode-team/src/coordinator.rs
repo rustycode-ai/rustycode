@@ -10,9 +10,12 @@
 //! - Rotates builders on repeated failure
 //! - Escalates to the user when needed
 
+use rustycode_protocol::reasoning_summary::Insight;
 use rustycode_protocol::team::*;
 use rustycode_protocol::ConvoyPlan; // Added
 use std::path::{Path, PathBuf};
+
+use crate::convergence::ConvergenceView;
 use tracing::warn;
 
 /// The team coordinator. Manages the execution loop.
@@ -399,6 +402,39 @@ impl Coordinator {
             && recent
                 .iter()
                 .all(|a| !matches!(a.outcome, AttemptOutcome::Success))
+    }
+
+    /// Build a [`ConvergenceView`] from this coordinator's accumulated state.
+    pub fn to_convergence_view(&self) -> ConvergenceView {
+        let success_count = self
+            .attempt_log
+            .iter()
+            .filter(|a| matches!(a.outcome, AttemptOutcome::Success))
+            .count();
+        let total = self.attempt_log.len();
+        let convergence_achieved = success_count > 0;
+
+        let max_confidence = if total == 0 {
+            0.0
+        } else {
+            (success_count as f64 / total as f64).min(1.0)
+        };
+
+        let top_insights: Vec<Insight> = self
+            .insights
+            .iter()
+            .enumerate()
+            .map(|(i, s)| Insight::new(s.clone(), max_confidence, "team_coordinator", i))
+            .collect();
+
+        ConvergenceView {
+            team_count: 1,
+            max_confidence,
+            mean_confidence: max_confidence,
+            top_insights,
+            dissenting_opinions: vec![],
+            convergence_achieved,
+        }
     }
 }
 

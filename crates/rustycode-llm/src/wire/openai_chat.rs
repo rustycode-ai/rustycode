@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 
 use crate::schema::normalizer::WireFormat;
 use crate::schema::tool_schema::ToolSchema;
-use crate::types::request::CompletionRequest;
+use crate::types::request::{CompletionRequest, ToolChoice};
 use crate::types::response::{CompletionResponse, ThinkingBlock};
 use crate::types::streaming::StreamEvent;
 use crate::wire::Protocol;
@@ -58,7 +58,14 @@ impl Protocol for OpenAIChatProtocol {
                 .and_then(|c| c.effort.as_ref()),
             Some(request.stream),
             request.output_config.as_ref(),
-            request.tool_choice.clone(),
+            request.tool_choice.as_ref().map(|tc| match tc {
+                ToolChoice::Auto => json!("auto"),
+                ToolChoice::Required => json!("required"),
+                ToolChoice::None => json!("none"),
+                ToolChoice::Named(name) => {
+                    json!({"type": "function", "function": {"name": name}})
+                }
+            }),
             request.parallel_tool_calls,
             request.session_id.as_ref(),
             request.thinking.as_ref(),
@@ -135,16 +142,12 @@ impl Protocol for OpenAIChatProtocol {
         })
     }
 
-    fn parse_sse_event(&self, data: &str) -> Result<Option<StreamEvent>> {
+    fn parse_sse_event(&self, data: &str) -> Result<Vec<StreamEvent>> {
         if data == "[DONE]" {
-            return Ok(Some(StreamEvent::Done));
+            return Ok(vec![StreamEvent::Done]);
         }
 
         let val: Value = serde_json::from_str(data)?;
-
-        // Use existing helper if possible, but it returns a Vec<Result<StreamEvent, ProviderError>>
-        // which might be overkill for a single SSE event.
-        // For now, I'll just implement the logic directly or wrap the helper.
 
         if let Some(choices) = val.get("choices").and_then(|c| c.as_array()) {
             if let Some(choice) = choices.first() {
@@ -152,9 +155,9 @@ impl Protocol for OpenAIChatProtocol {
                     // Content
                     if let Some(content) = delta.get("content").and_then(|c| c.as_str()) {
                         if !content.is_empty() {
-                            return Ok(Some(StreamEvent::TextDelta {
+                            return Ok(vec![StreamEvent::TextDelta {
                                 content: content.to_string(),
-                            }));
+                            }]);
                         }
                     }
 
@@ -162,44 +165,55 @@ impl Protocol for OpenAIChatProtocol {
                     for key in ["reasoning_content", "reasoning"] {
                         if let Some(reasoning) = delta.get(key).and_then(|r| r.as_str()) {
                             if !reasoning.is_empty() {
-                                return Ok(Some(StreamEvent::ThinkingDelta {
+                                return Ok(vec![StreamEvent::ThinkingDelta {
                                     content: reasoning.to_string(),
-                                }));
+                                }]);
                             }
                         }
                     }
 
-                    // Tool calls
+                    // Tool calls — providers may send multiple tool calls per chunk
+                    // (z.ai bundles id+name+arguments; OpenAI sends incremental deltas).
                     if let Some(tool_calls) = delta.get("tool_calls").and_then(|tc| tc.as_array()) {
-                        if let Some(tc_delta) = tool_calls.first() {
-                            if let Some(id) = tc_delta.get("id").and_then(|i| i.as_str()) {
+                        let mut events = Vec::new();
+                        for tc_delta in tool_calls {
+                            let has_id = tc_delta.get("id").and_then(|i| i.as_str());
+                            let arguments = tc_delta
+                                .get("function")
+                                .and_then(|f| f.get("arguments"))
+                                .and_then(|a| a.as_str())
+                                .unwrap_or("");
+
+                            if let Some(id) = has_id {
                                 let name = tc_delta
                                     .get("function")
                                     .and_then(|f| f.get("name"))
                                     .and_then(|n| n.as_str())
                                     .unwrap_or_default();
-                                return Ok(Some(StreamEvent::ToolCallStarted {
+
+                                events.push(StreamEvent::ToolCallStarted {
                                     id: id.to_string(),
                                     name: name.to_string(),
-                                }));
-                            }
-                            if let Some(partial) = tc_delta
-                                .get("function")
-                                .and_then(|f| f.get("arguments"))
-                                .and_then(|a| a.as_str())
-                            {
-                                if !partial.is_empty() {
-                                    // Id is not in the delta if it's a subsequent chunk.
-                                    // High-level caller handles mapping index to id.
-                                    // We use the index as a placeholder.
-                                    let index =
-                                        tc_delta.get("index").and_then(|i| i.as_u64()).unwrap_or(0);
-                                    return Ok(Some(StreamEvent::ToolInputDelta {
-                                        id: index.to_string(),
-                                        chunk: partial.to_string(),
-                                    }));
+                                });
+                                // z.ai: id + non-empty arguments in one chunk
+                                if !arguments.is_empty() {
+                                    events.push(StreamEvent::ToolInputDelta {
+                                        id: id.to_string(),
+                                        chunk: arguments.to_string(),
+                                    });
                                 }
+                            } else if !arguments.is_empty() {
+                                // Subsequent chunks: incremental arguments via index
+                                let index =
+                                    tc_delta.get("index").and_then(|i| i.as_u64()).unwrap_or(0);
+                                events.push(StreamEvent::ToolInputDelta {
+                                    id: index.to_string(),
+                                    chunk: arguments.to_string(),
+                                });
                             }
+                        }
+                        if !events.is_empty() {
+                            return Ok(events);
                         }
                     }
                 }
@@ -207,9 +221,9 @@ impl Protocol for OpenAIChatProtocol {
                 if let Some(finish_reason) = choice.get("finish_reason").and_then(|f| f.as_str()) {
                     let reason = crate::provider::normalize_stop_reason(Some(finish_reason))
                         .unwrap_or_else(|| finish_reason.to_string());
-                    return Ok(Some(StreamEvent::TurnCompleted {
+                    return Ok(vec![StreamEvent::TurnCompleted {
                         stop_reason: reason,
-                    }));
+                    }]);
                 }
             }
         }
@@ -223,13 +237,13 @@ impl Protocol for OpenAIChatProtocol {
                 .get("completion_tokens")
                 .and_then(|t| t.as_u64())
                 .unwrap_or(0);
-            return Ok(Some(StreamEvent::TokenUsage {
+            return Ok(vec![StreamEvent::TokenUsage {
                 input_tokens: input,
                 output_tokens: output,
-            }));
+            }]);
         }
 
-        Ok(None)
+        Ok(vec![])
     }
 
     fn serialize_tools(&self, tools: &[ToolSchema]) -> Vec<Value> {
@@ -463,6 +477,8 @@ impl OpenAIChatProtocol {
             None
         };
 
+        let has_tools = !tools.is_empty();
+
         OpenAiRequest {
             model,
             messages,
@@ -471,6 +487,11 @@ impl OpenAIChatProtocol {
             max_completion_tokens,
             stream,
             tools: if tools.is_empty() { None } else { Some(tools) },
+            tool_stream: if stream == Some(true) && has_tools {
+                Some(true)
+            } else {
+                None
+            },
             tool_choice,
             parallel_tool_calls,
             reasoning_effort,
@@ -479,5 +500,214 @@ impl OpenAIChatProtocol {
             stream_options,
             prompt_cache_key: session_id.cloned(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rustycode_protocol::stream_event::StreamEvent;
+
+    #[test]
+    fn single_chunk_tool_call_with_arguments() {
+        // z.ai sends id + name + arguments all in one chunk
+        let payload = r#"{"choices":[{"delta":{"tool_calls":[{"id":"call_123","index":0,"type":"function","function":{"name":"read_file","arguments":"{\"path\":\"/tmp/test.txt\"}"}}]}}]}"#;
+        let protocol = OpenAIChatProtocol;
+        let events = protocol.parse_sse_event(payload).unwrap();
+        assert_eq!(events.len(), 2);
+        assert!(matches!(
+            &events[0],
+            StreamEvent::ToolCallStarted { id, name }
+            if id == "call_123" && name == "read_file"
+        ));
+        assert!(matches!(
+            &events[1],
+            StreamEvent::ToolInputDelta { id, chunk }
+            if id == "call_123" && chunk == r#"{"path":"/tmp/test.txt"}"#
+        ));
+    }
+
+    #[test]
+    fn multiple_tool_calls_in_one_chunk() {
+        // z.ai can send multiple tool calls in a single chunk
+        let payload = r#"{"choices":[{"delta":{"tool_calls":[{"id":"call_1","index":0,"type":"function","function":{"name":"read_file","arguments":"{\"path\":\"/tmp/a.txt\"}"}},{"id":"call_2","index":1,"type":"function","function":{"name":"bash","arguments":"{\"command\":\"ls\"}"}}]}}]}"#;
+        let protocol = OpenAIChatProtocol;
+        let events = protocol.parse_sse_event(payload).unwrap();
+        assert_eq!(events.len(), 4);
+        // Tool call 1: started + delta
+        assert!(matches!(
+            &events[0],
+            StreamEvent::ToolCallStarted { id, name }
+            if id == "call_1" && name == "read_file"
+        ));
+        assert!(matches!(
+            &events[1],
+            StreamEvent::ToolInputDelta { id, chunk }
+            if id == "call_1" && chunk == r#"{"path":"/tmp/a.txt"}"#
+        ));
+        // Tool call 2: started + delta
+        assert!(matches!(
+            &events[2],
+            StreamEvent::ToolCallStarted { id, name }
+            if id == "call_2" && name == "bash"
+        ));
+        assert!(matches!(
+            &events[3],
+            StreamEvent::ToolInputDelta { id, chunk }
+            if id == "call_2" && chunk == r#"{"command":"ls"}"#
+        ));
+    }
+
+    #[test]
+    fn openai_style_tool_call_first_chunk_empty_args() {
+        // OpenAI sends id + name with empty arguments first
+        let payload = r#"{"choices":[{"delta":{"tool_calls":[{"id":"call_456","index":0,"type":"function","function":{"name":"bash","arguments":""}}]}}]}"#;
+        let protocol = OpenAIChatProtocol;
+        let events = protocol.parse_sse_event(payload).unwrap();
+        assert_eq!(events.len(), 1);
+        assert!(matches!(
+            &events[0],
+            StreamEvent::ToolCallStarted { id, name }
+            if id == "call_456" && name == "bash"
+        ));
+    }
+
+    #[test]
+    fn openai_style_tool_call_incremental_args() {
+        // Subsequent chunks have only index + arguments
+        let payload = r#"{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"pa"}}]}}]}"#;
+        let protocol = OpenAIChatProtocol;
+        let events = protocol.parse_sse_event(payload).unwrap();
+        assert_eq!(events.len(), 1);
+        assert!(matches!(
+            &events[0],
+            StreamEvent::ToolInputDelta { id, chunk }
+            if id == "0" && chunk == r#"{"pa"#
+        ));
+    }
+
+    #[test]
+    fn text_delta_returns_single_event() {
+        let payload = r#"{"choices":[{"delta":{"content":"hello "}}]}"#;
+        let protocol = OpenAIChatProtocol;
+        let events = protocol.parse_sse_event(payload).unwrap();
+        assert_eq!(events.len(), 1);
+        assert!(matches!(
+            &events[0],
+            StreamEvent::TextDelta { content } if content == "hello "
+        ));
+    }
+
+    #[test]
+    fn done_marker_returns_done_event() {
+        let protocol = OpenAIChatProtocol;
+        let events = protocol.parse_sse_event("[DONE]").unwrap();
+        assert_eq!(events.len(), 1);
+        assert!(matches!(&events[0], StreamEvent::Done));
+    }
+
+    #[test]
+    fn unrecognized_json_returns_empty_vec() {
+        let payload = r#"{"id":"chatcmpl-123","object":"chat.completion.chunk"}"#;
+        let protocol = OpenAIChatProtocol;
+        let events = protocol.parse_sse_event(payload).unwrap();
+        assert!(events.is_empty());
+    }
+
+    // --- UTF-8 and special character tests ---
+
+    #[test]
+    fn text_delta_with_cjk_characters() {
+        let payload = r#"{"choices":[{"delta":{"content":"日本語テスト 🎉"}}]}"#;
+        let protocol = OpenAIChatProtocol;
+        let events = protocol.parse_sse_event(payload).unwrap();
+        assert_eq!(events.len(), 1);
+        assert!(matches!(
+            &events[0],
+            StreamEvent::TextDelta { content }
+            if content == "日本語テスト 🎉"
+        ));
+    }
+
+    #[test]
+    fn text_delta_with_emoji_and_zwj_sequences() {
+        // 👨‍👩‍👧‍👦 is a ZWJ sequence (family emoji, 7 codepoints)
+        let payload = r#"{"choices":[{"delta":{"content":"Hello 👨‍👩‍👧‍👦 world 🦀"}}]}"#;
+        let protocol = OpenAIChatProtocol;
+        let events = protocol.parse_sse_event(payload).unwrap();
+        assert_eq!(events.len(), 1);
+        assert!(matches!(
+            &events[0],
+            StreamEvent::TextDelta { content }
+            if content == "Hello 👨‍👩‍👧‍👦 world 🦀"
+        ));
+    }
+
+    #[test]
+    fn tool_call_args_with_unicode_path() {
+        let payload = serde_json::json!({
+            "choices": [{"delta": {"tool_calls": [{"id": "call_abc", "index": 0, "type": "function", "function": {"name": "read_file", "arguments": "{\"path\":\"/用户/文档/文件.txt\"}"}}]}}]
+        });
+        let payload_str = serde_json::to_string(&payload).unwrap();
+        let protocol = OpenAIChatProtocol;
+        let events = protocol.parse_sse_event(&payload_str).unwrap();
+        assert_eq!(events.len(), 2);
+        assert!(matches!(
+            &events[0],
+            StreamEvent::ToolCallStarted { id, name }
+            if id == "call_abc" && name == "read_file"
+        ));
+        assert!(matches!(
+            &events[1],
+            StreamEvent::ToolInputDelta { id, chunk }
+            if id == "call_abc" && chunk.contains("用户")
+        ));
+    }
+
+    #[test]
+    fn tool_call_args_with_special_json_chars() {
+        let payload = serde_json::json!({
+            "choices": [{"delta": {"tool_calls": [{"id": "call_xyz", "index": 0, "type": "function", "function": {"name": "write_file", "arguments": "{\"content\":\"line1\\nline2\\ttab\\\"quote\\\\backslash\"}"}}]}}]
+        });
+        let payload_str = serde_json::to_string(&payload).unwrap();
+        let protocol = OpenAIChatProtocol;
+        let events = protocol.parse_sse_event(&payload_str).unwrap();
+        assert_eq!(events.len(), 2);
+        assert!(matches!(
+            &events[1],
+            StreamEvent::ToolInputDelta { chunk, .. }
+            if chunk.contains("line1") && chunk.contains("line2")
+        ));
+    }
+
+    #[test]
+    fn reasoning_delta_with_unicode() {
+        let payload = r#"{"choices":[{"delta":{"reasoning_content":"思考中... 继续思考 💭"}}]}"#;
+        let protocol = OpenAIChatProtocol;
+        let events = protocol.parse_sse_event(payload).unwrap();
+        assert_eq!(events.len(), 1);
+        assert!(matches!(
+            &events[0],
+            StreamEvent::ThinkingDelta { content }
+            if content == "思考中... 继续思考 💭"
+        ));
+    }
+
+    #[test]
+    fn text_delta_with_null_bytes_and_control_chars() {
+        // Ensure control chars pass through without panicking
+        let content = "before\x00after\ttab\rcarriage\nnewline";
+        let payload = format!(
+            r#"{{"choices":[{{"delta":{{"content":{}}}}}]}}"#,
+            serde_json::to_string(content).unwrap()
+        );
+        let protocol = OpenAIChatProtocol;
+        let events = protocol.parse_sse_event(&payload).unwrap();
+        assert_eq!(events.len(), 1);
+        assert!(matches!(
+            &events[0],
+            StreamEvent::TextDelta { content: c }
+            if c.contains("before") && c.contains("after")
+        ));
     }
 }

@@ -82,8 +82,9 @@ pub fn create_bench_provider(
 ) -> Result<Arc<dyn rustycode_llm::LLMProvider>> {
     match provider {
         "anthropic" | "claude" => {
-            let api_key =
-                std::env::var("ANTHROPIC_API_KEY").context("ANTHROPIC_API_KEY not set")?;
+            let api_key = std::env::var("ANTHROPIC_API_KEY")
+                .or_else(|_| std::env::var("ANTHROPIC_AUTH_TOKEN"))
+                .context("ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN not set")?;
             let config = rustycode_llm::ProviderConfig {
                 api_key: Some(secrecy::SecretString::new(api_key.into())),
                 base_url: std::env::var("ANTHROPIC_BASE_URL").ok(),

@@ -112,13 +112,12 @@ mod task_context_lifecycle {
     }
 
     #[test]
-    fn test_task_context_escalate_grows_beyond_5() {
+    fn test_task_context_escalate_saturates_at_max_tier() {
         let mut ctx = TaskContext::new("t3".into(), "task".into());
         for _ in 0..10 {
             ctx.escalate();
         }
-        // escalate() uses saturating_add, no cap at 5
-        assert_eq!(ctx.current_tier, 12);
+        assert_eq!(ctx.current_tier, 5);
     }
 
     #[test]

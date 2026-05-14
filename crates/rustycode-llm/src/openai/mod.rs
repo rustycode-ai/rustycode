@@ -147,16 +147,8 @@ impl OpenAiProvider {
             .endpoint(format!("{}/chat/completions", base_endpoint))
             .protocol(Box::new(crate::wire::openai_chat::OpenAIChatProtocol))
             .transport(Box::new(
-                crate::transport::fallback::TransportFallback::new(
-                    Box::new(
-                        crate::transport::HttpTransport::new(timeout_secs)
-                            .map_err(|e| ProviderError::Configuration(e.to_string()))?,
-                    ),
-                    Box::new(
-                        crate::transport::HttpSseTransport::new(timeout_secs)
-                            .map_err(|e| ProviderError::Configuration(e.to_string()))?,
-                    ),
-                ),
+                crate::transport::HttpTransport::new(timeout_secs)
+                    .map_err(|e| ProviderError::Configuration(e.to_string()))?,
             ))
             .auth(auth.clone_box())
             .extra_headers(extra_headers.clone())
@@ -174,16 +166,8 @@ impl OpenAiProvider {
                 },
             ))
             .transport(Box::new(
-                crate::transport::fallback::TransportFallback::new(
-                    Box::new(
-                        crate::transport::HttpTransport::new(timeout_secs)
-                            .map_err(|e| ProviderError::Configuration(e.to_string()))?,
-                    ),
-                    Box::new(
-                        crate::transport::HttpSseTransport::new(timeout_secs)
-                            .map_err(|e| ProviderError::Configuration(e.to_string()))?,
-                    ),
-                ),
+                crate::transport::HttpTransport::new(timeout_secs)
+                    .map_err(|e| ProviderError::Configuration(e.to_string()))?,
             ))
             .auth(auth)
             .extra_headers(extra_headers)
@@ -631,6 +615,8 @@ impl OpenAiProvider {
             None
         };
 
+        let has_tools = !tools.is_empty();
+
         OpenAiRequest {
             model,
             messages,
@@ -639,6 +625,11 @@ impl OpenAiProvider {
             max_completion_tokens,
             stream,
             tools: if tools.is_empty() { None } else { Some(tools) },
+            tool_stream: if stream == Some(true) && has_tools {
+                Some(true)
+            } else {
+                None
+            },
             tool_choice,
             parallel_tool_calls,
             reasoning_effort,

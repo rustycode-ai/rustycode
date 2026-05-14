@@ -15,7 +15,7 @@ pub use crate::types::error::{sanitize_error_message, ProviderError};
 pub use crate::types::message::{
     resolve_image_to_base64, ApiMode, ChatMessage, MessageRole, ProviderType, SkillRef,
 };
-pub use crate::types::request::CompletionRequest;
+pub use crate::types::request::{CompletionRequest, ToolChoice};
 pub use crate::types::response::{
     normalize_stop_reason, Citation, CompletionResponse, ThinkingBlock,
 };

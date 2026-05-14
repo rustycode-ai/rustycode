@@ -45,6 +45,7 @@ use crate::ui::session_sidebar::{McpServerState, McpServerStatus, SessionSidebar
 use crate::ui::skill_palette::SkillPalette;
 
 use crate::app::render::layout::FrameLayoutSnapshot;
+use crate::notifications::terminal_progress::TerminalProgress;
 use crate::ui::theme_preview::{ThemePreview, ThemeSwitcher};
 use crate::ui::toast::ToastManager;
 use anyhow::{Context, Result};
@@ -67,6 +68,11 @@ struct TerminalCleanupGuard;
 
 impl Drop for TerminalCleanupGuard {
     fn drop(&mut self) {
+        // Clear OSC 9;4 progress bar on exit
+        let progress = TerminalProgress::new();
+        if progress.enabled {
+            progress.clear();
+        }
         // Restore terminal state - ignore errors since we're in a panic handler
         let _ = crossterm::terminal::disable_raw_mode();
         let _ = crossterm::execute!(
@@ -129,6 +135,7 @@ pub struct TUI {
     pub(crate) team: crate::app::state_model::TeamModeState,
     pub(crate) search: crate::app::state_model::MessageSearchState,
     pub(crate) model: crate::app::state_model::ProviderModelState,
+    pub(crate) terminal_progress: TerminalProgress,
 }
 
 impl TUI {
@@ -195,6 +202,7 @@ impl TUI {
     pub(crate) fn reset_streaming_state(&mut self) {
         self.session.streaming.reset();
         self.panels.ast_phase_state.deactivate();
+        self.terminal_progress.clear();
     }
 
     /// Reset the conversational state that should not survive a load/resume
@@ -545,6 +553,7 @@ impl TUI {
                 worker_panel: crate::ui::worker_panel::WorkerPanel::new(),
                 agent_manager: AgentManager::new(),
             },
+            terminal_progress: TerminalProgress::new(),
         })
     }
 
@@ -802,6 +811,7 @@ impl TUI {
                 worker_panel: crate::ui::worker_panel::WorkerPanel::new(),
                 agent_manager: AgentManager::new(),
             },
+            terminal_progress: TerminalProgress::new(),
         }
     }
 

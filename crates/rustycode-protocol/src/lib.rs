@@ -182,8 +182,19 @@ pub use execution_plan::{ExecutionPlan, ExecutionPlanBuilder, PlanValidationErro
 // Team-based agent orchestration types
 pub mod team;
 
+// Multi-agent context forwarding types
+pub mod budget;
+pub mod cost_budget;
+pub mod reasoning_summary;
+pub mod token_usage;
+pub mod tool_scope;
+pub mod usage_stats;
+
 // Agent communication protocol
 pub mod agent_protocol;
+
+// Agent execution outcome (shared across orchestration, runtime, team)
+pub mod agent_outcome;
 
 // Submission Queue — TUI → Core commands
 pub mod op;
@@ -208,6 +219,7 @@ pub mod conversation_fixer;
 
 // Harness execution results
 pub mod executor_result;
+pub mod file_context;
 
 // Generic data structures
 pub mod circular_buffer;
@@ -332,6 +344,9 @@ pub use team::{
     TeamConfig, TeamLoopState, TeamRole, TestSummary, TokenBudget, ToolSet, TrustContext,
     TrustEvent, TrustEventKind, TrustScore, VerificationState, VetoAction,
 };
+
+// Agent outcome types
+pub use agent_outcome::AgentOutcome;
 
 // Agent protocol types
 pub use agent_protocol::{

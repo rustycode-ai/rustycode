@@ -44,7 +44,7 @@ use crate::provider_metadata::{
     PromptTemplate, ProviderMetadata, ToolCallingMetadata, ToolFormat,
 };
 use crate::route::Route;
-use crate::transport::{HttpSseTransport, HttpTransport};
+use crate::transport::HttpTransport;
 use crate::wire::gemini::GeminiProtocol;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -160,7 +160,7 @@ impl GeminiProvider {
         let stream_route = Route::new(
             stream_endpoint,
             Box::new(GeminiProtocol),
-            Box::new(HttpSseTransport::new(timeout)?),
+            Box::new(HttpTransport::new(timeout)?),
             auth,
         )
         .with_name("gemini-stream");
@@ -400,7 +400,7 @@ impl LLMProvider for GeminiProvider {
             resolved_endpoint,
             self.stream_route.protocol.clone_box(),
             Box::new(
-                HttpSseTransport::new(self.config.timeout_seconds.unwrap_or(DEFAULT_TIMEOUT_SECS))
+                HttpTransport::new(self.config.timeout_seconds.unwrap_or(DEFAULT_TIMEOUT_SECS))
                     .map_err(|e| ProviderError::Configuration(e.to_string()))?,
             ),
             self.stream_route.auth.clone_box(),

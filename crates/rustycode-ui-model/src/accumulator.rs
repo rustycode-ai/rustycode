@@ -130,7 +130,7 @@ mod tests {
         );
 
         assert_eq!(session.tool_iteration_count, 1);
-        assert!(session.current_response.contains("[tool: bash]"));
+        assert!(session.current_response.contains("[tool: Bash]"));
     }
 
     #[test]

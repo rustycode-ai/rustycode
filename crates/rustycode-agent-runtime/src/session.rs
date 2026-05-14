@@ -7,23 +7,24 @@ use anyhow::Result;
 use futures::Stream;
 use rustycode_llm::provider::{
     ChatMessage, CompletionRequest, CompletionResponse, EffortLevel, LLMProvider, MessageRole,
-    OutputConfig, StreamChunk,
+    OutputConfig, StreamChunk, ToolChoice,
 };
 use rustycode_protocol::stream_event::{ApprovalDecision, StreamEvent};
 use rustycode_protocol::{ContentBlock, EventMsg, MessageContent};
 use rustycode_tools::ToolRegistry;
 use rustycode_tools_api::MessageSender;
-use std::path::{Path, PathBuf};
-use std::pin::Pin;
-use std::sync::Arc;
-use std::time::Duration;
 
 use crate::context::prune_messages;
 use crate::intelligence::CodeIntelligence;
+use crate::provider_context::ProviderContext;
 use crate::tool_exec::{execute_tool, truncate_tool_output};
 use crate::turn::{collect_completion_turn, collect_stream_turn};
 use rustycode_guard::hooks_expanded::{ExpandedHookDispatcher, LifecycleEvent, LifecycleHook};
 use rustycode_tools_api::tiers::{ToolActivationManager, ToolTier};
+use std::path::{Path, PathBuf};
+use std::pin::Pin;
+use std::sync::Arc;
+use std::time::Duration;
 
 /// Hard limits for the agent loop. No behavioral tuning - just caps.
 #[derive(Clone)]
@@ -122,6 +123,42 @@ pub struct AgentResult {
     pub total_cache_creation_tokens: u64,
 }
 
+impl AgentResult {
+    /// Convert this result into a protocol-level [`AgentOutcome`].
+    ///
+    /// Maps token usage fields directly. Success is `true` unless the loop
+    /// hit a hard cap (max turns or timeout). File changes and reasoning
+    /// summary are left empty here — callers that have that data fill them.
+    pub fn into_outcome(
+        &self,
+        agent_id: impl Into<String>,
+        task_id: impl Into<String>,
+    ) -> rustycode_protocol::agent_outcome::AgentOutcome {
+        use rustycode_protocol::reasoning_summary::ReasoningSummary;
+        use rustycode_protocol::token_usage::TokenUsage;
+
+        let success = !matches!(
+            self.stopped_reason,
+            StoppedReason::MaxTurnsReached | StoppedReason::TimeoutExceeded
+        );
+
+        rustycode_protocol::agent_outcome::AgentOutcome {
+            agent_id: agent_id.into(),
+            task_id: task_id.into(),
+            success,
+            output_text: self.final_text.clone(),
+            files_changed: vec![],
+            usage: TokenUsage {
+                input_tokens: self.total_input_tokens,
+                output_tokens: self.total_output_tokens,
+                cache_read_tokens: self.total_cache_read_tokens,
+                cache_creation_tokens: self.total_cache_creation_tokens,
+            },
+            reasoning_summary: ReasoningSummary::empty(),
+        }
+    }
+}
+
 /// The interface between the agent loop and display / collection layers.
 ///
 /// Each method is async; the agent loop awaits each call before proceeding.
@@ -166,6 +203,8 @@ pub struct AgentSession {
     /// Broadcast channel for EventMsg emission (Phase 1B dual emission).
     /// Capacity: 256 events. Subscribers that lag get Lagged notification.
     event_tx: tokio::sync::broadcast::Sender<EventMsg>,
+    /// Optional provider/auth/rate-limit context.
+    pub provider_context: Option<ProviderContext>,
     /// Inbound command receiver (Op).
     op_rx: Option<tokio::sync::mpsc::UnboundedReceiver<rustycode_protocol::Op>>,
     /// Optional agent plugins (observers/modifiers). Empty = zero overhead.
@@ -183,6 +222,7 @@ impl AgentSession {
             hooks: ExpandedHookDispatcher::new(),
             message_sender: None,
             event_tx,
+            provider_context: None,
             op_rx: None,
             plugins: Vec::new(),
         }
@@ -436,7 +476,7 @@ async fn run_loop(
             .with_temperature(config.temperature)
             .with_system_prompt(system.to_string())
             .with_tools(active_tools_schema)
-            .with_tool_choice(serde_json::json!("auto"));
+            .with_tool_choice(ToolChoice::Auto);
 
         if let Some(effort_level) = config.effort {
             request = request
@@ -1035,7 +1075,7 @@ fn rebuild_request(
         .with_temperature(original.temperature.unwrap_or(0.2))
         .with_system_prompt(original.system_prompt.clone().unwrap_or_default())
         .with_tools(original.tools.clone().unwrap_or_default())
-        .with_tool_choice(serde_json::json!("auto"));
+        .with_tool_choice(ToolChoice::Auto);
 
     if let Some(ref output_config) = original.output_config {
         if let Some(effort_level) = output_config.effort {

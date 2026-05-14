@@ -137,7 +137,7 @@ impl Protocol for CohereProtocol {
         })
     }
 
-    fn parse_sse_event(&self, data: &str) -> Result<Option<StreamEvent>> {
+    fn parse_sse_event(&self, data: &str) -> Result<Vec<StreamEvent>> {
         let val: Value = serde_json::from_str(data)?;
         let event_type = val.get("type").and_then(|t| t.as_str()).unwrap_or("");
 
@@ -150,9 +150,9 @@ impl Protocol for CohereProtocol {
                     .and_then(|c| c.get("text"))
                     .and_then(|t| t.as_str())
                 {
-                    return Ok(Some(StreamEvent::TextDelta {
+                    return Ok(vec![StreamEvent::TextDelta {
                         content: text.to_string(),
-                    }));
+                    }]);
                 }
             }
             "tool-plan-delta" => {
@@ -162,9 +162,9 @@ impl Protocol for CohereProtocol {
                     .and_then(|m| m.get("tool_plan"))
                     .and_then(|t| t.as_str())
                 {
-                    return Ok(Some(StreamEvent::TextDelta {
+                    return Ok(vec![StreamEvent::TextDelta {
                         content: plan.to_string(),
-                    }));
+                    }]);
                 }
             }
             "tool-call-delta" => {
@@ -180,10 +180,10 @@ impl Protocol for CohereProtocol {
                     // id and name might be in a separate event (tool-call-start) in some APIs,
                     // but Cohere v2 streaming for tool calls is often grouped.
                     // For now, mapping to index "0".
-                    return Ok(Some(StreamEvent::ToolInputDelta {
+                    return Ok(vec![StreamEvent::ToolInputDelta {
                         id: "0".to_string(),
                         chunk: args.to_string(),
-                    }));
+                    }]);
                 }
             }
             "message-end" => {
@@ -192,14 +192,14 @@ impl Protocol for CohereProtocol {
                     .and_then(|d| d.get("finish_reason"))
                     .and_then(|f| f.as_str())
                     .unwrap_or("COMPLETE");
-                return Ok(Some(StreamEvent::TurnCompleted {
+                return Ok(vec![StreamEvent::TurnCompleted {
                     stop_reason: finish_reason.to_string(),
-                }));
+                }]);
             }
             _ => {}
         }
 
-        Ok(None)
+        Ok(vec![])
     }
 
     fn serialize_tools(&self, tools: &[ToolSchema]) -> Vec<Value> {

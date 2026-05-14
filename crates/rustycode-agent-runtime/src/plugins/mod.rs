@@ -44,9 +44,11 @@ pub trait AgentPlugin: Send + Sync {
 }
 
 mod early_stop;
+mod lifecycle;
 mod repetition;
 mod trace;
 
 pub use early_stop::EarlyStopPolicy;
+pub use lifecycle::{LifecyclePlugin, OffboardingResult};
 pub use repetition::RepetitionDetector;
 pub use trace::ConversationTrace;

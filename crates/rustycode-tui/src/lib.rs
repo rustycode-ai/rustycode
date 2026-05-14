@@ -109,6 +109,8 @@ pub use app::tool_helpers;
 
 pub(crate) mod skills;
 
+pub(crate) mod notifications;
+
 pub(crate) mod marketplace;
 
 pub(crate) mod help;

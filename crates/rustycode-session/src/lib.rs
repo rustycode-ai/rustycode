@@ -89,6 +89,7 @@ pub mod summary;
 // Re-export main types
 pub use compaction::{
     CompactionEngine, CompactionError, CompactionReport, CompactionSnapshot, CompactionStrategy,
+    HandoffSummary,
 };
 pub use message::{Message, MessageMetadata, MessagePart, MessageRole};
 pub use rewind::{

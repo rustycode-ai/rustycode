@@ -7,6 +7,7 @@ mod oracle;
 #[cfg(feature = "real-agent")]
 pub mod real_agent;
 pub mod registry;
+pub mod thinking_guide;
 pub mod tools;
 mod tui_agent;
 

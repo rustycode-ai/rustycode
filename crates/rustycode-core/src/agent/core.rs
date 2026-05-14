@@ -5,7 +5,9 @@
 
 use anyhow::Result;
 use futures::StreamExt;
-use rustycode_llm::provider::{ChatMessage, CompletionRequest, LLMProvider, MessageRole};
+use rustycode_llm::provider::{
+    ChatMessage, CompletionRequest, LLMProvider, MessageRole, ToolChoice,
+};
 use rustycode_protocol::tool_names as tn;
 use rustycode_protocol::{ContentBlock, MessageContent, ToolCall};
 use rustycode_tools::{ToolContext, ToolRegistry};
@@ -252,7 +254,7 @@ pub async fn run(
             .with_temperature(config.temperature)
             .with_system_prompt(system_prompt.to_string())
             .with_tools(tools_schema.to_vec())
-            .with_tool_choice(serde_json::json!("auto"));
+            .with_tool_choice(ToolChoice::Auto);
 
         // Start stream with retry on transient errors
         let mut stream = {

@@ -237,6 +237,11 @@ enum Command {
         #[command(subcommand)]
         command: AstCommand,
     },
+    /// Ensemble multi-team consensus execution.
+    Ensemble {
+        #[command(subcommand)]
+        command: EnsembleCommand,
+    },
     /// Explore code structure (experimental)
     Outline {
         file: PathBuf,
@@ -1142,6 +1147,7 @@ async fn async_main(cli: Cli) -> Result<()> {
             print!("{}", rustycode_auth::format_status_table(&statuses));
         }
         Command::Ast { command } => commands::ast_cmd::execute(&cwd, command).await?,
+        Command::Ensemble { command } => commands::ensemble_cmd::execute(command).await?,
         Command::Outline { file } => {
             let content = std::fs::read_to_string(&file)?;
             let outline = rustycode_tools::indexing::symbols::extract_file(&file, &content);
@@ -1326,6 +1332,7 @@ fn suggest_similar_subcommand(task: &str) -> Option<String> {
         "tui",
         "serve",
         "ast",
+        "ensemble",
     ];
 
     // Check if task looks like a subcommand (lowercase, no spaces, no special chars)

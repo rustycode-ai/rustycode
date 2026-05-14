@@ -171,12 +171,12 @@ impl Protocol for OllamaChatProtocol {
         })
     }
 
-    fn parse_sse_event(&self, data: &str) -> Result<Option<StreamEvent>> {
+    fn parse_sse_event(&self, data: &str) -> Result<Vec<StreamEvent>> {
         // Ollama streaming uses NDJSON: each line is a bare JSON object.
         // Strip SSE "data: " prefix if present (some proxies add it).
         let line = data.strip_prefix("data: ").unwrap_or(data).trim();
         if line.is_empty() || line == "[DONE]" {
-            return Ok(None);
+            return Ok(vec![]);
         }
 
         let val: Value = serde_json::from_str(line)?;
@@ -192,9 +192,9 @@ impl Protocol for OllamaChatProtocol {
         if let Some(message) = val.get("message") {
             if let Some(content) = message.get("content").and_then(|c| c.as_str()) {
                 if !content.is_empty() {
-                    return Ok(Some(StreamEvent::TextDelta {
+                    return Ok(vec![StreamEvent::TextDelta {
                         content: content.to_string(),
-                    }));
+                    }]);
                 }
             }
         }
@@ -207,12 +207,12 @@ impl Protocol for OllamaChatProtocol {
                 // We need to emit usage but we may have already emitted content
                 // The important event is TurnCompleted
             }
-            return Ok(Some(StreamEvent::TurnCompleted {
+            return Ok(vec![StreamEvent::TurnCompleted {
                 stop_reason: "end_turn".to_string(),
-            }));
+            }]);
         }
 
-        Ok(None)
+        Ok(vec![])
     }
 
     fn serialize_tools(&self, tools: &[ToolSchema]) -> Vec<Value> {

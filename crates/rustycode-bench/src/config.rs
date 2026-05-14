@@ -16,6 +16,7 @@ pub fn create_agent(
     model: &str,
     solution_dir: PathBuf,
     provider_override: Option<&str>,
+    with_symbol_tools: bool,
 ) -> Result<Box<dyn BenchAgent>> {
     match agent_name {
         "oracle" => Ok(Box::new(OracleAgent::new(solution_dir)) as Box<dyn BenchAgent>),
@@ -28,6 +29,7 @@ pub fn create_agent(
             let cfg = CodeAgentConfig {
                 provider,
                 model: model_name,
+                with_symbol_tools,
                 ..Default::default()
             };
             let agent = CodeAgent::auto(cfg).context("Failed to create CodeAgent")?;
@@ -335,7 +337,7 @@ mod tests {
     fn create_agent_oracle() {
         let tmp = std::env::temp_dir().join("rtk-bench-test-oracle");
         let _ = std::fs::create_dir_all(&tmp);
-        let agent = create_agent("oracle", "auto", tmp.clone(), None);
+        let agent = create_agent("oracle", "auto", tmp.clone(), None, false);
         assert!(agent.is_ok());
         assert_eq!(agent.unwrap().name(), "oracle");
         let _ = std::fs::remove_dir_all(&tmp);
@@ -343,14 +345,14 @@ mod tests {
 
     #[test]
     fn create_agent_nop() {
-        let agent = create_agent("nop", "auto", PathBuf::from("/tmp"), None);
+        let agent = create_agent("nop", "auto", PathBuf::from("/tmp"), None, false);
         assert!(agent.is_ok());
         assert_eq!(agent.unwrap().name(), "nop");
     }
 
     #[test]
     fn create_agent_unknown() {
-        let agent = create_agent("nonexistent", "auto", PathBuf::from("/tmp"), None);
+        let agent = create_agent("nonexistent", "auto", PathBuf::from("/tmp"), None, false);
         assert!(agent.is_err());
         assert!(agent.err().unwrap().to_string().contains("Unknown agent"));
     }

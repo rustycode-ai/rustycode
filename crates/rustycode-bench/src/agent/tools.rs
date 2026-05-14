@@ -1,10 +1,15 @@
 //! Shared bench tool registry — same real tools as TUI, minus interactive ones.
 
+use rustycode_tools::providers::symbol_tools::{
+    CodeContextTool, FindSymbolTool, OutlineFileTool, TsNodesTool, TsQueryTool,
+};
 use rustycode_tools::providers::{
     ApplyPatchTool, BashTool, EditFile, GitDiffTool, GitLogTool, GitStatusTool, GlobTool, GrepTool,
     ListDirTool, ReadFileTool, WriteFileTool,
 };
 use rustycode_tools::ToolRegistry;
+
+use super::thinking_guide::ThinkingGuideTool;
 
 /// Build a tool registry with production tools suitable for benchmarking.
 ///
@@ -30,10 +35,24 @@ pub fn build_bench_registry() -> ToolRegistry {
     registry.register(GitDiffTool);
     registry.register(GitLogTool);
 
-    // Structured thinking — task decomposition, strategy selection, phase tracking
-    #[cfg(feature = "real-agent")]
+    // Thinking guide — lightweight workflow nudge
+    registry.register(ThinkingGuideTool::new());
+
     registry
-        .register(rustycode_orchestration::structured_thinking_tool_impl::StructuredThinkingTool);
+}
+
+/// Build a tool registry with tree-sitter symbol tools added.
+///
+/// Same as [`build_bench_registry`] plus symbol tools for precise code navigation.
+pub fn build_bench_registry_with_symbol_tools() -> ToolRegistry {
+    let mut registry = build_bench_registry();
+
+    // Symbol tools — tree-sitter based code navigation
+    registry.register(FindSymbolTool);
+    registry.register(TsQueryTool);
+    registry.register(TsNodesTool);
+    registry.register(OutlineFileTool);
+    registry.register(CodeContextTool);
 
     registry
 }

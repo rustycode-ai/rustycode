@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 
 use crate::schema::normalizer::WireFormat;
 use crate::schema::tool_schema::ToolSchema;
-use crate::types::request::CompletionRequest;
+use crate::types::request::{CompletionRequest, ToolChoice};
 use crate::types::response::CompletionResponse;
 use crate::types::streaming::StreamEvent;
 use crate::wire::Protocol;
@@ -42,18 +42,19 @@ impl Protocol for BedrockProtocol {
                 .map(|raw| self.convert_raw_tools(raw)),
         };
 
-        let tool_config = serialized_tools.filter(|t| !t.is_empty()).map(|t| {
-            json!({
+        // When tool_choice is "none", omit toolConfig entirely from the request.
+        let tool_config: Option<Value> = serialized_tools.filter(|t| !t.is_empty()).and_then(|t| {
+            let tool_choice = match &request.tool_choice {
+                Some(ToolChoice::None) => return None,
+                Some(ToolChoice::Auto) => json!({"auto": {}}),
+                Some(ToolChoice::Required) => json!({"any": {}}),
+                Some(ToolChoice::Named(name)) => json!({"tool": {"name": name}}),
+                None => json!({"auto": {}}),
+            };
+            Some(json!({
                 "tools": t,
-                "toolChoice": match &request.tool_choice {
-                    Some(Value::String(s)) => match s.as_str() {
-                        "auto" => json!({"auto": {}}),
-                        "required" => json!({"any": {}}),
-                        name => json!({"tool": {"name": name}}),
-                    },
-                    _ => json!({"auto": {}}),
-                }
-            })
+                "toolChoice": tool_choice,
+            }))
         });
 
         let mut body = json!({
@@ -146,14 +147,14 @@ impl Protocol for BedrockProtocol {
         })
     }
 
-    fn parse_sse_event(&self, data: &str) -> Result<Option<StreamEvent>> {
+    fn parse_sse_event(&self, data: &str) -> Result<Vec<StreamEvent>> {
         let val: Value = serde_json::from_str(data)?;
 
         if let Some(delta) = val.get("contentBlockDelta").and_then(|d| d.get("delta")) {
             if let Some(text) = delta.get("text").and_then(|t| t.as_str()) {
-                return Ok(Some(StreamEvent::TextDelta {
+                return Ok(vec![StreamEvent::TextDelta {
                     content: text.to_string(),
-                }));
+                }]);
             }
             if let Some(tool_use) = delta.get("toolUse") {
                 if let Some(id) = tool_use.get("toolUseId").and_then(|i| i.as_str()) {
@@ -161,17 +162,16 @@ impl Protocol for BedrockProtocol {
                         .get("name")
                         .and_then(|n| n.as_str())
                         .unwrap_or_default();
-                    return Ok(Some(StreamEvent::ToolCallStarted {
+                    return Ok(vec![StreamEvent::ToolCallStarted {
                         id: id.to_string(),
                         name: name.to_string(),
-                    }));
+                    }]);
                 }
                 if let Some(input) = tool_use.get("input").and_then(|i| i.as_str()) {
-                    // Bedrock streaming for tools is a bit different, but we'll try to map it
-                    return Ok(Some(StreamEvent::ToolInputDelta {
+                    return Ok(vec![StreamEvent::ToolInputDelta {
                         id: "0".to_string(),
                         chunk: input.to_string(),
-                    }));
+                    }]);
                 }
             }
         }
@@ -185,21 +185,21 @@ impl Protocol for BedrockProtocol {
                 .get("outputTokens")
                 .and_then(|v| v.as_u64())
                 .unwrap_or(0);
-            return Ok(Some(StreamEvent::TokenUsage {
+            return Ok(vec![StreamEvent::TokenUsage {
                 input_tokens: input,
                 output_tokens: output,
-            }));
+            }]);
         }
 
         if let Some(stop) = val.get("messageStop").and_then(|m| m.get("stopReason")) {
             if let Some(reason) = stop.as_str() {
-                return Ok(Some(StreamEvent::TurnCompleted {
+                return Ok(vec![StreamEvent::TurnCompleted {
                     stop_reason: reason.to_string(),
-                }));
+                }]);
             }
         }
 
-        Ok(None)
+        Ok(vec![])
     }
 
     fn serialize_tools(&self, tools: &[ToolSchema]) -> Vec<Value> {
