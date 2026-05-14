@@ -285,6 +285,84 @@ impl ReasoningGraph {
 
         false
     }
+
+    /// Summarize this graph into a lightweight [`ReasoningSummary`] for cross-agent communication.
+    ///
+    /// Uses [`ConfidenceScorer`] to score all thoughts, then extracts the top-10
+    /// insights by confidence. Filters out `Initial` thoughts (task descriptions,
+    /// not real insights).
+    #[must_use]
+    pub fn summarize(
+        &self,
+        strategy_name: &str,
+    ) -> rustycode_protocol::reasoning_summary::ReasoningSummary {
+        use rustycode_protocol::reasoning_summary::{Insight, ReasoningSummary};
+
+        use super::scoring::ConfidenceScorer;
+        use super::types::ThoughtKind;
+
+        if self.is_empty() {
+            return ReasoningSummary::empty();
+        }
+
+        let scorer = ConfidenceScorer::new();
+        let all_scores = scorer.score_all(self);
+        let thought_count = self.len();
+
+        let max_confidence = all_scores.values().copied().fold(0.0_f64, f64::max);
+        let mean_confidence = if thought_count > 0 {
+            all_scores.values().sum::<f64>() / thought_count as f64
+        } else {
+            0.0
+        };
+
+        let convergence_achieved = self.check_convergence(&all_scores);
+
+        let mut top_insights: Vec<Insight> = self
+            .thoughts()
+            .filter(|t| t.kind != ThoughtKind::Initial)
+            .map(|t| {
+                let score = all_scores.get(&t.id).copied().unwrap_or(0.0);
+                Insight::new(&t.content, score, &t.metadata.strategy, t.metadata.depth)
+            })
+            .collect();
+        top_insights.sort_by(|a, b| {
+            b.confidence
+                .partial_cmp(&a.confidence)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        top_insights.truncate(10);
+
+        ReasoningSummary::from_parts(
+            thought_count,
+            max_confidence,
+            mean_confidence,
+            top_insights,
+            strategy_name,
+            convergence_achieved,
+        )
+    }
+
+    /// Check if reasoning converged (last few thoughts have stable confidence).
+    fn check_convergence(&self, scores: &std::collections::HashMap<ThoughtId, f64>) -> bool {
+        if self.len() < 3 {
+            return false;
+        }
+        let Ok(order) = self.topological_sort() else {
+            return false;
+        };
+        let last_3: Vec<_> = order.iter().rev().take(3).collect();
+        let confidences: Vec<f64> = last_3
+            .iter()
+            .filter_map(|&id| scores.get(id).copied())
+            .collect();
+        if confidences.len() < 3 {
+            return false;
+        }
+        let mean = confidences.iter().sum::<f64>() / 3.0;
+        let variance = confidences.iter().map(|c| (c - mean).powi(2)).sum::<f64>() / 3.0;
+        variance < 0.05
+    }
 }
 
 impl Default for ReasoningGraph {
@@ -727,5 +805,68 @@ mod tests {
 
         let count = graph.thoughts().count();
         assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn test_summarize_empty_graph() {
+        let graph = ReasoningGraph::new();
+        let summary = graph.summarize("test");
+        assert_eq!(summary.thought_count, 0);
+        assert_eq!(summary.max_confidence, 0.0);
+        assert!(summary.top_insights.is_empty());
+        assert!(!summary.convergence_achieved);
+    }
+
+    #[test]
+    fn test_summarize_filters_initial_thoughts() {
+        let mut graph = ReasoningGraph::new();
+        let t1 = graph
+            .add_thought(Thought::new(ThoughtKind::Initial, "task prompt".into()))
+            .expect("add");
+        let t2 = graph
+            .add_thought(
+                Thought::new(ThoughtKind::Analysis, "real insight".into())
+                    .with_confidence(0.9)
+                    .with_strategy("sequential"),
+            )
+            .expect("add");
+        graph.add_edge(t1, t2, EdgeKind::DerivesFrom).expect("edge");
+
+        let summary = graph.summarize("test");
+        assert_eq!(summary.thought_count, 2);
+        assert!(!summary.top_insights.is_empty());
+        assert!(summary
+            .top_insights
+            .iter()
+            .all(|i| i.content != "task prompt"));
+        assert_eq!(summary.top_insights[0].content, "real insight");
+    }
+
+    #[test]
+    fn test_summarize_truncates_to_top_10() {
+        let mut graph = ReasoningGraph::new();
+        let mut prev = graph
+            .add_thought(Thought::new(ThoughtKind::Initial, "root".into()))
+            .expect("add");
+        for i in 0..15 {
+            let t = graph
+                .add_thought(
+                    Thought::new(ThoughtKind::Refinement, format!("thought_{i}"))
+                        .with_confidence(0.5 + (i as f64 * 0.03).min(0.49))
+                        .with_strategy("seq"),
+                )
+                .expect("add");
+            graph.add_edge(prev, t, EdgeKind::Refines).expect("edge");
+            prev = t;
+        }
+        let summary = graph.summarize("test");
+        assert!(summary.top_insights.len() <= 10);
+    }
+
+    #[test]
+    fn test_check_convergence_too_few_thoughts() {
+        let graph = ReasoningGraph::new();
+        let scores = std::collections::HashMap::new();
+        assert!(!graph.check_convergence(&scores));
     }
 }

@@ -3,15 +3,13 @@ use rustycode_protocol::{reasoning_summary::ReasoningSummary, token_usage::Token
 
 pub use rustycode_protocol::agent_outcome::AgentOutcome;
 
-/// Convert an [`AgentResult`] into an [`AgentOutcome`].
-///
-/// This is a free function because `AgentOutcome` is defined in `rustycode-protocol`
-/// and `StoppedReason` is defined in `rustycode-agent-runtime` — both are available
-/// here in orchestration which sits above both.
+use crate::thinking::ReasoningGraph;
+
 pub fn agent_outcome_from_result(
     result: &AgentResult,
     agent_id: impl Into<String>,
     task_id: impl Into<String>,
+    graph: Option<&ReasoningGraph>,
 ) -> AgentOutcome {
     let success = !matches!(
         result.stopped_reason,
@@ -23,6 +21,11 @@ pub fn agent_outcome_from_result(
     usage.cache_read_tokens = result.total_cache_read_tokens;
     usage.cache_creation_tokens = result.total_cache_creation_tokens;
 
+    let reasoning_summary = match graph {
+        Some(g) if !g.is_empty() => g.summarize("agent"),
+        _ => ReasoningSummary::empty(),
+    };
+
     AgentOutcome {
         agent_id: agent_id.into(),
         task_id: task_id.into(),
@@ -30,7 +33,7 @@ pub fn agent_outcome_from_result(
         output_text: result.final_text.clone(),
         files_changed: vec![],
         usage,
-        reasoning_summary: ReasoningSummary::empty(),
+        reasoning_summary,
     }
 }
 
@@ -84,7 +87,7 @@ mod tests {
             total_cache_read_tokens: 200,
             total_cache_creation_tokens: 50,
         };
-        let outcome = agent_outcome_from_result(&result, "agent_1", "task_1");
+        let outcome = agent_outcome_from_result(&result, "agent_1", "task_1", None);
         assert!(outcome.success);
         assert_eq!(outcome.output_text, "All done");
         assert_eq!(outcome.usage.input_tokens, 500);
@@ -102,7 +105,7 @@ mod tests {
             total_cache_read_tokens: 0,
             total_cache_creation_tokens: 0,
         };
-        let outcome = agent_outcome_from_result(&result, "agent_1", "task_1");
+        let outcome = agent_outcome_from_result(&result, "agent_1", "task_1", None);
         assert!(!outcome.success);
         assert_eq!(outcome.usage.total(), 1200);
     }

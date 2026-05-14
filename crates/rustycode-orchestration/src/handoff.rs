@@ -216,7 +216,7 @@ impl HandoffPackage {
             previous_assessment: assessment,
             budget_summary,
             task_id: ctx.task_id.clone(),
-            reasoning_summary: None,
+            reasoning_summary: ctx.reasoning_graph.as_ref().map(|g| g.summarize("handoff")),
         }
     }
 

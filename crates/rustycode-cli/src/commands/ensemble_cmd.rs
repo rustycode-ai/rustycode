@@ -70,7 +70,7 @@ async fn run_ensemble(
                     team_id,
                     task_id: format!("ensemble-task-{i}"),
                     agent_outcomes: vec![AgentOutcome::failed(
-                        &format!("team-{i}"),
+                        format!("team-{i}"),
                         "ensemble-task",
                         "simulated",
                     )],
