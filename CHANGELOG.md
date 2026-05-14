@@ -2,6 +2,83 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2026-05-14
+
+### Features
+
+- **protocol**: Add EventMsg unified event channel and ToolName namespace
+- **agent-runtime**: Phase 1B dual emission — broadcast EventMsg alongside StreamEvent callbacks
+- Expand EventMsg with session, orchestration, memory events and Op variants
+- **tui**: Add shadow mode validation counters to TuiAgentBridge
+- Enhance Op/EventMsg protocol, add Op receiver and StopStream to agent runtime
+- Add rustycode-git, rustycode-search, and rustycode-semantic-search crates
+- **tools**: Add Java/C++/Scala/Kotlin tree-sitter support, fix TypeScript query, harden parse_with_treesitter
+- **tui**: Add symbol outline UI panel, update state model and workspace handlers
+- **indexing**: Reclassify Function → Method inside impl/class/trait
+- **tools**: Fix Function vs Method classification in tree-sitter extraction
+- **agent-runtime**: Extract bench heuristics into AgentSession plugins
+- **bench**: Add TUI-aligned bench agent, unify provider creation
+- Thin CodeAgent, thinking_guide tool, SSE multi-event parsing, multi-agent planning
+
+### Bug Fixes
+
+- **ci**: Remove redundant build-release.yml, fix trigger-cicd dispatch
+- **tui**: Fix broken /marketplace search and /memory search slash commands
+- **tui**: Fix off-by-one in all marketplace subcommand handlers and config keybinding
+- **tools-api**: Lowercase explore keywords to fix profile detection
+- **tui**: Shared MCP manager, eliminate double-spawns, add timeouts, fix dispatch
+- **agent-runtime**: Emit TurnCompleted when provider omits stop_reason
+- Prevent stack overflows in serde_json and improve event/tui robustness
+- 7 bug fixes across storage, tools, and apply_patch
+- Replace expect/let-_ with proper error handling in gemini, harness, server, and search store
+- Handle poisoned mutex in anthropic SSE stream parser
+- 8 bug fixes across ws-server, team, and TUI crates (Round 7)
+- **security**: Replace fastrand with rand for OAuth secrets, restrict token file perms, surface silent errors
+- **connector**: Log AppleScript close-session failures instead of silently swallowing
+- **tui,server**: Improve TUI event loop robustness and server-client integration
+- **tools**: Adjust Kotlin tree-sitter API call, mark new languages as todo in query extractor
+- **session,git**: 8 bug fixes across session and git crates
+- **tools**: Namespace-aware tool resolution, simplify tree-sitter languages, harden query parsing
+- 11 bugfixes across 7 crates (Round 12)
+- Break TUI feedback loops, fix indexing queries, remove stack size bandaids
+- Improve robustness across orchestration, tenacity, and symbol extraction
+- Add impl_item query extraction, harden LRU cache and edit history
+- Harden error handling across guard, mcp, runtime, team, ws-server, and cli
+- Add PluginStopped variant to StoppedReason, handle in agent_executor
+
+### Refactor
+
+- **tui**: Complete god object state refactoring - Phase 2-4
+- **tui**: Fix remaining state refactoring field access paths across handlers and renderers
+- **tui**: Add submit_op method and migrate approval path to Op protocol
+- **tui**: Migrate remaining approval call to submit_op
+- **tui**: Add missing Op import to special_handlers
+- **core**: Split impl Runtime into domain files and clean up lib.rs
+- **rustycode-core**: Consolidate checkpoint files into recovery/ module (Phase 3)
+- Rename misnamed event_loop files and consolidate context modules
+- **tools**: Split god object files into focused submodules
+- **skills**: Migrate CLI skills command from SkillRegistry to SkillManager
+- Split monolithic modules into subdirectories, add server crates
+- Extract symbol indexing into symbols module, add symbol tools and search providers
+- **tools**: Improve tree-sitter queries for Rust/JS, refine symbol hashing and orchestrator
+- **tools**: Update symbol tools registration and structural patch implementation
+- **tui**: Rename misleading 'legacy streaming' to 'agent streaming'
+
+### Documentation
+
+- Add ADR-0004 unified code structure engine, guides, and drift-check script
+- Add plan for unifying agent execution paths
+
+### Testing
+
+- **rustycode-core**: Migrate lib.rs unit tests to tests/lib_tests.rs
+- Add regression tests for bug fixes across 5 crates
+
+### Chores
+
+- Fix async test, resolve activation findings, add architecture docs
+- Add workspace dependency aliases for core crates
+
 ## [0.4.0] - 2026-05-11
 
 ### Features
@@ -15,6 +92,9 @@ All notable changes to this project will be documented in this file.
 - **llm**: Add schema, wire, transport, auth, route modules for provider abstraction
 - **llm**: Add shared ModelCache with dynamic provider model discovery
 - **llm**: Wire ModelCache into Gemini and OpenAI providers
+- **tui**: Async service init with loading screen
+- **tui**: Async service init with loading screen
+- **tui**: Show loading screen during service init
 
 ### Bug Fixes
 
@@ -44,6 +124,11 @@ All notable changes to this project will be documented in this file.
 - **medium**: Preserve error context, use async I/O, remove unnecessary clone
 - **tests**: Enable structured output in git test helper and fix edit assertion
 - **tui**: Version display, Ctrl+W behavior, and tool name assertion
+- **llm**: Guard Gemini toolConfig when no tools present, add startup perf instrumentation
+- **llm**: Strip SSE data: prefix before protocol parsing
+- **llm,tui**: Gemini provider reliability — safety stops, rate limit retry, and SSE tracing
+- **agent-runtime**: Classify rate limit errors as Transient, not Fatal
+- **llm**: Omit tools/toolConfig keys from Gemini JSON when absent
 
 ### Refactor
 
@@ -85,6 +170,7 @@ All notable changes to this project will be documented in this file.
 - Upgrade bollard 0.17→0.21 API, add sha2 to protocol, optimize hash formatting
 - Remove unused sha2 dep from orchestration crate
 - Fmt fix for text.rs test assertion
+- Bump version to 0.4.0
 
 ## [0.3.0] - 2026-05-10
 
