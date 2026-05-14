@@ -1,6 +1,6 @@
 # ADR 004: Tool Interface Redesign — Two-Tier Context to Ports-and-Adapters
 
-- Status: In Progress
+- Status: Accepted
 - Date: 2026-05-14
 - Last Updated: 2026-05-14
 - Implementation Started: Mid-2026
@@ -18,6 +18,68 @@ The tool layer has grown organically into a maintenance burden:
 6. **Glob re-exports** in `providers/mod.rs` (42 `pub use module::*`) flatten namespace.
 7. **Naming collision:** Two unrelated types are named `ToolExecutor` — a concrete struct in `rustycode-tools/src/executor/executor.rs` and an async trait in `rustycode-orchestration/src/musician.rs`.
 8. **Duplicate `ToolInfo` types:** Rich metadata type in `rustycode-tools-api` vs. stripped protocol type in `rustycode-tool-integration`. Mapping is manual in `executor.rs`.
+
+### Execution Flow (5 Layers)
+
+Tool calls traverse five layers from LLM response to execution:
+
+```
+LLM ToolCall
+    │
+    ▼
+ToolRegistry::execute()         ← Name resolution, dispatch, audit logging
+    │
+    ▼
+ExecutionMiddleware::execute()  ← PreToolUse hooks → validate_input → plan_mode → cost check
+    │                              → EXECUTE → PostToolUse hooks → cost recording
+    ▼
+ToolInspectionManager::check()  ← Inspector pipeline: Security → Egress → OSV → Repetition → Permission
+    │                              (each returns Allow/Deny/RequireApproval)
+    ▼
+ConvoyDispatcher::execute_guarded()  ← Role-based gating (ToolGate trait)
+    │
+    ▼
+Tool::execute(params, ctx)     ← Actual tool implementation
+```
+
+Three wrapper/middleware patterns already exist in the tool stack:
+1. **ExecutionMiddleware** — wraps any `Tool` with hooks, validation, plan-mode checks, cost tracking
+2. **ToolInspectionManager** — pre-execution pipeline of `ToolInspector` trait objects (security, egress, OSV, repetition)
+3. **ConvoyDispatcher** — wraps execution with `ToolGate` role-based access
+
+### Orchestration Interface Contract
+
+The orchestration layer (`rustycode-orchestration`) never calls `Tool::execute` directly. It uses a two-layer dispatch:
+
+```
+Orchestration (Musician)
+    │  calls TaskToolExecutor::execute(task_id, tool_name, input, allowed_tools, model)
+    ▼
+AgentSessionExecutor (production) or ShellTaskToolExecutor (simple) or ExecutableToolExecutor (external)
+    │  internally calls ToolRegistry::execute(ToolCall, ToolContext)
+    ▼
+Tool::execute(params, ctx)
+```
+
+The primary gateway is `TaskToolExecutor` in `musician.rs`:
+
+```rust
+#[async_trait]
+pub trait TaskToolExecutor: Send + Sync {
+    async fn execute(
+        &self,
+        task_id: &str,
+        tool_name: &str,
+        input: &str,
+        allowed_tools: &[&'static str],
+        model: &str,
+    ) -> Result<StepResult>;
+}
+```
+
+Three implementations exist: `ShellTaskToolExecutor` (direct shell), `ExecutableToolExecutor` (bridges to external), and `AgentSessionExecutor` (production — creates real LLM tool-use loop). The redesign must preserve this trait's shape and all three implementations.
+
+Additionally, the AST pipeline has its own abstractions: `StepRunner` (step execution), `ToolAdapter` (cross-harness normalization for ClaudeCode/Gemini/Codex formats), and `ToolExecution` (parallel batch with semaphore).
 
 ## Implementation Status
 
@@ -135,6 +197,18 @@ Rename the stripped type in `rustycode-tool-integration` to `ToolCallInfo`. Rich
 
 `rustycode-acp` bypassing the `ToolExecutorApi` shim is known tech debt. Does not block current phases. Will be addressed when ACP integration is formalized.
 
+### Redesign Constraints
+
+The following invariants must be preserved across all phases:
+
+1. **`TaskToolExecutor` trait shape** — all 3 implementations and the `Musician` call site depend on `(task_id, tool_name, input, allowed_tools, model) -> StepResult`
+2. **`Tool` trait signature** — 30+ tool implementations depend on it; `ToolRegistry` dispatches via it
+3. **`ToolRegistry` registration pattern** — `register(impl Tool)`, `execute(ToolCall, ToolContext)`, `list()` — used by `AgentSessionExecutor` to build schemas
+4. **Tiered activation** — `ToolActivationManager.is_active()` is checked before execution in `Musician::play_step_with_context`
+5. **Hook lifecycle** — PreToolUse/PostToolUse/ToolError hooks fire around `TaskToolExecutor::execute()` via `ExecutionMiddleware`
+6. **Bus event forwarding** — `EventForwarder` maps `EventMsg::ToolCallStarted/ToolExecCompleted` to `OrchestrationEvent`
+7. **Inspector pipeline** — `ToolInspector` implementations (security, egress, OSV, repetition, permission) run pre-execution and return `InspectionAction`
+
 ## Migration Plan
 
 | Phase | Task | Status | Notes |
@@ -194,3 +268,7 @@ Rename the stripped type in `rustycode-tool-integration` to `ToolCallInfo`. Rich
 - Naming collision: Two unrelated `ToolExecutor` concepts (concrete vs. async trait)
 - Type duplication: Two `ToolInfo` types with different scopes and manual mapping
 - Execution paths: Four distinct paths with varying degrees of integration (CLI/TUI, LLM bridge, ACP, Orchestration)
+- Orchestration gateway: `TaskToolExecutor` trait is the single choke point; never bypassed
+- Existing wrappers: Three middleware patterns (ExecutionMiddleware, ToolInspectionManager, ConvoyDispatcher) already in production
+- Security: 4-layer model (path validation → threat scanning → inspector pipeline → permission/sandbox)
+- Two-layer dispatch: Orchestration → TaskToolExecutor → ToolRegistry → Tool::execute

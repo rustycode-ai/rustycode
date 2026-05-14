@@ -2,7 +2,7 @@
 
 > Companion to ADR 004. Read the ADR first for decision context.
 >
-> **Status**: Design is sound, implementation is partial. The circular dependency (Phase 0b) has been resolved via `rustycode-tool-integration`. Phases 1–6 are mostly pending. See ADR 004 for current implementation status.
+> **Status**: Design accepted, implementation is partial. The circular dependency (Phase 0b) has been resolved via `rustycode-tool-integration`. Phases 1–6 are mostly pending. See ADR 004 for current implementation status and resolved decisions.
 
 ## Current State
 
@@ -58,6 +58,127 @@
 - Naming collision (`ToolExecutor` as both struct and async trait) **not resolved**.
 - Duplicate `ToolInfo` types **not unified** — still mapping manually in `executor.rs`.
 - Phases 1–6 **mostly pending** (except for Phase 0b, which was accelerated).
+
+## Execution Flow
+
+### Current Dispatch Path (5 Layers)
+
+Tool calls traverse five layers from LLM response to tool execution:
+
+```
+LLM ToolCall
+    │
+    ▼
+ToolRegistry::execute()         ← Name resolution, dispatch, audit logging
+    │
+    ▼
+ExecutionMiddleware::execute()  ← PreToolUse hooks → validate_input → plan_mode → cost check
+    │                              → EXECUTE → PostToolUse hooks → cost recording
+    ▼
+ToolInspectionManager::check()  ← Inspector pipeline: Security → Egress → OSV → Repetition → Permission
+    │                              (each returns Allow/Deny/RequireApproval)
+    ▼
+ConvoyDispatcher::execute_guarded()  ← Role-based gating (ToolGate trait)
+    │
+    ▼
+Tool::execute(params, ctx)     ← Actual tool implementation
+```
+
+### Existing Wrapper Patterns
+
+Three wrapper/middleware patterns already exist:
+
+**A. ExecutionMiddleware** (`executor/middleware.rs`)
+- Wraps any `Tool` with: PreToolUse hooks, input validation, plan mode checks, cost tracking, PostToolUse hooks
+- Usage: `middleware.execute(&tool, params, ctx)` — wraps the raw `tool.execute()`
+
+**B. ToolInspectionManager** (`executor/manager.rs`)
+- Pipeline of `ToolInspector` trait objects that run *before* execution
+- Inspectors: `SecurityInspector`, `EgressInspector`, `OsvInspector`, `RepetitionInspector`, `PermissionInspector`
+- Each returns `InspectionAction::{Allow, Deny, RequireApproval(msg)}`
+- Most restrictive action wins
+
+**C. ConvoyDispatcher** (`executor/convoy.rs`)
+- Wraps tool execution with a `ToolGate` check
+- Guards execution with `gate.check_access(role, tool_name)`
+
+### Orchestration Interface Contract (Two-Layer Dispatch)
+
+The orchestration layer never calls `Tool::execute` directly. It uses a two-layer dispatch:
+
+```
+Orchestration (Musician::play_step_with_context)
+    │  calls TaskToolExecutor::execute(task_id, tool_name, input, allowed_tools, model)
+    ▼
+AgentSessionExecutor (production)   ← Creates AgentSession, builds schemas from ToolRegistry
+ShellTaskToolExecutor (simple)      ← Direct shell, sandbox + security
+ExecutableToolExecutor (external)   ← Bridges to rustycode-executable
+    │  internally calls ToolRegistry::execute(ToolCall, ToolContext)
+    ▼
+Tool::execute(params, ctx)
+```
+
+The primary gateway is `TaskToolExecutor` in `musician.rs`:
+
+```rust
+#[async_trait]
+pub trait TaskToolExecutor: Send + Sync {
+    async fn execute(
+        &self,
+        task_id: &str,
+        tool_name: &str,
+        input: &str,
+        allowed_tools: &[&'static str],
+        model: &str,
+    ) -> Result<StepResult>;
+}
+```
+
+### AST Pipeline Tool Abstractions
+
+The AST pipeline has its own interface layer:
+
+- **`StepRunner`** (`ast/executor.rs`) — `run(step: &ExecutionStep, step_index: usize) -> StepEvidence`
+- **`ToolAdapter`** (`ast/tool_adapter.rs`) — normalizes tool names/args between harnesses (ClaudeCode, RustyCode, Gemini, Codex)
+- **`ToolExecution`** (`executor/parallel_executor.rs`) — parallel batch execution with semaphore-bounded concurrency
+
+### Security Model (4 Layers)
+
+```
+Layer 1: Path Validation (rustycode-tools-security)
+  - Traversal prevention, symlink detection, blocked extensions (.env, .key, .pem)
+  - Blocked filenames (credentials.json, id_rsa, .netrc)
+  - Blocked path components (.ssh, .gnupg, .aws, .git)
+  - Size limits (10MB), cross-platform path normalization
+
+Layer 2: Command Threat Scanning (rustycode-tools-security)
+  - ThreatScanner: 40+ regex patterns across 8 categories
+  - Categories: FileSystemDestruction, RemoteCodeExecution, DataExfiltration,
+    SystemModification, NetworkAccess, ProcessManipulation, PrivilegeEscalation, CommandInjection
+  - Risk levels: Critical/High → Deny, Medium → RequireApproval, Low → Allow
+
+Layer 3: Inspector Pipeline (executor/inspector/)
+  - SecurityInspector integrates ThreatScanner into the tool call pipeline
+  - EgressInspector detects network destinations in commands
+  - OsvInspector checks for known vulnerable packages
+
+Layer 4: Permission & Sandbox (executor/permission.rs, ToolContext.sandbox)
+  - Permission hierarchy: None < Read < Write < Execute < Network
+  - SandboxConfig: allowed_paths, denied_paths, timeout, docker/os sandbox
+  - Session mode gating: Planning mode allows only read-only tools
+```
+
+### Redesign Constraints
+
+The following invariants must be preserved across all phases:
+
+1. **`TaskToolExecutor` trait shape** — all 3 implementations and `Musician` call site depend on `(task_id, tool_name, input, allowed_tools, model) -> StepResult`
+2. **`Tool` trait signature** — 30+ tool implementations depend on it; `ToolRegistry` dispatches via it
+3. **`ToolRegistry` registration pattern** — `register(impl Tool)`, `execute(ToolCall, ToolContext)`, `list()` — used by `AgentSessionExecutor` to build schemas
+4. **Tiered activation** — `ToolActivationManager.is_active()` checked before execution
+5. **Hook lifecycle** — PreToolUse/PostToolUse/ToolError hooks fire around `TaskToolExecutor::execute()`
+6. **Bus event forwarding** — `EventForwarder` maps `EventMsg::ToolCallStarted/ToolExecCompleted` to `OrchestrationEvent`
+7. **Inspector pipeline** — `ToolInspector` implementations run pre-execution and return `InspectionAction`
 
 ## Design C: Two-Tier Context
 
@@ -393,3 +514,7 @@ All questions from the initial design have been resolved. See ADR 004 "Resolved 
 | 5 | `ToolExecutor` naming collision? | Rename orchestration async trait to `TaskToolExecutor`. | DEC-5 |
 | 6 | Duplicate `ToolInfo` types? | Rename shim type to `ToolCallInfo`. Two types, two purposes, clear names. | DEC-6 |
 | 7 | ACP bypasses `ToolExecutorApi`? | Documented as tech debt. Does not block current phases. | DEC-7 |
+| 8 | Does redesign affect `TaskToolExecutor` orchestration gateway? | No. `TaskToolExecutor` trait shape is preserved. Redesign only affects the inner `Tool::execute` + `ToolContext` layer. | — |
+| 9 | How does `ToolActivationManager` interact with `allowed_tools` whitelist? | Two mechanisms coexist: static whitelist (`allowed_tools: &[&str]` in `TaskToolExecutor`) and dynamic tier filtering (`ToolActivationManager`). Tier only promotes upward; cannot demote. Reconciling these is a future optimization, not a blocker. | — |
+| 10 | Should the 3 existing wrapper patterns (middleware, inspector, convoy) be unified? | Not in this redesign. They serve different lifecycle points (pre-execution inspection vs hook execution vs role gating). Unification would be a Phase 6+ concern. | — |
+| 11 | Does `ExecutionMiddleware::execute()` bypass `ToolRegistry`? | No. `ExecutionMiddleware` wraps individual `Tool::execute()` calls. `ToolRegistry::execute()` is the dispatcher that calls middleware. The layering is: Registry → Middleware → Inspector → Convoy → Tool. | — |
