@@ -25,14 +25,14 @@ jobs:
           ref: ${{ github.event.client_payload.ref || github.event.inputs.ref || 'main' }}
           token: ${{ secrets.PRIVATE_REPO_PAT }}
 
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libssl-dev pkg-config
-
-      - name: Cache
-        uses: Swatinem/rust-cache@v2
 
       - name: Run tests
         run: cargo test --workspace
@@ -48,6 +48,9 @@ jobs:
           ref: ${{ github.event.client_payload.ref || github.event.inputs.ref || 'main' }}
           token: ${{ secrets.PRIVATE_REPO_PAT }}
 
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -55,9 +58,6 @@ jobs:
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libssl-dev pkg-config
-
-      - name: Cache
-        uses: Swatinem/rust-cache@v2
 
       - name: Run clippy
         run: cargo clippy --workspace --all-targets -- -D warnings -A clippy::unwrap_used -A clippy::expect_used
