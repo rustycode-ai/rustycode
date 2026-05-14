@@ -631,6 +631,34 @@ mod tests {
     }
 
     #[test]
+    fn test_truncate_text_wide_unicode() {
+        // Each CJK character is 2 display columns wide.
+        // "日本語日本語日本語" = 9 chars × 2 cols = 18 display cols, 27 bytes.
+        // Truncating to 8 display cols: 4 CJK chars (8 cols) then "..." = 11 cols total.
+        // But with "..." we need 8 - 3 = 5 cols for text, which fits 2 CJK (4 cols).
+        let wide = "日本語日本語日本語";
+        let result = truncate_text(wide, 8);
+        // Must truncate by display width, not bytes — the raw string is 27 bytes > 8.
+        // With max 8 cols: "日本" (4 cols) + "..." (3 cols) = 7 cols ≤ 8.
+        assert!(
+            result.contains("..."),
+            "should contain ellipsis: got {result:?}"
+        );
+        // The output display width must not exceed max_len
+        let out_width = crate::unicode::display_width(&result);
+        assert!(
+            out_width <= 8,
+            "display width {out_width} exceeds max 8: got {result:?}"
+        );
+        // Must NOT be a byte-level truncation — the raw string is 27 bytes, way > 8.
+        // If it were byte-truncated, we'd get garbled output or only 4 ASCII chars.
+        assert!(
+            result.starts_with("日本"),
+            "should preserve full CJK characters: got {result:?}"
+        );
+    }
+
+    #[test]
     fn test_detect_questions_empty_content() {
         let questions = detect_questions("");
         assert!(questions.is_empty());

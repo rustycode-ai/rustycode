@@ -11,6 +11,9 @@ pub fn render_symbol_outline(f: &mut Frame, area: Rect, panel: &SymbolOutlinePan
     if !panel.visible {
         return;
     }
+    if area.width == 0 || area.height == 0 {
+        return;
+    }
 
     let block = Block::default()
         .title(" Symbol Outline ")

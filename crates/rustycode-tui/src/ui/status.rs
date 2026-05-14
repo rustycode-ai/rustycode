@@ -15,6 +15,7 @@ use super::progress::ToolProgress;
 
 // Import compaction types for token display
 use crate::memory::compaction::{ContextMonitor, UsageColor};
+use crate::unicode::truncate_display;
 use unicode_width::UnicodeWidthStr;
 
 /// Configuration for status display
@@ -303,18 +304,8 @@ impl StatusBar {
                 let sw = span.width();
                 if used + sw > max_w {
                     let remaining = max_w.saturating_sub(used);
-                    if remaining > 3 {
-                        truncated_spans.push(Span::raw(
-                            span.content
-                                .chars()
-                                .take(remaining.saturating_sub(3))
-                                .collect::<String>(),
-                        ));
-                    }
-                    truncated_spans.push(Span::styled(
-                        "…".to_string(),
-                        Style::default().fg(Color::DarkGray),
-                    ));
+                    let truncated_content = truncate_display(&span.content, remaining);
+                    truncated_spans.push(Span::styled(truncated_content, span.style));
                     break;
                 }
                 truncated_spans.push(span);
@@ -723,7 +714,23 @@ mod tests {
         assert!(config.animations_enabled);
         assert!(config.show_tool_indicators);
         assert!(config.show_progress_bars);
+        assert!(config.show_elapsed_time);
         assert!(!config.show_thinking_indicator);
         assert!(!config.reduced_motion);
+    }
+
+    #[test]
+    fn test_span_truncation_respects_display_width() {
+        let cjk_text = "项目代码测试数据";
+
+        // Regression: chars().take(N) counted chars, not display columns —
+        // CJK chars are 2 columns each, causing 2x overflow.
+        let truncated = crate::unicode::truncate_display(cjk_text, 5);
+        assert!(
+            crate::unicode::display_width(&truncated) <= 5,
+            "truncated display width {} exceeds budget 5: {:?}",
+            crate::unicode::display_width(&truncated),
+            truncated,
+        );
     }
 }

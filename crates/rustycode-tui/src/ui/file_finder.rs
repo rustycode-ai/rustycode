@@ -542,6 +542,9 @@ impl FileFinderRenderer {
         if !self.state.visible {
             return;
         }
+        if area.width == 0 || area.height == 0 {
+            return;
+        }
 
         // Calculate modal size (70% width, 60% height)
         let width = (area.width * 70) / 100;

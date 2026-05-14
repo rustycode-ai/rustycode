@@ -365,6 +365,9 @@ impl ToastManager {
 
     /// Render all active toasts with animations
     pub fn render(&self, frame: &mut Frame, area: Rect, theme_colors: Option<&ThemeColors>) {
+        if area.width == 0 || area.height == 0 {
+            return;
+        }
         // Get active toasts (exclude those that have completed exit animation)
         let toasts: Vec<_> = self
             .toasts

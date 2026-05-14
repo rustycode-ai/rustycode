@@ -271,6 +271,9 @@ impl MarketplaceBrowser {
         if !self.visible {
             return;
         }
+        if area.width == 0 || area.height == 0 {
+            return;
+        }
 
         let width = ((area.width as usize * 88) / 100)
             .max(48)

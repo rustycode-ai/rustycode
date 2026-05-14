@@ -453,6 +453,9 @@ impl ModelSelectorRenderer {
         if !self.state.visible {
             return;
         }
+        if area.width == 0 || area.height == 0 {
+            return;
+        }
 
         // Calculate modal size (60% width, 50% height)
         let width = (area.width * 60) / 100;

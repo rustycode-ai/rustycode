@@ -19,6 +19,9 @@ pub fn render_thinking_header(
     color: Color,
     theme: &super::MessageTheme,
 ) -> anyhowResult<()> {
+    if area.width == 0 || area.height == 0 {
+        return Ok(());
+    }
     let size = thinking.len();
 
     // Format size
@@ -52,6 +55,9 @@ pub fn render_thinking_content(
     color: Color,
     theme: &super::MessageTheme,
 ) -> anyhowResult<()> {
+    if area.width == 0 || area.height == 0 {
+        return Ok(());
+    }
     // Build lines
     let mut lines = vec![];
 

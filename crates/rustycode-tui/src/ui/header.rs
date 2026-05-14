@@ -172,6 +172,9 @@ impl Header {
     /// Render the header. Width-aware: elements are skipped if they don't fit.
     /// Project names are truncated at char boundaries (UTF-8 safe).
     pub fn render(&self, frame: &mut Frame, area: Rect) {
+        if area.width == 0 {
+            return;
+        }
         let width = area.width as usize;
         let mut spans: Vec<Span> = Vec::new();
         let mut used: usize = 0;
@@ -226,16 +229,10 @@ impl Header {
             + if self.pending_tools > 0 { 12 } else { 0 }
             + 4;
         let max_chars = width.saturating_sub(used + right_budget);
-        let char_count = self.project_name.chars().count();
-        let display = if char_count > max_chars && max_chars > 1 {
-            format!(
-                "{}…",
-                self.project_name
-                    .chars()
-                    .take(max_chars.saturating_sub(1))
-                    .collect::<String>()
-            )
-        } else if char_count > max_chars {
+        let name_width = display_width(&self.project_name);
+        let display = if name_width > max_chars && max_chars > 1 {
+            truncate_display(&self.project_name, max_chars)
+        } else if name_width > max_chars {
             String::new()
         } else {
             self.project_name.clone()
@@ -363,6 +360,36 @@ mod tests {
         let mut terminal = ratatui::Terminal::new(backend).unwrap();
         terminal
             .draw(|frame| header.render(frame, Rect::new(0, 0, 10, 1)))
+            .unwrap();
+    }
+
+    /// Regression: status text with braille spinner must use display_width,
+    /// not .len(), so wide characters are counted correctly in width tracking.
+    #[test]
+    fn test_header_status_text_wide_chars() {
+        let header = Header::new()
+            .with_status(HeaderStatus::Thinking)
+            .with_spinner_frame(0);
+        let backend = ratatui::backend::TestBackend::new(80, 1);
+        let mut terminal = ratatui::Terminal::new(backend).unwrap();
+        // Braille spinner char "⠋" is 3 bytes but display-width 1.
+        // The status line "⠋ thinking " should consume 11 display columns, not .len() bytes.
+        terminal
+            .draw(|frame| header.render(frame, Rect::new(0, 0, 80, 1)))
+            .unwrap();
+    }
+
+    /// Regression: CJK project names must be truncated by display width,
+    /// not char count. Each CJK char is 2 display columns.
+    #[test]
+    fn test_header_project_name_wide_truncation() {
+        // "プロジェクト" = 5 CJK chars × 2 cols = 10 display columns.
+        // On a narrow terminal, it must truncate by display width.
+        let header = Header::new().with_project_name("プロジェクト");
+        let backend = ratatui::backend::TestBackend::new(20, 1);
+        let mut terminal = ratatui::Terminal::new(backend).unwrap();
+        terminal
+            .draw(|frame| header.render(frame, Rect::new(0, 0, 20, 1)))
             .unwrap();
     }
 }

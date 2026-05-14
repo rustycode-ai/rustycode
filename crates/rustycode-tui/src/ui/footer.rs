@@ -117,7 +117,7 @@ impl Footer {
 
         // Section 1: Session duration (always shown, compact)
         let session = format!(" {} ", self.session_duration);
-        used += session.len();
+        used += display_width(&session);
         spans.push(Span::styled(session, Style::default().fg(Color::White)));
 
         // Divider + tasks (only if room)
@@ -143,19 +143,26 @@ impl Footer {
             format!(" │ {} ", cost_str)
         };
 
-        if used + task_section.len() + cost_section.len() + self.model_name.len() + 12 < width {
-            used += task_section.len();
+        if used
+            + display_width(&task_section)
+            + display_width(&cost_section)
+            + display_width(&self.model_name)
+            + 12
+            < width
+        {
+            used += display_width(&task_section);
             spans.push(Span::styled(
                 task_section,
                 Style::default().fg(self.muted_color),
             ));
-            used += cost_section.len();
+            used += display_width(&cost_section);
             spans.push(Span::styled(
                 cost_section,
                 Style::default().fg(Color::Yellow),
             ));
-        } else if used + task_section.len() + self.model_name.len() + 12 < width {
-            used += task_section.len();
+        } else if used + display_width(&task_section) + display_width(&self.model_name) + 12 < width
+        {
+            used += display_width(&task_section);
             spans.push(Span::styled(
                 task_section,
                 Style::default().fg(self.muted_color),
@@ -164,9 +171,9 @@ impl Footer {
 
         // Model (right-aligned if room)
         let model_part = format!(" {} ", self.model_name);
-        if used + model_part.len() + 4 < width {
+        if used + display_width(&model_part) + 4 < width {
             // Fill gap
-            let gap = width.saturating_sub(used + model_part.len() + 2);
+            let gap = width.saturating_sub(used + display_width(&model_part) + 2);
             if gap > 0 {
                 spans.push(Span::styled(
                     " ".repeat(gap),
@@ -228,5 +235,31 @@ mod tests {
     fn test_footer_with_model() {
         let footer = Footer::new().with_model("opus-4.5");
         assert_eq!(footer.model_name, "opus-4.5");
+    }
+
+    #[test]
+    fn test_footer_unicode_model_name() {
+        let footer = Footer::new()
+            .with_session_duration("5m")
+            .with_task_summary("✓3 ☐1")
+            .with_model("模型名前")
+            .with_session_cost(0.05);
+        let backend = ratatui::backend::TestBackend::new(80, 1);
+        let mut terminal = ratatui::Terminal::new(backend).unwrap();
+        terminal
+            .draw(|frame| footer.render(frame, Rect::new(0, 0, 80, 1)))
+            .unwrap();
+    }
+
+    #[test]
+    fn test_footer_zero_width_no_panic() {
+        let footer = Footer::new()
+            .with_session_duration("1h 23m")
+            .with_model("sonnet-4.5");
+        let backend = ratatui::backend::TestBackend::new(80, 1);
+        let mut terminal = ratatui::Terminal::new(backend).unwrap();
+        terminal
+            .draw(|frame| footer.render(frame, Rect::new(0, 0, 0, 1)))
+            .unwrap();
     }
 }

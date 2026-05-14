@@ -139,6 +139,9 @@ impl SkillPalette {
         if !self.visible {
             return;
         }
+        if area.width == 0 || area.height == 0 {
+            return;
+        }
 
         // Calculate palette size (60% width, 40% height, centered)
         let width = (area.width * 60 / 100).min(80);

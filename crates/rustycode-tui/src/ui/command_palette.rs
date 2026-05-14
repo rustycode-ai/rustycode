@@ -1164,10 +1164,12 @@ impl CommandPaletteRenderer {
             return; // Terminal too small to show palette
         }
 
+        let max_width = area.width.saturating_sub(2);
         let width = ((area.width as f32) * 0.82).round() as u16;
-        let width = width.clamp(54, area.width.saturating_sub(2));
+        let width = width.clamp(40.min(max_width), max_width);
+        let max_height = area.height.saturating_sub(2);
         let height = ((area.height as f32) * 0.64).round() as u16;
-        let height = height.clamp(14, area.height.saturating_sub(2));
+        let height = height.clamp(10.min(max_height), max_height);
         let x = area.x + (area.width.saturating_sub(width)) / 2;
         let y = area.y + (area.height.saturating_sub(height)) / 2;
         let palette_area = Rect::new(x, y, width, height);
@@ -1688,5 +1690,34 @@ mod tests {
 
         assert_eq!(palette.state().recent_commands.len(), 1);
         assert_eq!(palette.state().recent_commands[0], "help");
+    }
+
+    #[test]
+    fn test_render_narrow_terminal_no_panic() {
+        // Regression: clamp(54, area.width - 2) panics when area.width < 56
+        // because min > max. Must gracefully handle narrow terminals.
+        use ratatui::backend::TestBackend;
+        use ratatui::Terminal;
+
+        let mut palette = CommandPalette::new();
+        palette.show();
+
+        // 40×12 previously caused "min > max" panic at clamp(54, 38)
+        let backend = TestBackend::new(40, 12);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal
+            .draw(|f| {
+                palette.render(f, f.area());
+            })
+            .unwrap();
+
+        // Should also survive very narrow sizes
+        let backend = TestBackend::new(42, 12);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal
+            .draw(|f| {
+                palette.render(f, f.area());
+            })
+            .unwrap();
     }
 }

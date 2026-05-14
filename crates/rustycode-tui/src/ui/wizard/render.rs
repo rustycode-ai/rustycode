@@ -103,6 +103,9 @@ impl FirstRunWizard {
     }
 
     pub fn render(&mut self, frame: &mut Frame, area: Rect) {
+        if area.width == 0 || area.height == 0 {
+            return;
+        }
         match self.step {
             WizardStep::Welcome => self.render_welcome(frame, area),
             WizardStep::SelectProvider => self.render_provider_selection(frame, area),

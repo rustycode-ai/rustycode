@@ -245,6 +245,9 @@ impl ErrorDisplay {
 
     /// Render the error display
     pub fn render(&self, frame: &mut Frame, area: Rect) {
+        if area.width == 0 || area.height == 0 {
+            return;
+        }
         // Clear the area first
         frame.render_widget(Clear, area);
 

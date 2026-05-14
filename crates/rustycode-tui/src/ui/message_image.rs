@@ -21,6 +21,9 @@ pub fn render_image_header(
     pipe: char,
     color: Color,
 ) -> anyhowResult<()> {
+    if area.width == 0 || area.height == 0 {
+        return Ok(());
+    }
     // Build header line
     let header_line = Line::from(vec![
         Span::styled(format!("{} ", pipe), Style::default().fg(color)),
@@ -51,6 +54,9 @@ pub fn render_single_image_preview(
     pipe: char,
     color: Color,
 ) -> anyhowResult<()> {
+    if area.width == 0 || area.height == 0 {
+        return Ok(());
+    }
     let mut lines = vec![];
 
     // Title with filename and remove option

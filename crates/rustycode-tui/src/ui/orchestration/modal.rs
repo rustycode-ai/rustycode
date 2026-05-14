@@ -22,6 +22,9 @@ pub struct OrchestrationModalWidget;
 
 impl Widget for OrchestrationModalWidget {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        if area.width == 0 || area.height == 0 {
+            return;
+        }
         let block = Block::default()
             .title(" 🧠 Orchestration Reasoning ")
             .borders(Borders::ALL)

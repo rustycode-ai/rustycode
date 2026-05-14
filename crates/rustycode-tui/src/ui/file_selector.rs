@@ -93,6 +93,9 @@ impl FileSelector {
         if !self.visible {
             return;
         }
+        if area.width == 0 || area.height == 0 {
+            return;
+        }
 
         let area = centered_rect(50, 60, area);
         let items: Vec<ListItem> = self

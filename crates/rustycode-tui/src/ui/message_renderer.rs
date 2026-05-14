@@ -955,4 +955,32 @@ mod tests {
             "full wide text should be preserved when it fits display width"
         );
     }
+
+    #[test]
+    fn test_render_message_zero_area_no_panic() {
+        let renderer = MessageRenderer::new();
+        let theme = MessageTheme::default();
+        let message = Message::user("hello".to_string());
+        let backend = ratatui::backend::TestBackend::new(0, 0);
+        let mut terminal = ratatui::Terminal::new(backend).unwrap();
+        terminal
+            .draw(|f| {
+                let _ = renderer.render_message(f, f.area(), &message, &theme, None);
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn test_render_message_tiny_area_no_panic() {
+        let renderer = MessageRenderer::new();
+        let theme = MessageTheme::default();
+        let message = Message::user("hello".to_string());
+        let backend = ratatui::backend::TestBackend::new(10, 2);
+        let mut terminal = ratatui::Terminal::new(backend).unwrap();
+        terminal
+            .draw(|f| {
+                let _ = renderer.render_message(f, f.area(), &message, &theme, None);
+            })
+            .unwrap();
+    }
 }
