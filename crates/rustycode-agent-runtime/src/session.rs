@@ -17,6 +17,7 @@ use rustycode_tools_api::MessageSender;
 use crate::context::prune_messages;
 use crate::intelligence::CodeIntelligence;
 use crate::provider_context::ProviderContext;
+use crate::thought_frame::ThoughtFrame;
 use crate::tool_exec::{execute_tool, truncate_tool_output};
 use crate::turn::{collect_completion_turn, collect_stream_turn};
 use rustycode_guard::hooks_expanded::{ExpandedHookDispatcher, LifecycleEvent, LifecycleHook};
@@ -42,6 +43,8 @@ pub struct AgentConfig {
     /// Maximum output tokens for LLM requests (default: 32768).
     /// Should be set per-model based on provider capabilities.
     pub max_output_tokens: u32,
+    /// Inject structured thinking nudge after each turn's tool results (default: false).
+    pub thinking_nudge: bool,
 }
 
 impl Default for AgentConfig {
@@ -53,6 +56,7 @@ impl Default for AgentConfig {
             temperature: 0.2,
             effort: None,
             max_output_tokens: 32_768,
+            thinking_nudge: false,
         }
     }
 }
@@ -75,12 +79,21 @@ impl AgentConfig {
             timeout_secs,
             effort,
             max_output_tokens,
+            thinking_nudge: std::env::var("RUSTYCODE_THINKING_NUDGE")
+                .ok()
+                .is_some_and(|v| v == "1" || v.eq_ignore_ascii_case("true")),
             ..Default::default()
         }
     }
 
     pub fn with_max_output_tokens(mut self, tokens: u32) -> Self {
         self.max_output_tokens = tokens;
+        self
+    }
+
+    /// Enable structured thinking nudges at each turn boundary.
+    pub fn with_thinking_nudge(mut self, enable: bool) -> Self {
+        self.thinking_nudge = enable;
         self
     }
 }
@@ -209,6 +222,11 @@ pub struct AgentSession {
     op_rx: Option<tokio::sync::mpsc::UnboundedReceiver<rustycode_protocol::Op>>,
     /// Optional agent plugins (observers/modifiers). Empty = zero overhead.
     plugins: Vec<Box<dyn crate::plugins::AgentPlugin>>,
+    /// Optional path for ThoughtFrame persistence. Caller controls naming.
+    /// When set, the frame is loaded before run_loop and persisted after.
+    thought_frame_path: Option<PathBuf>,
+    /// Delegated-agent contract. When set, attached to ThoughtFrame before run_loop.
+    task_brief: Option<crate::task_brief::TaskBrief>,
 }
 
 impl AgentSession {
@@ -225,6 +243,8 @@ impl AgentSession {
             provider_context: None,
             op_rx: None,
             plugins: Vec::new(),
+            thought_frame_path: None,
+            task_brief: None,
         }
     }
 
@@ -264,6 +284,23 @@ impl AgentSession {
     /// Attach an agent plugin. Plugins are called at turn boundaries.
     pub fn with_plugin(mut self, plugin: Box<dyn crate::plugins::AgentPlugin>) -> Self {
         self.plugins.push(plugin);
+        self
+    }
+
+    /// Set an explicit path for ThoughtFrame persistence.
+    /// The caller controls naming (e.g., per agent role, per task, per session).
+    /// When set, the frame is loaded before run_loop and persisted after.
+    pub fn with_thought_frame_path(mut self, path: impl Into<PathBuf>) -> Self {
+        self.thought_frame_path = Some(path.into());
+        self
+    }
+
+    /// Attach a delegated-agent contract for this session.
+    ///
+    /// When set, the brief is applied to the loaded/new ThoughtFrame before
+    /// entering the run loop, shaping nudges and role context.
+    pub fn with_task_brief(mut self, brief: crate::task_brief::TaskBrief) -> Self {
+        self.task_brief = Some(brief);
         self
     }
 
@@ -312,6 +349,24 @@ impl AgentSession {
             None => system.to_string(),
         };
 
+        // Create or load ThoughtFrame. Caller controls persistence via thought_frame_path.
+        let max_turns = if self.config.max_turns == 0 {
+            1
+        } else {
+            self.config.max_turns
+        };
+        let mut thought_frame = self
+            .thought_frame_path
+            .as_ref()
+            .and_then(|p| ThoughtFrame::load_from(p, max_turns))
+            .unwrap_or_else(|| ThoughtFrame::new(max_turns));
+
+        // Apply delegated-agent contract after loading so the caller-supplied
+        // brief always wins over any persisted state.
+        if let Some(brief) = self.task_brief.take() {
+            thought_frame.task_brief = Some(brief);
+        }
+
         let result = run_loop(
             provider,
             model,
@@ -329,8 +384,14 @@ impl AgentSession {
             &self.event_tx,
             &mut op_rx,
             &mut self.plugins,
+            &mut thought_frame,
         )
         .await;
+
+        // Persist the frame if a path was configured
+        if let Some(path) = &self.thought_frame_path {
+            thought_frame.save_to(path);
+        }
 
         // Restore op_rx if it was taken and session is still alive
         self.op_rx = op_rx;
@@ -379,6 +440,7 @@ async fn run_loop(
     event_tx: &tokio::sync::broadcast::Sender<EventMsg>,
     op_rx: &mut Option<tokio::sync::mpsc::UnboundedReceiver<rustycode_protocol::Op>>,
     plugins: &mut [Box<dyn crate::plugins::AgentPlugin>],
+    thought_frame: &mut ThoughtFrame,
 ) -> Result<AgentResult> {
     const MAX_RETRIES: usize = 3;
 
@@ -552,6 +614,9 @@ async fn run_loop(
         for tool in &state.tools {
             let input: serde_json::Value = serde_json::from_str(&tool.input_json)
                 .unwrap_or_else(|_| serde_json::json!({"_raw": tool.input_json}));
+
+            // Track tool usage in ThoughtFrame for state-derived nudges
+            thought_frame.record_tool(turn + 1, &tool.name, &input);
 
             assistant_blocks.push(ContentBlock::ToolUse {
                 id: tool.id.clone(),
@@ -744,6 +809,9 @@ async fn run_loop(
                 ));
             } else {
                 tool_result_blocks.push(ContentBlock::tool_result(&tool.id, &plugin_output));
+
+                // Heuristic finding extraction for ThoughtFrame
+                thought_frame.record_finding(&tool.name, &plugin_output);
                 let _ = hooks.dispatch(&LifecycleEvent::new(
                     LifecycleHook::PostToolUse,
                     &tool.name,
@@ -763,6 +831,11 @@ async fn run_loop(
             role: MessageRole::User,
             content: MessageContent::Blocks(tool_result_blocks),
         });
+
+        // Inject structured thinking nudge if enabled
+        if config.thinking_nudge && !state.tools.is_empty() {
+            inject_thinking_nudge(&mut messages, thought_frame);
+        }
 
         // Phase 1B: Ensure TurnCompleted is emitted if not already sent by provider
         if state.stop_reason.is_none() {
@@ -925,6 +998,76 @@ fn inject_turn_context(messages: &mut Vec<ChatMessage>, intel: &dyn CodeIntellig
             role: MessageRole::User,
             content: MessageContent::Simple(context_msg),
         });
+    }
+}
+
+/// Inject a thinking nudge into the last user message (tool results).
+///
+/// Uses the ThoughtFrame's state-derived nudge when available, providing
+/// real tracking of explored/modified files, stuck detection, and findings.
+/// Falls back to static turn-based nudges when no frame is available.
+fn inject_thinking_nudge(messages: &mut [ChatMessage], frame: &ThoughtFrame) {
+    let nudge = format!("\n{}", frame.generate_nudge());
+    if let Some(last) = messages.last_mut() {
+        if last.role == MessageRole::User {
+            match &mut last.content {
+                MessageContent::Simple(existing) => {
+                    existing.push_str(&nudge);
+                }
+                MessageContent::Blocks(blocks) => {
+                    blocks.push(ContentBlock::text(&nudge));
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+/// Static fallback nudge based purely on turn count (used when ThoughtFrame is unavailable).
+#[allow(dead_code)]
+fn thinking_nudge_for_turn(turn: usize, max_turns: usize, _tools_this_turn: usize) -> String {
+    let remaining = max_turns.saturating_sub(turn);
+    let progress = turn as f32 / max_turns.max(1) as f32;
+
+    if progress < 0.25 {
+        format!(
+            "\n<turn-reflection turn=\"{turn}/{max_turns}\">\n\
+             Before acting, answer these to yourself:\n\
+             1. **Learned**: One-sentence takeaway from the last tool result.\n\
+             2. **Hypothesis update**: Did the last result confirm or reject my theory?\n\
+             3. **Next step**: Name the SINGLE most useful file or function to inspect next.\n\
+             Safeguards:\n\
+             - Targeted reads > broad greps. Name a specific file before searching.\n\
+             - Do NOT re-read files you already searched. Use what you have.\n\
+             </turn-reflection>",
+        )
+    } else if progress < 0.6 {
+        format!(
+            "\n<turn-reflection turn=\"{turn}/{max_turns}\" remaining=\"{remaining}\">\n\
+             Progress check:\n\
+             1. **What changed**: Did my last edit move toward the fix? (yes/no)\n\
+             2. **Plan status**: What specific step am I on? What's next?\n\
+             3. **Stuck detector**: If I've explored the same area for 3+ turns without editing,\n\
+                STOP exploring and make a change — even a partial fix is progress.\n\
+             Anti-patterns — do NOT:\n\
+             - Re-read files you already inspected this session\n\
+             - Do broad searches when you know the relevant file\n\
+             - Leave code in a broken state between edits\n\
+             </turn-reflection>",
+        )
+    } else {
+        format!(
+            "\n<turn-reflection turn=\"{turn}/{max_turns}\" remaining=\"{remaining}\">\n\
+             {remaining} turns remaining. Assume your fix is subtly broken until proven otherwise.\n\
+             1. **Verify the fix**: Does it handle the EXACT reported issue? Run the test.\n\
+             2. **Check for regressions**: Did I break anything nearby?\n\
+             3. **Finish or fix**: If the fix works, summarize and stop. If not, make ONE targeted edit.\n\
+             Hard rules:\n\
+             - Do NOT explore new areas. Work with what you know.\n\
+             - Do NOT guess at correctness. Run the actual test/command.\n\
+             </turn-reflection>",
+            remaining = remaining,
+        )
     }
 }
 
@@ -1423,5 +1566,38 @@ mod tests {
         assert!(event_types.contains(&"TextDelta"));
         assert!(event_types.contains(&"TurnCompleted"));
         assert!(event_types.contains(&"Done"));
+    }
+
+    #[test]
+    fn inject_thinking_nudge_merges_into_blocks() {
+        let frame = ThoughtFrame::new(10);
+        let mut messages = vec![ChatMessage {
+            role: MessageRole::User,
+            content: MessageContent::Blocks(vec![ContentBlock::text("tool result")]),
+        }];
+        inject_thinking_nudge(&mut messages, &frame);
+        assert_eq!(messages.len(), 1);
+        match &messages[0].content {
+            MessageContent::Blocks(blocks) => assert_eq!(blocks.len(), 2),
+            _ => panic!("expected blocks"),
+        }
+    }
+
+    #[test]
+    fn inject_thinking_nudge_merges_into_simple() {
+        let frame = ThoughtFrame::new(20);
+        let mut messages = vec![ChatMessage {
+            role: MessageRole::User,
+            content: MessageContent::Simple("tool output".to_string()),
+        }];
+        inject_thinking_nudge(&mut messages, &frame);
+        assert_eq!(messages.len(), 1);
+        match &messages[0].content {
+            MessageContent::Simple(s) => {
+                assert!(s.contains("tool output"));
+                assert!(s.contains("<turn-reflection"));
+            }
+            _ => panic!("expected simple"),
+        }
     }
 }

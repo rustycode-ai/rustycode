@@ -16,6 +16,8 @@ mod intelligence;
 pub mod plugins;
 pub mod provider_context;
 mod session;
+mod task_brief;
+mod thought_frame;
 mod tool_exec;
 pub(crate) mod turn;
 
@@ -32,3 +34,4 @@ pub use rustycode_protocol::stream_event::ApprovalDecision;
 pub use session::{
     recommended_max_tokens, AgentConfig, AgentEvents, AgentResult, AgentSession, StoppedReason,
 };
+pub use task_brief::TaskBrief;

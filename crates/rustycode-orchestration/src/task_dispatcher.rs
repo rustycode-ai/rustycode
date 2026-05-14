@@ -270,6 +270,9 @@ impl TaskDispatcher {
             },
         );
 
+        // Build delegated-agent contract from the task spec.
+        let task_brief = task_spec_to_task_brief(spec);
+
         let agent_result = run_agent_session(
             &config,
             &cwd,
@@ -279,6 +282,7 @@ impl TaskDispatcher {
             spec.role.system_prompt(),
             tool_registry,
             events,
+            Some(task_brief),
         )
         .await;
 
@@ -344,8 +348,8 @@ fn task_spec_to_fork_spec(spec: &TaskSpec) -> ForkSpec {
 /// Map `TaskSpec` fields to an `AgentConfig` for V2 session execution.
 ///
 /// Uses `max_steps` for the turn cap (defaulting to 25) and a fixed 900s
-/// wall-clock timeout. The `budget_limit` is a USD cap (not a time budget)
-/// so it doesn't map directly to `timeout_secs`.
+/// wall-clock timeout. Delegated sessions get `thinking_nudge = true` so
+/// the `ThoughtFrame` turn-reflection nudge is active.
 fn task_spec_to_agent_config(spec: &TaskSpec) -> rustycode_agent_runtime::AgentConfig {
     rustycode_agent_runtime::AgentConfig {
         max_turns: spec.max_steps.map_or(25, |steps| steps as usize),
@@ -354,6 +358,34 @@ fn task_spec_to_agent_config(spec: &TaskSpec) -> rustycode_agent_runtime::AgentC
         temperature: 0.2,
         effort: None,
         max_output_tokens: 32_768,
+        thinking_nudge: true,
+    }
+}
+
+/// Build a `TaskBrief` from a `TaskSpec`, applying canonical shaping rules.
+///
+/// Uses the existing `TryFrom<TaskRole> for AgentRole` conversion and
+/// `TaskRole::allowed_tools()` for the deny-by-default tool policy.
+fn task_spec_to_task_brief(spec: &TaskSpec) -> rustycode_agent_runtime::TaskBrief {
+    use rustycode_protocol::agent_protocol::AgentRole;
+    use std::convert::TryInto;
+
+    let role: AgentRole = spec
+        .role
+        .try_into()
+        .expect("all TaskRole variants map to AgentRole");
+    let allowed_tools: Vec<String> = spec
+        .role
+        .allowed_tools()
+        .iter()
+        .map(|s| (*s).to_string())
+        .collect();
+
+    rustycode_agent_runtime::TaskBrief {
+        role,
+        brief: spec.prompt.clone(),
+        path_scope: spec.path_scope.clone(),
+        allowed_tools,
     }
 }
 
@@ -370,6 +402,7 @@ async fn run_agent_session(
     system_prompt: &str,
     tool_registry: &rustycode_tools::ToolRegistry,
     events: &mut dyn rustycode_agent_runtime::AgentEvents,
+    task_brief: Option<rustycode_agent_runtime::TaskBrief>,
 ) -> anyhow::Result<rustycode_agent_runtime::AgentResult> {
     use rustycode_agent_runtime::AgentSession;
     use rustycode_llm::provider::{ChatMessage, MessageRole};
@@ -378,19 +411,42 @@ async fn run_agent_session(
 
     let mut session = AgentSession::new(config.clone(), cwd);
 
+    // Extract allowed_tools before moving the brief into the session.
+    let allowed_tools_filter: Option<Vec<String>> =
+        task_brief.as_ref().map(|b| b.allowed_tools.clone());
+
+    if let Some(brief) = task_brief {
+        session = session.with_task_brief(brief);
+    }
+
     // Wire a sync adapter over the async mailbox router for send_message.
     let mailbox = crate::mailbox_router::MailboxRouter::new(crate::bus::BusHandle::new(16));
     let sender = crate::mailbox_sender::MailboxSender::new(mailbox);
     session = session.with_message_sender(Arc::new(sender));
+
+    // Apply tool gating for delegated sessions: promote to Full tier so
+    // scoped_tools is the sole gate, then set scope to role-allowed tools.
+    if let Some(ref allowed) = allowed_tools_filter {
+        use rustycode_tools_api::tiers::ToolTier;
+        session.activation.set_scope(allowed.clone());
+        session.activation.promote(ToolTier::Full);
+    }
 
     let messages = vec![ChatMessage {
         role: MessageRole::User,
         content: MessageContent::Simple(user_prompt.to_string()),
     }];
 
+    // Build LLM-visible tool schema, filtered to match allowed_tools for
+    // delegated sessions so the model only sees what it can actually execute.
     let tools_schema: Vec<serde_json::Value> = tool_registry
         .list()
         .into_iter()
+        .filter(|info| {
+            allowed_tools_filter
+                .as_ref()
+                .is_none_or(|allowed| allowed.contains(&info.name))
+        })
         .map(|info| {
             serde_json::json!({
                 "name": info.name,

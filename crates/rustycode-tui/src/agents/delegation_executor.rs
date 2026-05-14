@@ -1,7 +1,7 @@
 //! Delegation executor — a real `delegate_task` tool backed by `AgentSession`.
 
 use anyhow::Result;
-use rustycode_agent_runtime::{AgentConfig, AgentEvents, AgentResult, AgentSession};
+use rustycode_agent_runtime::{AgentConfig, AgentEvents, AgentResult, AgentSession, TaskBrief};
 use rustycode_llm::provider::{ChatMessage, LLMProvider, MessageRole};
 use rustycode_orchestration::cost_table::calculate_cost;
 use rustycode_orchestration::delegation::{
@@ -81,6 +81,26 @@ fn enrich_task_prompt(
     prompt
 }
 
+/// Build a `TaskBrief` from the delegation inputs.
+fn build_delegation_brief(role: TaskRole, path_scope: &[PathBuf], prompt: &str) -> TaskBrief {
+    use rustycode_protocol::agent_protocol::AgentRole;
+    use std::convert::TryInto;
+
+    let agent_role: AgentRole = role.try_into().unwrap_or(AgentRole::Researcher);
+    let allowed_tools: Vec<String> = role
+        .allowed_tools()
+        .iter()
+        .map(|s| (*s).to_string())
+        .collect();
+
+    TaskBrief {
+        role: agent_role,
+        brief: prompt.to_string(),
+        path_scope: path_scope.to_vec(),
+        allowed_tools,
+    }
+}
+
 // DelegationExecutor
 
 /// Tool that executes delegated tasks by spawning real `AgentSession` sub-agents.
@@ -146,15 +166,23 @@ impl DelegationExecutor {
         def: &AgentDefinition,
         prompt: &str,
         cwd: &std::path::Path,
+        task_brief: Option<TaskBrief>,
     ) -> Result<(AgentResult, usize)> {
         let mut config = AgentConfig::from_env();
         config.max_turns = 20;
         config.timeout_secs = 300;
         config.max_tool_result_bytes = 8_000;
         config.temperature = 0.2;
+        config.thinking_nudge = task_brief.is_some();
 
         let mut session = AgentSession::new(config, cwd);
         session.activation.promote(ToolTier::Full);
+
+        // Apply delegated-agent contract: activation scope + task brief.
+        if let Some(ref brief) = task_brief {
+            session.activation.set_scope(brief.allowed_tools.clone());
+            session = session.with_task_brief(brief.clone());
+        }
 
         // Build tool registry for sub-agent (subset that doesn't recurse).
         let tool_registry = self.build_subagent_tool_registry();
@@ -165,6 +193,22 @@ impl DelegationExecutor {
             content: MessageContent::Simple(prompt.to_string()),
         }];
 
+        // Filter schema to match allowed_tools for delegated sessions.
+        let tools_schema: Vec<Value> = if let Some(ref brief) = task_brief {
+            self.tools_schema
+                .iter()
+                .filter(|schema| {
+                    schema
+                        .get("name")
+                        .and_then(|n| n.as_str())
+                        .is_none_or(|name| brief.allowed_tools.contains(&name.to_string()))
+                })
+                .cloned()
+                .collect()
+        } else {
+            self.tools_schema.clone()
+        };
+
         let mut collector = DelegationCollector::default();
 
         let result = session
@@ -173,7 +217,7 @@ impl DelegationExecutor {
                 &self.model,
                 def.system_prompt,
                 messages,
-                &self.tools_schema,
+                &tools_schema,
                 &tool_registry,
                 &mut collector,
             )
@@ -245,6 +289,9 @@ impl TaskRunner for DelegationExecutor {
         // Build enriched prompt once from the runner inputs.
         let prompt = enrich_task_prompt(task_description, path_scope, resume_from);
 
+        // Build delegated-agent contract from role + path_scope.
+        let task_brief = build_delegation_brief(role, path_scope, &prompt);
+
         tracing::info!(
             "DelegationExecutor::run_task: role={role:?} agent_type='{agent_type}' starting"
         );
@@ -255,6 +302,7 @@ impl TaskRunner for DelegationExecutor {
                 def,
                 &prompt,
                 &effective_cwd,
+                Some(task_brief),
             ))
         });
 
