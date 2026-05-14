@@ -50,21 +50,28 @@ rustycode update
 
 ## Configuration
 
-Create `~/.rustycode/config.toml` to set your default provider:
+Create `~/.rustycode/config.json` to set your default provider and model:
 
-```toml
-[provider]
-default = "anthropic"
-
-[provider.anthropic]
-model = "claude-sonnet-4-20250514"
-
-[provider.openai]
-model = "gpt-4o"
-
-[provider.ollama]
-model = "codellama"
-base_url = "http://localhost:11434"
+```json
+{
+  "provider": "anthropic",
+  "model": "claude-sonnet-4-20250514",
+  "max_tokens": 16384,
+  "providers": {
+    "anthropic": {
+      "api_key": "your-api-key-here",
+      "models": ["claude-sonnet-4-20250514", "claude-opus-4-20250514"]
+    },
+    "openai": {
+      "api_key": "your-api-key-here",
+      "models": ["gpt-4o"]
+    },
+    "ollama": {
+      "base_url": "http://localhost:11434",
+      "models": ["codellama"]
+    }
+  }
+}
 ```
 
 Set your API key via environment variable:
