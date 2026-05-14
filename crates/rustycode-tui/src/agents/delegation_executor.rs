@@ -82,11 +82,17 @@ fn enrich_task_prompt(
 }
 
 /// Build a `TaskBrief` from the delegation inputs.
+///
+/// Mirrors `task_dispatcher::task_spec_to_task_brief()` so both execution
+/// paths produce identical contracts.
 fn build_delegation_brief(role: TaskRole, path_scope: &[PathBuf], prompt: &str) -> TaskBrief {
     use rustycode_protocol::agent_protocol::AgentRole;
     use std::convert::TryInto;
 
-    let agent_role: AgentRole = role.try_into().unwrap_or(AgentRole::Researcher);
+    let agent_role: AgentRole = role.try_into().unwrap_or_else(|e| {
+        tracing::warn!("build_delegation_brief: {e}, falling back to Researcher");
+        AgentRole::Researcher
+    });
     let allowed_tools: Vec<String> = role
         .allowed_tools()
         .iter()
@@ -169,19 +175,24 @@ impl DelegationExecutor {
         task_brief: Option<TaskBrief>,
     ) -> Result<(AgentResult, usize)> {
         let mut config = AgentConfig::from_env();
-        config.max_turns = 20;
-        config.timeout_secs = 300;
+        config.max_turns = 25;
+        config.timeout_secs = 900;
         config.max_tool_result_bytes = 8_000;
         config.temperature = 0.2;
-        config.thinking_nudge = task_brief.is_some();
+        config.max_output_tokens = 32_768;
+        config.thinking_nudge = true;
 
         let mut session = AgentSession::new(config, cwd);
-        session.activation.promote(ToolTier::Full);
 
-        // Apply delegated-agent contract: activation scope + task brief.
-        if let Some(ref brief) = task_brief {
+        // Apply delegated-agent contract: promote tier, set activation scope,
+        // attach task brief — mirrors run_agent_session() in task_dispatcher.
+        let allowed_tools_filter: Option<Vec<String>> =
+            task_brief.as_ref().map(|b| b.allowed_tools.clone());
+
+        if let Some(brief) = task_brief {
             session.activation.set_scope(brief.allowed_tools.clone());
-            session = session.with_task_brief(brief.clone());
+            session.activation.promote(ToolTier::Full);
+            session = session.with_task_brief(brief);
         }
 
         // Build tool registry for sub-agent (subset that doesn't recurse).
@@ -193,21 +204,19 @@ impl DelegationExecutor {
             content: MessageContent::Simple(prompt.to_string()),
         }];
 
-        // Filter schema to match allowed_tools for delegated sessions.
-        let tools_schema: Vec<Value> = if let Some(ref brief) = task_brief {
-            self.tools_schema
-                .iter()
-                .filter(|schema| {
+        let tools_schema: Vec<Value> = self
+            .tools_schema
+            .iter()
+            .filter(|schema| {
+                allowed_tools_filter.as_ref().is_none_or(|allowed| {
                     schema
                         .get("name")
                         .and_then(|n| n.as_str())
-                        .is_none_or(|name| brief.allowed_tools.contains(&name.to_string()))
+                        .is_none_or(|name| allowed.contains(&name.to_string()))
                 })
-                .cloned()
-                .collect()
-        } else {
-            self.tools_schema.clone()
-        };
+            })
+            .cloned()
+            .collect();
 
         let mut collector = DelegationCollector::default();
 
@@ -732,13 +741,213 @@ mod tests {
     #[test]
     fn delegation_executor_has_planner() {
         let exec = make_executor();
-        // Planner is initialized — verify via context creation.
         let ctx = DelegationContext::for_tool_call(&exec.cwd, "test");
         let decision = exec.planner.should_spawn("fix a typo in readme", &ctx);
-        // Low-complexity task with default context should be inline.
         assert!(
             matches!(decision, SpawnDecision::Inline),
             "expected Inline for simple task, got {decision:?}"
         );
+    }
+
+    // --- Cross-path parity tests ---
+    // These verify that build_delegation_brief() produces the same contract
+    // that task_dispatcher::task_spec_to_task_brief() would produce.
+
+    #[test]
+    fn brief_parity_all_roles_map_to_correct_agent_role() {
+        use rustycode_orchestration::delegation::TaskRole;
+        use rustycode_protocol::agent_protocol::AgentRole;
+        use std::convert::TryFrom;
+
+        let cases: Vec<(TaskRole, AgentRole)> = vec![
+            (TaskRole::Explore, AgentRole::Researcher),
+            (TaskRole::Research, AgentRole::Researcher),
+            (TaskRole::Code, AgentRole::Builder),
+            (TaskRole::Review, AgentRole::Reviewer),
+            (TaskRole::Verify, AgentRole::Judge),
+            (TaskRole::Plan, AgentRole::Planner),
+            (TaskRole::Debug, AgentRole::Scalpel),
+        ];
+
+        for (task_role, expected_agent_role) in cases {
+            let brief = build_delegation_brief(task_role, &[], "test prompt");
+            assert_eq!(
+                brief.role, expected_agent_role,
+                "TaskRole::{task_role:?} should map to {expected_agent_role:?}"
+            );
+
+            let protocol_converted: AgentRole = task_role.try_into().unwrap();
+            assert_eq!(
+                brief.role, protocol_converted,
+                "TUI path should match protocol TryFrom for {task_role:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn brief_parity_allowed_tools_match_role_definition() {
+        for role_str in valid_role_strings() {
+            let task_role = parse_task_role(role_str);
+            let brief = build_delegation_brief(task_role, &[], "test");
+
+            let expected: Vec<String> = task_role
+                .allowed_tools()
+                .iter()
+                .map(|s| (*s).to_string())
+                .collect();
+            assert_eq!(
+                brief.allowed_tools, expected,
+                "allowed_tools mismatch for role {role_str}"
+            );
+        }
+    }
+
+    #[test]
+    fn brief_parity_path_scope_propagated() {
+        let scope = vec![PathBuf::from("src/auth"), PathBuf::from("src/middleware")];
+        let brief = build_delegation_brief(TaskRole::Code, &scope, "fix auth bug");
+
+        assert_eq!(brief.path_scope, scope);
+        assert_eq!(brief.brief, "fix auth bug");
+    }
+
+    #[test]
+    fn brief_parity_deny_by_default() {
+        let brief = build_delegation_brief(TaskRole::Explore, &[], "investigate");
+
+        assert!(!brief.allowed_tools.contains(&"Bash".to_string()));
+        assert!(!brief.allowed_tools.contains(&"Write".to_string()));
+        assert!(!brief.allowed_tools.contains(&"Edit".to_string()));
+
+        assert!(brief.allowed_tools.contains(&"Read".to_string()));
+        assert!(brief.allowed_tools.contains(&"Grep".to_string()));
+    }
+
+    #[test]
+    fn code_role_has_write_and_bash() {
+        let brief = build_delegation_brief(TaskRole::Code, &[], "implement feature");
+
+        assert!(brief.allowed_tools.contains(&"Write".to_string()));
+        assert!(brief.allowed_tools.contains(&"Edit".to_string()));
+        assert!(brief.allowed_tools.contains(&"Bash".to_string()));
+        assert!(brief.allowed_tools.contains(&"Read".to_string()));
+    }
+
+    #[test]
+    fn verify_role_has_bash_but_not_write() {
+        let brief = build_delegation_brief(TaskRole::Verify, &[], "run tests");
+
+        assert!(brief.allowed_tools.contains(&"Bash".to_string()));
+        assert!(brief.allowed_tools.contains(&"Read".to_string()));
+        assert!(!brief.allowed_tools.contains(&"Write".to_string()));
+        assert!(!brief.allowed_tools.contains(&"Edit".to_string()));
+    }
+
+    #[test]
+    fn scope_check_matches_brief_path_scope() {
+        let scope = vec![PathBuf::from("crates/rustycode-tools")];
+        let brief =
+            build_delegation_brief(TaskRole::Code, &scope, "fix the bug in rustycode-tools");
+
+        assert!(brief.is_in_scope(std::path::Path::new("crates/rustycode-tools/src/lib.rs")));
+        assert!(brief.is_in_scope(std::path::Path::new("crates/rustycode-tools")));
+        assert!(!brief.is_in_scope(std::path::Path::new("crates/rustycode-llm/src/lib.rs")));
+    }
+
+    // --- Tool gating integration tests ---
+
+    #[test]
+    fn tool_activation_deny_by_default_after_set_scope() {
+        use rustycode_tools_api::tiers::{ToolActivationManager, ToolTier};
+
+        let mut mgr = ToolActivationManager::new();
+
+        let allowed: Vec<String> = TaskRole::Explore
+            .allowed_tools()
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect();
+
+        mgr.set_scope(allowed);
+        mgr.promote(ToolTier::Full);
+
+        assert!(mgr.is_tool_allowed("Read"));
+        assert!(mgr.is_tool_allowed("Grep"));
+        assert!(!mgr.is_tool_allowed("Bash"));
+        assert!(!mgr.is_tool_allowed("Write"));
+        assert!(!mgr.is_tool_allowed("Edit"));
+    }
+
+    #[test]
+    fn tool_activation_code_role_allows_write_and_bash() {
+        use rustycode_tools_api::tiers::{ToolActivationManager, ToolTier};
+
+        let mut mgr = ToolActivationManager::new();
+
+        let allowed: Vec<String> = TaskRole::Code
+            .allowed_tools()
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect();
+
+        mgr.set_scope(allowed);
+        mgr.promote(ToolTier::Full);
+
+        assert!(mgr.is_tool_allowed("Read"));
+        assert!(mgr.is_tool_allowed("Write"));
+        assert!(mgr.is_tool_allowed("Edit"));
+        assert!(mgr.is_tool_allowed("Bash"));
+        assert!(mgr.is_tool_allowed("Grep"));
+    }
+
+    #[test]
+    fn tool_activation_no_scope_means_no_restriction() {
+        use rustycode_tools_api::tiers::{ToolActivationManager, ToolTier};
+
+        let mut mgr = ToolActivationManager::new();
+        mgr.promote(ToolTier::Full);
+
+        assert!(mgr.is_tool_allowed("Read"));
+        assert!(mgr.is_tool_allowed("Bash"));
+        assert!(mgr.is_tool_allowed("Write"));
+        assert!(mgr.is_tool_allowed("AnyTool"));
+    }
+
+    #[test]
+    fn tool_schema_filtering_matches_activation() {
+        let all_tools: Vec<Value> = vec![
+            serde_json::json!({"name": "Read", "description": "Read file", "parameters": {}}),
+            serde_json::json!({"name": "Write", "description": "Write file", "parameters": {}}),
+            serde_json::json!({"name": "Bash", "description": "Run command", "parameters": {}}),
+            serde_json::json!({"name": "Grep", "description": "Search", "parameters": {}}),
+        ];
+
+        let allowed: Vec<String> = TaskRole::Explore
+            .allowed_tools()
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect();
+
+        let filtered: Vec<Value> = all_tools
+            .iter()
+            .filter(|schema| {
+                schema
+                    .get("name")
+                    .and_then(|n| n.as_str())
+                    .is_none_or(|name| allowed.contains(&name.to_string()))
+            })
+            .cloned()
+            .collect();
+
+        let filtered_names: Vec<&str> = filtered
+            .iter()
+            .filter_map(|s| s.get("name").and_then(|n| n.as_str()))
+            .collect();
+
+        assert!(filtered_names.contains(&"Read"));
+        assert!(filtered_names.contains(&"Grep"));
+        assert!(!filtered_names.contains(&"Write"));
+        assert!(!filtered_names.contains(&"Bash"));
+        assert_eq!(filtered.len(), 2);
     }
 }

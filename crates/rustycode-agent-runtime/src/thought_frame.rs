@@ -317,7 +317,7 @@ fn extract_path(input: &serde_json::Value) -> Option<String> {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
+#[allow(clippy::expect_used, clippy::unwrap_used)]
 mod tests {
     use super::*;
 
@@ -644,5 +644,491 @@ mod tests {
             nudge.contains("Task: \"Fix the auth bug\""),
             "reminder should appear at turn 10"
         );
+    }
+
+    // --- SWE-bench lifecycle simulation tests ---
+
+    use rustycode_protocol::agent_protocol::AgentRole;
+    use rustycode_protocol::tool_names as tn;
+    use std::path::PathBuf;
+
+    fn swe_bench_brief() -> TaskBrief {
+        TaskBrief {
+            role: AgentRole::Builder,
+            brief: "Fix the race condition in the connection pool: \
+                    when multiple threads call get_connection() simultaneously \
+                    with an empty pool, they all create new connections instead \
+                    of waiting. Add a semaphore or condition variable to coordinate."
+                .into(),
+            path_scope: vec![PathBuf::from("src/pool"), PathBuf::from("tests/pool")],
+            allowed_tools: vec![
+                tn::READ.into(),
+                tn::WRITE.into(),
+                tn::EDIT.into(),
+                tn::GREP.into(),
+                tn::LIST_DIR.into(),
+                tn::GLOB.into(),
+                tn::BASH.into(),
+            ],
+        }
+    }
+
+    /// Simulate a full 25-turn SWE-bench session with realistic tool calls
+    /// and verify the ThoughtFrame + TaskBrief contract holds at every step.
+    fn simulate_25_turns(frame: &mut ThoughtFrame) -> Vec<(usize, String)> {
+        let max_turns = 25;
+        (1..=max_turns)
+            .map(|turn| {
+                match turn {
+                    1..=4 => {
+                        let files = [
+                            "src/pool/mod.rs",
+                            "src/pool/connection.rs",
+                            "src/pool/manager.rs",
+                            "src/pool/config.rs",
+                        ];
+                        frame.record_tool(
+                            turn,
+                            tn::READ,
+                            &serde_json::json!({"file_path": files[turn - 1]}),
+                        );
+                        if turn <= 2 {
+                            frame.record_tool(
+                                turn,
+                                tn::GREP,
+                                &serde_json::json!({"pattern": "get_connection", "path": "src/pool"}),
+                            );
+                        }
+                    }
+                    5..=12 => {
+                        if turn == 5 {
+                            frame.record_tool(turn, tn::EDIT,
+                                &serde_json::json!({"file_path": "src/pool/manager.rs", "old": "fn get_connection", "new": "async fn get_connection"}));
+                            frame.record_finding(tn::BASH, "Test/error: assertion failed: pool size exceeded");
+                        } else if turn == 6 {
+                            frame.record_tool(turn, tn::EDIT, &serde_json::json!({"file_path": "src/pool/manager.rs"}));
+                        } else if turn == 7 {
+                            frame.record_tool(turn, tn::READ, &serde_json::json!({"file_path": "src/pool/manager.rs"}));
+                        } else if turn == 8 {
+                            frame.record_tool(turn, tn::BASH, &serde_json::json!({"command": "cargo test -p pool"}));
+                            frame.record_finding(tn::BASH, "Test/error: deadlock detected in test_concurrent_access");
+                        } else if turn == 9 {
+                            frame.record_tool(turn, tn::EDIT, &serde_json::json!({"file_path": "src/pool/manager.rs"}));
+                        } else if turn == 10 {
+                            frame.record_tool(turn, tn::BASH, &serde_json::json!({"command": "cargo test -p pool"}));
+                            frame.record_finding(tn::BASH, "passed; 12 passed, 0 failed");
+                        } else {
+                            frame.record_tool(turn, tn::READ, &serde_json::json!({"file_path": "src/pool/manager.rs"}));
+                        }
+                    }
+                    13..=20 => {
+                        if turn == 13 {
+                            frame.record_tool(turn, tn::READ, &serde_json::json!({"file_path": "src/pool/manager.rs"}));
+                        } else if turn % 2 == 0 {
+                            frame.record_tool(turn, tn::BASH, &serde_json::json!({"command": "cargo test -p pool"}));
+                        } else {
+                            frame.record_tool(turn, tn::READ, &serde_json::json!({"file_path": "src/pool/manager.rs"}));
+                        }
+                    }
+                    _ => {
+                        frame.record_tool(turn, tn::BASH, &serde_json::json!({"command": "cargo test --workspace"}));
+                    }
+                }
+                let nudge = frame.generate_nudge();
+                (turn, nudge)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn swe_bench_full_25_turn_lifecycle() {
+        let brief = swe_bench_brief();
+        let mut frame = ThoughtFrame::new(25);
+        frame.task_brief = Some(brief);
+
+        let nudges = simulate_25_turns(&mut frame);
+
+        // Verify phase transitions
+        assert!(
+            nudges[0].1.contains("EXPLORATION"),
+            "turn 1 should be exploration"
+        );
+        assert!(
+            nudges[0].1.contains("Implementer: make targeted changes"),
+            "turn 1 should have role hint"
+        );
+
+        // Turn 5 — still exploration (5/25 = 0.20 < 0.25), mission reminder
+        assert!(
+            nudges[4].1.contains("EXPLORATION"),
+            "turn 5 should still be exploration (progress < 0.25)"
+        );
+        assert!(
+            nudges[4].1.contains("Task: \"Fix the race condition"),
+            "turn 5 should have mission reminder"
+        );
+        assert!(
+            !nudges[4].1.contains("Implementer:"),
+            "turn 5 should NOT have role hint"
+        );
+
+        // Turn 7 — action phase (7/25 = 0.28)
+        assert!(
+            nudges[6].1.contains("ACTION"),
+            "turn 7 should be action phase"
+        );
+
+        // Turn 10 — mission reminder again
+        assert!(
+            nudges[9].1.contains("Task: \"Fix the race condition"),
+            "turn 10 should have mission reminder"
+        );
+
+        // Turn 15 — mission reminder, still action/verification
+        assert!(
+            nudges[14].1.contains("Task: \"Fix the race condition"),
+            "turn 15 should have mission reminder"
+        );
+
+        // Turn 16+ — verification phase
+        assert!(
+            nudges[15].1.contains("VERIFICATION"),
+            "turn 16 should be verification phase"
+        );
+        assert!(
+            nudges[15].1.contains("subtly broken"),
+            "verification should mention subtlety"
+        );
+
+        // Turn 20 — mission reminder
+        assert!(
+            nudges[19].1.contains("Task: \"Fix the race condition"),
+            "turn 20 should have mission reminder"
+        );
+
+        // Turn 25 — final turn
+        assert!(
+            nudges[24].1.contains("remaining=\"0\""),
+            "turn 25 should show 0 remaining"
+        );
+        assert!(
+            nudges[24].1.contains("Task: \"Fix the race condition"),
+            "turn 25 should have mission reminder"
+        );
+
+        // Scope should always appear (path_scope is non-empty)
+        for (turn, nudge) in &nudges {
+            assert!(
+                nudge.contains("Assigned scope: src/pool, tests/pool"),
+                "turn {turn} should show scope boundary"
+            );
+        }
+
+        // Stuck detection: turns 13-20 re-read manager.rs many times
+        assert!(
+            frame.stuck_counter >= 3,
+            "should detect stuck after repeated re-reads without edits"
+        );
+
+        // Re-read warnings should exist
+        let rereads = frame.re_read_warnings();
+        assert!(
+            rereads.contains(&"src/pool/manager.rs"),
+            "manager.rs should have re-read warnings"
+        );
+
+        // Files explored should include pool files
+        assert!(frame.explored_files.contains("src/pool/mod.rs"));
+        assert!(frame.explored_files.contains("src/pool/manager.rs"));
+
+        // Files modified should include manager.rs
+        assert!(frame.modified_files.contains("src/pool/manager.rs"));
+
+        // Save/load should preserve the full state
+        let dir = std::env::temp_dir().join("rustycode_swe_bench_test");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join(format!("swe-bench-{}.json", std::process::id()));
+        frame.save_to(&path);
+
+        let loaded = ThoughtFrame::load_from(&path, 25).expect("load");
+        assert_eq!(loaded.turn, 25);
+        assert_eq!(loaded.explored_files.len(), frame.explored_files.len());
+        assert_eq!(loaded.modified_files.len(), frame.modified_files.len());
+
+        let loaded_brief = loaded.task_brief.expect("brief should survive save/load");
+        assert_eq!(loaded_brief.role, AgentRole::Builder);
+        assert!(loaded_brief.brief.starts_with("Fix the race condition"));
+        assert_eq!(loaded_brief.allowed_tools.len(), 7);
+        assert!(!loaded_brief
+            .allowed_tools
+            .contains(&"ApplyPatch".to_string()));
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// Verify that a read-only role (Explore) accumulates stuck counter
+    /// because it never writes, but the nudge correctly shows "STUCK" after
+    /// 3+ re-reads without writes.
+    #[test]
+    fn swe_bench_explore_role_stuck_detection() {
+        let brief = TaskBrief {
+            role: AgentRole::Researcher,
+            brief: "Map the authentication module architecture".into(),
+            path_scope: vec![PathBuf::from("src/auth")],
+            allowed_tools: vec![
+                tn::READ.into(),
+                tn::GREP.into(),
+                tn::LIST_DIR.into(),
+                tn::GLOB.into(),
+            ],
+        };
+
+        let mut frame = ThoughtFrame::new(15);
+        frame.task_brief = Some(brief);
+
+        // Turns 1-3: explore different files (not stuck)
+        frame.record_tool(
+            1,
+            tn::READ,
+            &serde_json::json!({"file_path": "src/auth/mod.rs"}),
+        );
+        frame.record_tool(
+            2,
+            tn::READ,
+            &serde_json::json!({"file_path": "src/auth/tokens.rs"}),
+        );
+        frame.record_tool(
+            3,
+            tn::READ,
+            &serde_json::json!({"file_path": "src/auth/middleware.rs"}),
+        );
+
+        assert_eq!(frame.stuck_counter, 0, "exploring new files is not stuck");
+
+        // Turns 4-7: re-read same files repeatedly (should trigger stuck)
+        frame.record_tool(
+            4,
+            tn::READ,
+            &serde_json::json!({"file_path": "src/auth/mod.rs"}),
+        );
+        frame.record_tool(
+            5,
+            tn::READ,
+            &serde_json::json!({"file_path": "src/auth/mod.rs"}),
+        );
+        frame.record_tool(
+            6,
+            tn::READ,
+            &serde_json::json!({"file_path": "src/auth/tokens.rs"}),
+        );
+        frame.record_tool(
+            7,
+            tn::READ,
+            &serde_json::json!({"file_path": "src/auth/mod.rs"}),
+        );
+
+        let nudge = frame.generate_nudge();
+        assert!(
+            nudge.contains("STUCK"),
+            "should detect stuck after re-reading without writing"
+        );
+        assert!(
+            !nudge.contains("Explorer: read and map"),
+            "turn 7 > 2, no role hint"
+        );
+        assert!(nudge.contains("Assigned scope: src/auth"));
+    }
+
+    /// Verify scope boundary enforcement in nudges.
+    /// An Explore agent reading outside its scope should see scope boundary
+    /// in the nudge, but the nudge data itself only shows the assigned scope.
+    #[test]
+    fn swe_bench_scope_boundary_shown_for_scoped_briefs() {
+        let brief = TaskBrief {
+            role: AgentRole::Scalpel,
+            brief: "Debug the timeout in connection_pool.rs".into(),
+            path_scope: vec![PathBuf::from("src/net/pool.rs")],
+            allowed_tools: vec![
+                tn::READ.into(),
+                tn::GREP.into(),
+                tn::LIST_DIR.into(),
+                tn::GLOB.into(),
+                tn::BASH.into(),
+            ],
+        };
+
+        let mut frame = ThoughtFrame::new(20);
+        frame.task_brief = Some(brief);
+        frame.turn = 2;
+
+        let nudge = frame.generate_nudge();
+        assert!(nudge.contains("Debugger: find the root cause"));
+        assert!(nudge.contains("Assigned scope: src/net/pool.rs"));
+    }
+
+    /// Verify that a very long brief gets truncated to 200 chars in the mission reminder.
+    #[test]
+    fn swe_bench_long_brief_truncated_in_reminder() {
+        let long_brief = "A".repeat(500);
+        let brief = TaskBrief {
+            role: AgentRole::Builder,
+            brief: long_brief,
+            path_scope: vec![],
+            allowed_tools: vec![tn::READ.into(), tn::WRITE.into()],
+        };
+
+        let mut frame = ThoughtFrame::new(25);
+        frame.task_brief = Some(brief);
+        frame.turn = 5;
+
+        let nudge = frame.generate_nudge();
+        let task_line = nudge
+            .lines()
+            .find(|l| l.starts_with("Task:"))
+            .expect("should have Task line");
+        let content = task_line.trim_start_matches("Task: \"");
+        let content = content.trim_end_matches('"');
+        assert!(
+            content.len() <= 200,
+            "brief in reminder should be at most 200 chars, got {}",
+            content.len()
+        );
+    }
+
+    /// Verify that ToolActivationManager correctly gates tools for every role,
+    /// matching the deny-by-default policy.
+    ///
+    /// Uses the same tool lists as TaskRole::allowed_tools() in orchestration,
+    /// but duplicated here to avoid a cross-crate dependency.
+    #[test]
+    fn swe_bench_all_roles_tool_gating_via_activation_manager() {
+        use rustycode_tools_api::tiers::{ToolActivationManager, ToolTier};
+
+        // (role_label, allowed_tools scope, tools that must be allowed, tools that must be denied)
+        let roles_and_expectations: Vec<(&str, Vec<&str>, Vec<&str>, Vec<&str>)> = vec![
+            (
+                "Explore",
+                vec!["Read", "Grep", "ListDir", "Glob", "FuzzyFind"],
+                vec!["Read", "Grep", "ListDir", "Glob"],
+                vec!["Write", "Edit", "Bash", "ApplyPatch", "MultiEdit"],
+            ),
+            (
+                "Code",
+                vec![
+                    "Read",
+                    "Write",
+                    "Edit",
+                    "Grep",
+                    "ListDir",
+                    "Glob",
+                    "Bash",
+                    "FuzzyFind",
+                ],
+                vec!["Read", "Write", "Edit", "Grep", "ListDir", "Glob", "Bash"],
+                vec!["ApplyPatch", "MultiEdit", "NotebookEdit"],
+            ),
+            (
+                "Verify",
+                vec!["Read", "Grep", "ListDir", "Glob", "Bash", "FuzzyFind"],
+                vec!["Read", "Grep", "ListDir", "Glob", "Bash"],
+                vec!["Write", "Edit", "ApplyPatch"],
+            ),
+            (
+                "Debug",
+                vec!["Read", "Grep", "ListDir", "Glob", "Bash", "FuzzyFind"],
+                vec!["Read", "Grep", "ListDir", "Glob", "Bash"],
+                vec!["Write", "Edit"],
+            ),
+        ];
+
+        for (role_label, scope_tools, allowed, denied) in &roles_and_expectations {
+            let mut mgr = ToolActivationManager::new();
+            let scope: Vec<String> = scope_tools.iter().map(|s| (*s).to_string()).collect();
+            mgr.set_scope(scope);
+            mgr.promote(ToolTier::Full);
+
+            for tool in allowed {
+                assert!(
+                    mgr.is_tool_allowed(tool),
+                    "{role_label} should allow {tool}"
+                );
+            }
+            for tool in denied {
+                assert!(
+                    !mgr.is_tool_allowed(tool),
+                    "{role_label} should deny {tool}"
+                );
+            }
+        }
+    }
+
+    /// Save/load round-trip with full SWE-bench state: high turn count,
+    /// many explored files, stuck counter, findings, task brief.
+    #[test]
+    fn swe_bench_save_load_preserves_full_state() {
+        let dir = std::env::temp_dir().join("rustycode_swe_bench_roundtrip");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join(format!("roundtrip-{}.json", std::process::id()));
+
+        let brief = TaskBrief {
+            role: AgentRole::Builder,
+            brief: "Fix race condition in pool".into(),
+            path_scope: vec![PathBuf::from("src/pool")],
+            allowed_tools: vec![
+                tn::READ.into(),
+                tn::WRITE.into(),
+                tn::EDIT.into(),
+                tn::BASH.into(),
+            ],
+        };
+
+        let mut frame = ThoughtFrame::new(25);
+        frame.task_brief = Some(brief);
+        frame.turn = 18;
+        frame.confidence = 0.75;
+        frame.stuck_counter = 2;
+        frame.last_edit_turn = 15;
+
+        for i in 0..12 {
+            let name = format!("src/pool/{i}.rs");
+            frame.explored_files.insert(name.clone());
+            if i < 3 {
+                frame.read_count.insert(name, 2);
+            }
+        }
+        frame
+            .modified_files
+            .insert("src/pool/manager.rs".to_string());
+        frame
+            .modified_files
+            .insert("src/pool/connection.rs".to_string());
+        frame
+            .findings
+            .push("Test/error: assertion failed".to_string());
+        frame.findings.push("Tests passing".to_string());
+
+        frame.save_to(&path);
+        let loaded = ThoughtFrame::load_from(&path, 25).expect("load");
+
+        assert_eq!(loaded.turn, 18);
+        assert!((loaded.confidence - 0.75).abs() < f32::EPSILON);
+        assert_eq!(loaded.stuck_counter, 2);
+        assert_eq!(loaded.last_edit_turn, 15);
+        assert_eq!(loaded.explored_files.len(), 12);
+        assert_eq!(loaded.modified_files.len(), 2);
+        assert_eq!(loaded.findings.len(), 2);
+        assert_eq!(loaded.re_read_warnings().len(), 3);
+
+        let loaded_brief = loaded.task_brief.clone().unwrap();
+        assert_eq!(loaded_brief.role, AgentRole::Builder);
+        assert_eq!(loaded_brief.path_scope.len(), 1);
+        assert_eq!(loaded_brief.allowed_tools.len(), 4);
+
+        let loaded_nudge = loaded.generate_nudge();
+        assert!(loaded_nudge.contains("VERIFICATION"));
+        assert!(loaded_nudge.contains("Re-read warning"));
+        assert!(loaded_nudge.contains("Assigned scope: src/pool"));
+
+        let _ = std::fs::remove_file(&path);
     }
 }

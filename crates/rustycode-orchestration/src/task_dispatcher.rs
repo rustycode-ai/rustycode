@@ -370,10 +370,10 @@ fn task_spec_to_task_brief(spec: &TaskSpec) -> rustycode_agent_runtime::TaskBrie
     use rustycode_protocol::agent_protocol::AgentRole;
     use std::convert::TryInto;
 
-    let role: AgentRole = spec
-        .role
-        .try_into()
-        .expect("all TaskRole variants map to AgentRole");
+    let role: AgentRole = spec.role.try_into().unwrap_or_else(|e| {
+        tracing::warn!("task_spec_to_task_brief: {e}, falling back to Researcher");
+        AgentRole::Researcher
+    });
     let allowed_tools: Vec<String> = spec
         .role
         .allowed_tools()

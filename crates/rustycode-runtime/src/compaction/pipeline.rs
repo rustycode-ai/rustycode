@@ -463,4 +463,262 @@ mod tests {
             "new pipeline should not be compacting"
         );
     }
+
+    // -- Extended edge-case tests -------------------------------------------
+
+    // -- split_summary_and_tail tests --
+
+    #[test]
+    fn split_summary_and_tail_zero_preserved_returns_all_as_summary() {
+        let messages = vec![
+            user_msg("a"),
+            assistant_msg("A"),
+            user_msg("b"),
+            assistant_msg("B"),
+        ];
+        let (summary, tail) = split_summary_and_tail(messages, 0);
+        assert_eq!(summary.len(), 4, "all messages should be in summary");
+        assert!(
+            tail.is_empty(),
+            "tail should be empty when preserved_tail_turns=0"
+        );
+    }
+
+    #[test]
+    fn split_summary_and_tail_empty_messages() {
+        let messages: Vec<Message> = Vec::new();
+        let (summary, tail) = split_summary_and_tail(messages, 2);
+        assert!(summary.is_empty());
+        assert!(tail.is_empty());
+    }
+
+    #[test]
+    fn split_summary_and_tail_all_tail_when_few_turns() {
+        let messages = vec![user_msg("only"), assistant_msg("one")];
+        let (summary, tail) = split_summary_and_tail(messages, 5);
+        assert!(summary.is_empty(), "no summary when fewer turns than tail");
+        assert_eq!(tail.len(), 2, "all messages in tail");
+    }
+
+    #[test]
+    fn split_summary_and_tail_correct_split_point() {
+        // 4 turns: user(0), asst(1), user(2), asst(3), user(4), asst(5), user(6), asst(7)
+        let messages = vec![
+            user_msg("q1"),
+            assistant_msg("a1"),
+            user_msg("q2"),
+            assistant_msg("a2"),
+            user_msg("q3"),
+            assistant_msg("a3"),
+            user_msg("q4"),
+            assistant_msg("a4"),
+        ];
+        let (summary, tail) = split_summary_and_tail(messages, 2);
+
+        // Tail should be last 2 turns: q3/a3/q4/a4
+        assert_eq!(summary.len(), 4, "first 2 turns should be summary");
+        assert_eq!(tail.len(), 4, "last 2 turns should be tail");
+        assert_eq!(tail[0].content.as_text(), "q3");
+        assert_eq!(tail[3].content.as_text(), "a4");
+    }
+
+    // -- emergency_trim extended tests --
+
+    #[test]
+    fn emergency_trim_keeps_assistant_after_last_user() {
+        let messages = vec![
+            user_msg("old question"),
+            assistant_msg("old answer"),
+            user_msg("new question"),
+            assistant_msg("new answer"),
+            assistant_msg("continuation"), // second assistant after user
+        ];
+        let trimmed = emergency_trim(messages);
+
+        assert_eq!(
+            trimmed.len(),
+            2,
+            "should keep user + first assistant after it"
+        );
+        assert_eq!(trimmed[0].content.as_text(), "new question");
+        assert_eq!(trimmed[1].content.as_text(), "new answer");
+    }
+
+    #[test]
+    fn emergency_trim_user_at_very_end_no_following_assistant() {
+        let messages = vec![
+            assistant_msg("first"),
+            user_msg("second"),
+            assistant_msg("third"),
+            user_msg("last"), // user at end, no assistant after
+        ];
+        let trimmed = emergency_trim(messages);
+
+        assert_eq!(trimmed.len(), 1, "should keep only the last user message");
+        assert_eq!(trimmed[0].content.as_text(), "last");
+    }
+
+    #[test]
+    fn emergency_trim_only_system_messages() {
+        let messages = vec![
+            Message::system("system prompt 1"),
+            Message::system("system prompt 2"),
+        ];
+        let trimmed = emergency_trim(messages);
+
+        // No user messages → keep last 2.
+        assert_eq!(trimmed.len(), 2);
+    }
+
+    #[test]
+    fn emergency_trim_mixed_roles_no_user() {
+        let messages = vec![
+            Message::system("sys"),
+            assistant_msg("a1"),
+            assistant_msg("a2"),
+            assistant_msg("a3"),
+        ];
+        let trimmed = emergency_trim(messages);
+
+        // No user → keep last 2.
+        assert_eq!(trimmed.len(), 2);
+        assert_eq!(trimmed[0].content.as_text(), "a2");
+        assert_eq!(trimmed[1].content.as_text(), "a3");
+    }
+
+    // -- estimate_tokens extended tests --
+
+    #[test]
+    fn estimate_tokens_with_unicode() {
+        // CJK characters: each is one "word" in a no-space language.
+        // Our heuristic splits on whitespace, so these are 1 word each.
+        let messages = vec![user_msg("日本語テスト")];
+        let tokens = estimate_tokens(&messages);
+        // 4 CJK characters, no spaces → 1 token estimate (one "word").
+        assert!(
+            tokens >= 1,
+            "unicode text should produce at least 1 token estimate"
+        );
+    }
+
+    #[test]
+    fn estimate_tokens_multibyte_mixed() {
+        let messages = vec![user_msg("hello 世界 this is a test with mixed content")];
+        let tokens = estimate_tokens(&messages);
+        // Words: "hello", "世界", "this", "is", "a", "test", "with", "mixed", "content" = 9
+        assert_eq!(tokens, 9, "should count 9 whitespace-separated tokens");
+    }
+
+    #[test]
+    fn estimate_tokens_single_long_message() {
+        // 100 words.
+        let text: String = (0..100)
+            .fold(String::new(), |mut s, i| {
+                use std::fmt::Write;
+                let _ = write!(s, "word{i} ");
+                s
+            })
+            .trim_end()
+            .to_string();
+        let messages = vec![user_msg(&text)];
+        assert_eq!(estimate_tokens(&messages), 100);
+    }
+
+    // -- Progressive tightening convergence --
+
+    #[test]
+    fn progressive_tightening_converges_to_aggressive() {
+        use super::super::plan::CompactionPlan;
+
+        let config = HybridCompactionConfig::default();
+        let mut plan = CompactionPlan::from_config(&config);
+
+        assert_eq!(plan.tail_turns, 2);
+        assert_eq!(plan.max_tool_output_lines, 50);
+        assert_eq!(plan.aggression_level(), 0);
+
+        plan.tighten();
+        assert_eq!(plan.tail_turns, 1);
+        assert_eq!(plan.max_tool_output_lines, 25);
+        assert_eq!(plan.aggression_level(), 1);
+
+        plan.tighten();
+        assert_eq!(plan.tail_turns, 0);
+        assert_eq!(plan.max_tool_output_lines, 12); // 25/2 = 12 (floor)
+        assert_eq!(plan.aggression_level(), 2);
+
+        // Further tighten: tail stays 0, template stays Minimal, output halves to floor 10.
+        plan.tighten();
+        assert_eq!(plan.tail_turns, 0);
+        assert_eq!(plan.max_tool_output_lines, 10); // floor
+        assert_eq!(plan.aggression_level(), 2);
+    }
+
+    // -- Information preservation quality --
+
+    #[test]
+    fn snip_preserves_important_filenames_and_paths() {
+        use super::super::tiers::SnipTier;
+
+        let tier = SnipTier::new(50);
+        let msgs = vec![
+            user_msg("I need to fix the bug in src/auth/jwt.rs line 42"),
+            assistant_msg("Reading src/auth/jwt.rs to find the issue"),
+        ];
+        let result = tier.compact(msgs);
+
+        let combined: String = result
+            .messages
+            .iter()
+            .map(|m| m.content.as_text())
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        assert!(
+            combined.contains("src/auth/jwt.rs"),
+            "filenames should be preserved"
+        );
+        assert!(
+            combined.contains("line 42"),
+            "line numbers should be preserved"
+        );
+        assert!(
+            combined.contains("bug"),
+            "task-relevant keywords should be preserved"
+        );
+    }
+
+    #[test]
+    fn truncate_keeps_latest_instructions_drops_old_context() {
+        use super::super::tiers::TruncateTier;
+
+        let tier = TruncateTier::new(1);
+        let msgs = vec![
+            user_msg("implement feature X using pattern Y"),
+            assistant_msg("I'll use pattern Y for feature X"),
+            user_msg("actually, use pattern Z instead"),
+            assistant_msg("switching to pattern Z"),
+            user_msg("write tests for the new pattern"),
+            assistant_msg("writing tests for pattern Z implementation"),
+        ];
+        let result = tier.compact(msgs);
+
+        let combined: String = result
+            .messages
+            .iter()
+            .map(|m| m.content.as_text())
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        // Should keep the latest instruction (write tests).
+        assert!(
+            combined.contains("write tests"),
+            "latest instruction should be in tail"
+        );
+        // Should NOT contain the old instruction.
+        assert!(
+            !combined.contains("implement feature X using pattern Y"),
+            "old instruction should be dropped"
+        );
+    }
 }
