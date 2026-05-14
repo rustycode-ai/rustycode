@@ -72,6 +72,36 @@ cargo build --release
 - Linux: `protobuf-compiler`, `libssl-dev`, `pkg-config`
 - macOS: `protobuf` via Homebrew
 
+## Configuration
+
+Create `~/.rustycode/config.json` to set your default provider and model:
+
+```json
+{
+  "provider": "anthropic",
+  "model": "claude-sonnet-4-20250514",
+  "max_tokens": 16384,
+  "providers": {
+    "anthropic": {
+      "api_key": "your-api-key-here",
+      "models": ["claude-sonnet-4-20250514", "claude-opus-4-20250514"]
+    },
+    "openai": {
+      "api_key": "your-api-key-here",
+      "models": ["gpt-4o"]
+    },
+    "ollama": {
+      "base_url": "http://localhost:11434",
+      "models": ["codellama"]
+    }
+  }
+}
+```
+
+Set your API key via environment variable: `export ANTHROPIC_API_KEY=sk-...`
+
+Run `rustycode provider list` to see all configured providers.
+
 ## Features
 
 - **Multi-provider LLM**: Anthropic, OpenAI, Gemini, Bedrock, Azure, Ollama, LiteRT, Mistral, Cohere, HuggingFace, OpenRouter, Copilot
