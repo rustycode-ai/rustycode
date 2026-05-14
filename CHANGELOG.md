@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1] - 2026-05-14
+
+### Features
+
+- **orchestration**: Add ReasoningGraph::summarize(), wire into handoff and agent_outcome
+- **bench**: Add complex-mode thinking_guide, A/B testing flag, rework system prompt
+- **agent-runtime**: Add TaskBrief delegated-agent contract with tool gating
+- **agent-runtime**: Add SWE-bench lifecycle simulation tests, align TUI with orchestration
+- **tools**: Add ToolCtx slim execution context, refactor glob/grep to use it
+- **runtime**: Expand compaction piggyback with budget tracking and tier strategies
+
+### Bug Fixes
+
+- **llm**: Allow trivially_copy_pass_by_ref for serde serialize_temperature
+- **tui**: Use display_width for unicode correctness, guard zero-area renders
+
+### Refactor
+
+- **tui**: Extract clear_on_cleanup() for terminal progress
+- **tools**: Resolve all ToolExecutor/ToolInfo naming collisions across workspace
+- **tui**: VecDeque for doom loop, error handling for tool approval, unicode display width
+
+### Documentation
+
+- Review and update ADR 004 and tool interface design
+- Update ADR 004 and tool interface design with ToolCtx and plugin system
+
+### Chores
+
+- Add GSD and generated dirs to .gitignore
+- Add planning docs, tool plugin design, code maps, reports, and test scripts
+- **tui**: Apply cargo fmt formatting
+
 ## [0.5.0] - 2026-05-14
 
 ### Features
@@ -78,6 +111,7 @@ All notable changes to this project will be documented in this file.
 
 - Fix async test, resolve activation findings, add architecture docs
 - Add workspace dependency aliases for core crates
+- Bump version to 0.5.0
 
 ## [0.4.0] - 2026-05-11
 
