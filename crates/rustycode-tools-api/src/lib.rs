@@ -406,6 +406,43 @@ impl ToolContext {
     }
 }
 
+/// Slim execution context carrying only the fields most tools need.
+///
+/// Extracted from `ToolContext` via `ToolCtx::from()`. Tools that opt into
+/// a minimal context receive this instead of the full `ToolContext`, enforcing
+/// minimal dependency at the type level.
+#[derive(Clone, Debug)]
+pub struct ToolCtx {
+    pub cwd: PathBuf,
+    pub role: AgentRole,
+    pub plan_gate: Option<Arc<dyn ToolGate>>,
+    pub cancellation_token: Option<CancellationToken>,
+    pub allow_outside_workspace: bool,
+}
+
+impl ToolCtx {
+    /// Extract the 5 core fields from a full ToolContext.
+    pub fn from_full(ctx: &ToolContext) -> Self {
+        Self {
+            cwd: ctx.cwd.clone(),
+            role: ctx.role,
+            plan_gate: ctx.plan_gate.clone(),
+            cancellation_token: ctx.cancellation_token.clone(),
+            allow_outside_workspace: ctx.allow_outside_workspace,
+        }
+    }
+
+    /// Check for cancellation. Returns `Err` if cancelled.
+    pub fn checkpoint(&self) -> anyhow::Result<()> {
+        if let Some(token) = &self.cancellation_token {
+            if token.is_cancelled() {
+                return Err(anyhow::anyhow!("operation cancelled by user"));
+            }
+        }
+        Ok(())
+    }
+}
+
 /// Permission level for tools (runtime version)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
@@ -471,6 +508,16 @@ impl ToolOutput {
         F: FnOnce() -> Value,
     {
         if ctx.structured_output_enabled {
+            self.structured = Some(metadata());
+        }
+        self
+    }
+
+    pub fn with_metadata_enabled<F>(mut self, enabled: bool, metadata: F) -> Self
+    where
+        F: FnOnce() -> Value,
+    {
+        if enabled {
             self.structured = Some(metadata());
         }
         self

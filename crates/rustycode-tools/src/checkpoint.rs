@@ -40,6 +40,17 @@ impl Checkpoint for ToolContext {
     }
 }
 
+impl Checkpoint for crate::ToolCtx {
+    fn checkpoint(&self) -> Result<()> {
+        if let Some(token) = &self.cancellation_token {
+            if token.is_cancelled() {
+                return Err(anyhow::anyhow!("operation cancelled by user"));
+            }
+        }
+        Ok(())
+    }
+}
+
 /// Helper extension trait for convenience
 pub trait CheckpointExt: Checkpoint {
     /// Check for cancellation, continuing if not cancelled
@@ -149,5 +160,25 @@ mod tests {
         let result = cancellable_iter(&ctx, items.into_iter(), |x| Ok(x * 2));
         // Should return empty vec since checkpoint fails immediately
         assert!(result.unwrap_err().to_string().contains("cancelled"));
+    }
+
+    #[test]
+    fn test_tool_ctx_checkpoint_not_cancelled() {
+        let full = ToolContext::new("/tmp");
+        let tc = crate::ToolCtx::from_full(&full);
+        assert!(tc.checkpoint().is_ok());
+    }
+
+    #[test]
+    fn test_tool_ctx_checkpoint_cancelled() {
+        let token = CancellationToken::cancelled();
+        let full = ToolContext::new("/tmp").with_cancellation(token);
+        let tc = crate::ToolCtx::from_full(&full);
+        assert!(tc.checkpoint().is_err());
+        assert!(tc
+            .checkpoint()
+            .unwrap_err()
+            .to_string()
+            .contains("cancelled"));
     }
 }

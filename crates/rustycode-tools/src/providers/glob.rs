@@ -1,5 +1,5 @@
 use crate::truncation::{truncate_items, LIST_MAX_ITEMS};
-use crate::Checkpoint;
+use crate::ToolCtx;
 use crate::{ToolOutput, ToolPermission, ToolTag};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -121,23 +121,24 @@ rustycode_tools_api::define_tool! {
     tags: [ToolTag::Explore],
 
     execute(params: GlobParams, ctx) {
-        if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, "Glob")?;
+        let tc = ToolCtx::from_full(ctx);
+        if let Some(gate) = &tc.plan_gate {
+            gate.check_access(tc.role, "Glob")?;
         }
 
         let pattern = &params.pattern;
 
         let search_root = if let Some(custom_path) = params.path.as_deref() {
-            let resolved = ctx.cwd.join(custom_path);
+            let resolved = tc.cwd.join(custom_path);
             if !resolved.exists() {
                 anyhow::bail!("path '{custom_path}' does not exist");
             }
             resolved
         } else {
-            ctx.cwd.clone()
+            tc.cwd.clone()
         };
 
-        ctx.checkpoint()?;
+        tc.checkpoint()?;
 
         let mut matches = Vec::new();
         let mut file_count = 0;
@@ -149,7 +150,7 @@ rustycode_tools_api::define_tool! {
             file_count += 1;
 
             if file_count % 50 == 0 {
-                ctx.checkpoint()?;
+                tc.checkpoint()?;
             }
 
             if should_skip(entry.path()) {
@@ -165,13 +166,13 @@ rustycode_tools_api::define_tool! {
             if glob_pattern_match(&rel_str, pattern) {
                 let display_path = entry
                     .path()
-                    .strip_prefix(&ctx.cwd)
+                    .strip_prefix(&tc.cwd)
                     .unwrap_or(entry.path())
                     .display()
                     .to_string();
                 matches.push(display_path);
 
-                ctx.checkpoint()?;
+                tc.checkpoint()?;
             }
         }
 
@@ -217,7 +218,7 @@ rustycode_tools_api::define_tool! {
             metadata["extensions"] = json!(ext_stats);
         }
 
-        Ok(ToolOutput::text(output).with_metadata(ctx, || metadata))
+        Ok(ToolOutput::text(output).with_metadata_enabled(ctx.structured_output_enabled, || metadata))
     }
 }
 

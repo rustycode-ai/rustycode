@@ -88,8 +88,8 @@
 // import them as `crate::Tool`, `crate::ToolContext`, etc.
 pub use rustycode_tools_api::{
     CancellationToken, FileReadState, MessageSender, PlatformEnv, ProviderCaps, RuntimeEnv, Tool,
-    ToolContext, ToolFilter, ToolGate, ToolInfo, ToolName, ToolOutput, ToolPermission, ToolProfile,
-    ToolRegistry, ToolRouter, ToolSelector, ToolTag,
+    ToolContext, ToolCtx, ToolFilter, ToolGate, ToolInfo, ToolName, ToolOutput, ToolPermission,
+    ToolProfile, ToolRegistry, ToolRouter, ToolSelector, ToolTag,
 };
 
 // Modules

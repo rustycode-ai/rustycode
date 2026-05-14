@@ -1,6 +1,6 @@
 use crate::security::{validate_list_path, validate_regex_pattern, MAX_REGEX_MATCHES};
 use crate::truncation::{truncate_items, GREP_MAX_MATCHES};
-use crate::Checkpoint;
+use crate::ToolCtx;
 use crate::{ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Result};
 use parking_lot::Mutex;
@@ -224,8 +224,9 @@ rustycode_tools_api::define_tool! {
     tags: [ToolTag::Explore, ToolTag::Debug],
 
     execute(params: GrepParams, ctx) {
-        if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, "Grep")?;
+        let tc = ToolCtx::from_full(ctx);
+        if let Some(gate) = &tc.plan_gate {
+            gate.check_access(tc.role, "Grep")?;
         }
 
         let pattern = &params.pattern;
@@ -233,7 +234,7 @@ rustycode_tools_api::define_tool! {
         validate_regex_pattern(pattern)?;
 
         let path_str = params.path.as_deref().unwrap_or(".");
-        let root = validate_list_path(path_str, &ctx.cwd, !ctx.allow_outside_workspace)?;
+        let root = validate_list_path(path_str, &tc.cwd, !tc.allow_outside_workspace)?;
 
         let case_insensitive = params.case_insensitive.unwrap_or(false);
         let multiline = params.multiline.unwrap_or(false);
@@ -274,7 +275,7 @@ rustycode_tools_api::define_tool! {
         // Group matches by file for dense display
         let mut file_matches: Vec<(String, Vec<(usize, String)>)> = Vec::new();
 
-        ctx.checkpoint()?;
+        tc.checkpoint()?;
 
         let mut file_count = 0;
         for entry in WalkDir::new(&root)
@@ -286,7 +287,7 @@ rustycode_tools_api::define_tool! {
             file_count += 1;
 
             if file_count % 50 == 0 {
-                ctx.checkpoint()?;
+                tc.checkpoint()?;
             }
 
             if should_skip(entry.path()) {
@@ -387,7 +388,7 @@ rustycode_tools_api::define_tool! {
 
             if !matches_in_file.is_empty() {
                 file_matches.push((entry.path().display().to_string(), matches_in_file));
-                ctx.checkpoint()?;
+                tc.checkpoint()?;
             }
         }
 
@@ -461,7 +462,7 @@ rustycode_tools_api::define_tool! {
             metadata["after_context"] = json!(after_context);
         }
 
-        Ok(ToolOutput::text(output).with_metadata(ctx, || metadata))
+        Ok(ToolOutput::text(output).with_metadata_enabled(ctx.structured_output_enabled, || metadata))
     }
 }
 
