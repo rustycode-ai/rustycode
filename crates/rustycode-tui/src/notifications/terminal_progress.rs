@@ -16,18 +16,15 @@ const OSC94_TERM_PROGRAMS: &[&str] = &[
 
 /// Terminal progress reporter using OSC 9;4 escape sequences.
 pub struct TerminalProgress {
-    /// Whether progress reporting is enabled.
+    /// Whether progress reporting is enabled (auto-detected from terminal).
     pub enabled: bool,
-    osc94_capable: bool,
 }
 
 impl TerminalProgress {
     /// Create a new progress reporter, auto-detecting terminal capabilities.
     pub fn new() -> Self {
-        let osc94_capable = Self::supports_osc94();
         Self {
-            enabled: osc94_capable,
-            osc94_capable,
+            enabled: Self::supports_osc94(),
         }
     }
 
@@ -101,6 +98,22 @@ impl TerminalProgress {
         Self::write_osc_sequence(sequence);
     }
 
+    /// Clear the progress bar during terminal cleanup.
+    ///
+    /// Unlike `clear()`, this is a static method that performs its own
+    /// capability detection, so it can be called from a cleanup guard
+    /// that has no access to a `TerminalProgress` instance.
+    pub fn clear_on_cleanup() {
+        if !Self::supports_osc94() {
+            return;
+        }
+        let sequence = "\x1b]9;4;0;\x07";
+        // During cleanup, raw mode is being torn down — skip raw mode handling.
+        use std::io::Write;
+        let _ = write!(std::io::stdout(), "{sequence}");
+        let _ = std::io::stdout().flush();
+    }
+
     /// Write an OSC sequence to stdout, suspending raw mode temporarily.
     ///
     /// Follows the same pattern used by `clipboard.rs` for writing escape
@@ -171,10 +184,7 @@ mod tests {
 
     #[test]
     fn set_progress_disabled_is_noop() {
-        let progress = TerminalProgress {
-            enabled: false,
-            osc94_capable: true,
-        };
+        let progress = TerminalProgress { enabled: false };
         // When disabled, methods return immediately without writing.
         // No panic or error means success.
         progress.set_progress(50);

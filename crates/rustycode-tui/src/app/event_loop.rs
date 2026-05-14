@@ -68,11 +68,7 @@ struct TerminalCleanupGuard;
 
 impl Drop for TerminalCleanupGuard {
     fn drop(&mut self) {
-        // Clear OSC 9;4 progress bar on exit
-        let progress = TerminalProgress::new();
-        if progress.enabled {
-            progress.clear();
-        }
+        TerminalProgress::clear_on_cleanup();
         // Restore terminal state - ignore errors since we're in a panic handler
         let _ = crossterm::terminal::disable_raw_mode();
         let _ = crossterm::execute!(
