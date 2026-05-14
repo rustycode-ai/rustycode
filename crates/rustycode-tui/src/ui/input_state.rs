@@ -129,9 +129,10 @@ impl InputState {
     /// Insert a character at cursor position
     pub fn insert_char(&mut self, c: char) {
         if let Some(line) = self.lines.get_mut(self.cursor_row) {
-            if self.cursor_col <= line.len() {
-                line.insert(self.cursor_col, c);
-                self.cursor_col += c.len_utf8();
+            let col = line.floor_char_boundary(self.cursor_col.min(line.len()));
+            if col <= line.len() {
+                line.insert(col, c);
+                self.cursor_col = col + c.len_utf8();
             }
         }
     }
@@ -139,9 +140,10 @@ impl InputState {
     /// Insert a string at the current cursor position
     pub fn insert_string(&mut self, s: &str) {
         if let Some(line) = self.lines.get_mut(self.cursor_row) {
-            if self.cursor_col <= line.len() {
-                line.insert_str(self.cursor_col, s);
-                self.cursor_col += s.len();
+            let col = line.floor_char_boundary(self.cursor_col.min(line.len()));
+            if col <= line.len() {
+                line.insert_str(col, s);
+                self.cursor_col = col + s.len();
             }
         }
     }
@@ -403,26 +405,7 @@ impl InputState {
 
             // Try to preserve display column position
             if let Some(line) = self.lines.get(self.cursor_row) {
-                // Find the byte position that gives us the closest display column
-                let mut best_col = 0;
-                let mut best_diff = usize::MAX;
-
-                for (i, _) in line.grapheme_indices(true) {
-                    let display_col = display_width(&line[..i]);
-                    let diff = display_col.abs_diff(current_display_col);
-
-                    if diff < best_diff {
-                        best_diff = diff;
-                        best_col = i;
-                    }
-
-                    // Stop if we've gone past the target
-                    if display_col > current_display_col {
-                        break;
-                    }
-                }
-
-                self.cursor_col = best_col;
+                self.cursor_col = self.find_closest_col_for_display(line, current_display_col);
             }
         }
     }
@@ -439,28 +422,45 @@ impl InputState {
 
             // Try to preserve display column position
             if let Some(line) = self.lines.get(self.cursor_row) {
-                // Find the byte position that gives us the closest display column
-                let mut best_col = 0;
-                let mut best_diff = usize::MAX;
-
-                for (i, _) in line.grapheme_indices(true) {
-                    let display_col = display_width(&line[..i]);
-                    let diff = display_col.abs_diff(current_display_col);
-
-                    if diff < best_diff {
-                        best_diff = diff;
-                        best_col = i;
-                    }
-
-                    // Stop if we've gone past the target
-                    if display_col > current_display_col {
-                        break;
-                    }
-                }
-
-                self.cursor_col = best_col;
+                self.cursor_col = self.find_closest_col_for_display(line, current_display_col);
             }
         }
+    }
+
+    /// Find the byte offset in `line` whose display width is closest to `target_display_col`.
+    ///
+    /// Evaluates every grapheme boundary *and* end-of-line so that a short target
+    /// line correctly snaps to its tail instead of stopping one grapheme early.
+    fn find_closest_col_for_display(&self, line: &str, target_display_col: usize) -> usize {
+        let mut best_col = 0;
+        let mut best_diff = usize::MAX;
+
+        for (i, _) in line.grapheme_indices(true) {
+            let display_col = display_width(&line[..i]);
+            let diff = display_col.abs_diff(target_display_col);
+
+            if diff < best_diff {
+                best_diff = diff;
+                best_col = i;
+            }
+
+            // Stop if we've gone past the target
+            if display_col > target_display_col {
+                break;
+            }
+        }
+
+        // Also evaluate end-of-line as a candidate — the target column may
+        // be past the last grapheme, in which case line.len() is closest.
+        {
+            let end_display_col = display_width(line);
+            let end_diff = end_display_col.abs_diff(target_display_col);
+            if end_diff < best_diff {
+                best_col = line.len();
+            }
+        }
+
+        best_col
     }
 
     /// Clear all input and cleanup temp files
@@ -1398,5 +1398,76 @@ mod tests {
         state.start_selection();
         state.cursor_col = 100;
         assert_eq!(state.selected_text(), Some("Hi".to_string()));
+    }
+
+    // === Regression tests for cursor-up/down snapping and mid-byte UTF-8 bugs ===
+
+    #[test]
+    fn test_move_cursor_up_to_shorter_line_snaps_to_end_of_line() {
+        // Case 1: cursor at col 2 on "Hi" (row 1), move up to "Hello World" (row 0).
+        // Display col 2 should map to byte offset 2 in "Hello World".
+        let mut state = InputState::new();
+        state.mode = InputMode::MultiLine;
+        state.lines = vec!["Hello World".to_string(), "Hi".to_string()];
+        state.cursor_row = 1;
+        state.cursor_col = 2; // display col 2 on "Hi"
+
+        state.move_cursor_up();
+        assert_eq!(state.cursor_row, 0);
+        // Display col 2 in "Hello World" -> byte offset 2
+        assert_eq!(state.cursor_col, 2);
+
+        // Case 2: cursor at col 10 on "Hello World" (row 1), move up to "Hi" (row 0).
+        // "Hi" only has 2 display cols, so cursor should snap to end of line (2).
+        state.lines = vec!["Hi".to_string(), "Hello World".to_string()];
+        state.cursor_row = 1;
+        state.cursor_col = 10; // display col 10 on "Hello World"
+
+        state.move_cursor_up();
+        assert_eq!(state.cursor_row, 0);
+        assert_eq!(state.cursor_col, "Hi".len()); // snaps to end of "Hi"
+    }
+
+    #[test]
+    fn test_move_cursor_down_to_shorter_line_snaps_to_end_of_line() {
+        let mut state = InputState::new();
+        state.mode = InputMode::MultiLine;
+        state.lines = vec!["Hello World".to_string(), "Hi".to_string()];
+        state.cursor_row = 0;
+        state.cursor_col = 10; // display col 10 on "Hello World"
+
+        state.move_cursor_down();
+        assert_eq!(state.cursor_row, 1);
+        assert_eq!(state.cursor_col, "Hi".len()); // snaps to end of "Hi"
+    }
+
+    #[test]
+    fn test_insert_char_mid_byte_utf8_does_not_panic() {
+        let mut state = InputState::new();
+        // "abc你好": 你 is 3 bytes (bytes 3..6), 好 is 3 bytes (bytes 6..9)
+        state.lines[0] = "abc你好".to_string();
+        // Set cursor_col to byte 4 — mid-character inside 你
+        state.cursor_col = 4;
+
+        state.insert_char('X');
+        // Should not panic; floor_char_boundary floors to byte 3 (start of 你).
+        // Insert at byte 3: "abc" + "X" + "你好"
+        assert!(state.lines[0].starts_with("abcX"));
+        // cursor_col should be at a valid position after 'X'
+        assert_eq!(state.cursor_col, 4); // byte 3 + 1 (len_utf8 of 'X')
+    }
+
+    #[test]
+    fn test_insert_string_mid_byte_utf8_does_not_panic() {
+        let mut state = InputState::new();
+        // "abc你好": 你 is 3 bytes (bytes 3..6), 好 is 3 bytes (bytes 6..9)
+        state.lines[0] = "abc你好".to_string();
+        // Set cursor_col to byte 4 — mid-character inside 你
+        state.cursor_col = 4;
+
+        state.insert_string("ZZ");
+        // Should not panic; floor_char_boundary floors to byte 3.
+        // Insert at byte 3: "abc" + "ZZ" + "你好"
+        assert!(state.lines[0].starts_with("abcZZ"));
     }
 }

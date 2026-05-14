@@ -149,10 +149,25 @@ impl FuzzyMatcher {
         let mut spans = Vec::new();
         let mut search_from_char = 0;
 
-        let text_chars: Vec<char> = text.chars().collect();
         let text_lower_chars: Vec<char> = text_lower.chars().collect();
         let query_lower_chars: Vec<char> = query_lower.chars().collect();
         let query_char_len = query_lower_chars.len();
+
+        // Build mapping from lowercase char index to original text char index.
+        // Some chars expand on lowercase (e.g. ß → ss), so text_lower_chars
+        // can be longer than text.chars(). This mapping lets us translate
+        // match positions in text_lower back to positions in the original text.
+        let lower_to_text: Vec<usize> = text
+            .chars()
+            .enumerate()
+            .flat_map(|(text_idx, ch)| {
+                let expanded = ch.to_lowercase().count();
+                std::iter::repeat_n(text_idx, expanded)
+            })
+            .collect();
+
+        let byte_offsets: Vec<usize> = text.char_indices().map(|(i, _)| i).collect();
+        let text_len = text.len();
 
         while search_from_char + query_char_len <= text_lower_chars.len() {
             let mut found = None;
@@ -168,18 +183,22 @@ impl FuzzyMatcher {
 
             let match_char_end = match_char_start + query_char_len;
 
-            let byte_start: usize = text_chars[..search_from_char]
-                .iter()
-                .map(|c| c.len_utf8())
-                .sum();
-            let byte_match_start: usize = text_chars[..match_char_start]
-                .iter()
-                .map(|c| c.len_utf8())
-                .sum();
-            let byte_match_end: usize = text_chars[..match_char_end]
-                .iter()
-                .map(|c| c.len_utf8())
-                .sum();
+            // Map from text_lower_chars indices back to text chars indices
+            let text_start_char = *lower_to_text.get(search_from_char).unwrap_or(&0);
+            let text_match_start_char = *lower_to_text.get(match_char_start).unwrap_or(&0);
+            let text_match_end_char = *lower_to_text
+                .get(match_char_end.saturating_sub(1))
+                .unwrap_or(&0);
+
+            let byte_start: usize = byte_offsets.get(text_start_char).copied().unwrap_or(0);
+            let byte_match_start: usize = byte_offsets
+                .get(text_match_start_char)
+                .copied()
+                .unwrap_or(0);
+            let byte_match_end: usize = byte_offsets
+                .get(text_match_end_char + 1)
+                .copied()
+                .unwrap_or(text_len);
 
             if byte_match_start > byte_start {
                 spans.push(Span::raw(text[byte_start..byte_match_start].to_string()));
@@ -195,11 +214,9 @@ impl FuzzyMatcher {
             search_from_char = match_char_end;
         }
 
-        let byte_remaining: usize = text_chars[..search_from_char]
-            .iter()
-            .map(|c| c.len_utf8())
-            .sum();
-        if byte_remaining < text.len() {
+        let text_remaining_char = *lower_to_text.get(search_from_char).unwrap_or(&0);
+        let byte_remaining: usize = byte_offsets.get(text_remaining_char).copied().unwrap_or(0);
+        if byte_remaining < text_len {
             spans.push(Span::raw(text[byte_remaining..].to_string()));
         }
 
@@ -374,5 +391,14 @@ mod tests {
         let _ = matcher.highlight_matches("naïve café résumé", "ca");
         let _ = matcher.highlight_matches("🎉 party 🎊", "party");
         let _ = matcher.highlight_matches("mixαβγ", "βγ");
+    }
+
+    #[test]
+    fn highlight_matches_expanding_chars() {
+        let matcher = FuzzyMatcher::new();
+        let line = matcher.highlight_matches("straße", "ss");
+        assert!(!line.spans.is_empty());
+        let rendered: String = line.spans.iter().map(|s| s.content.clone()).collect();
+        assert_eq!(rendered, "straße");
     }
 }

@@ -2123,7 +2123,7 @@ impl TUI {
 
         // Overlay: help panel (?)
         if self.ui.help_state.visible {
-            crate::help::render_help(frame, size, &self.ui.help_state);
+            crate::help::render_help(frame, size, &mut self.ui.help_state);
         }
 
         // Overlay: approval dialog (before error display so errors can appear on top)

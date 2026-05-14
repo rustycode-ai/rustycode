@@ -185,7 +185,7 @@ pub fn approval_panel_size(
         let diff_lines = request.command.lines().count();
         let max_height = (terminal_size.height / 2).max(7) as usize;
         let needed = diff_lines + 6; // header (2) + footer (2) + borders (2)
-        let height = (needed.min(max_height)) as u16;
+        let height = needed.min(max_height).min(u16::MAX as usize) as u16;
         let width = 80u16.min(terminal_size.width.saturating_sub(4));
         (height, width)
     } else {
@@ -490,5 +490,22 @@ mod tests {
         assert!(!req.is_approved());
         req.approve_all();
         assert!(req.is_approved());
+    }
+
+    /// Regression: approval_panel_size must not panic with extreme terminal dimensions.
+    #[test]
+    fn approval_panel_size_clamps_height() {
+        let req = ApprovalRequest::new(
+            "tool-1".into(),
+            "Edit".into(),
+            risk::ToolType::WriteFile,
+            "desc".into(),
+            "diff --git a/a.txt b/a.txt\n".repeat(5000),
+        );
+        assert!(req.has_diff_content());
+        let terminal_size = ratatui::layout::Rect::new(0, 0, 120, u16::MAX);
+        let (h, _w) = approval_panel_size(&req, terminal_size);
+        // height is capped at half terminal height (u16::MAX / 2 = 32767)
+        assert!(h <= (terminal_size.height / 2).max(7));
     }
 }

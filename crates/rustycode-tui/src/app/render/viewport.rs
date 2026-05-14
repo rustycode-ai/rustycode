@@ -1,6 +1,7 @@
 //! Rendering helpers for the event loop
 
 use crate::ui::message::Message;
+use unicode_width::UnicodeWidthStr;
 
 /// Calculate the range of visible messages based on scroll offset
 pub fn calculate_visible_range(
@@ -22,10 +23,19 @@ pub fn calculate_visible_range(
     start..end
 }
 
-/// Estimate message height for scrolling calculations
-pub fn estimate_message_height(message: &Message, _width: usize) -> usize {
-    // Base height: header + content
-    let content_lines = message.content.lines().count().max(1);
+/// Estimate message height for scrolling calculations, accounting for line wrapping.
+pub fn estimate_message_height(message: &Message, width: usize) -> usize {
+    let safe_width = width.max(1);
+    // Base height: header + content (with wrapping)
+    let content_lines: usize = message
+        .content
+        .lines()
+        .map(|line| {
+            let line_display_width = line.width();
+            line_display_width.div_ceil(safe_width).max(1)
+        })
+        .sum::<usize>()
+        .max(1);
     let mut height = 1 + content_lines;
 
     // Add tool summary height

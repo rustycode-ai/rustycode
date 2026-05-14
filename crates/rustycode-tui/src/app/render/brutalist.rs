@@ -77,7 +77,13 @@ impl TUI {
             auto_memory_status,
             active_tool_count,
             active_tool_display,
-            input_line_count: input_text.lines().count().max(1),
+            input_line_count: if input_text.is_empty() {
+                1
+            } else if input_text.ends_with('\n') {
+                input_text.lines().count() + 1
+            } else {
+                input_text.lines().count()
+            }.max(1),
             context_usage,
         }
     }

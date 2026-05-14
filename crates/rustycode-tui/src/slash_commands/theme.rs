@@ -30,6 +30,9 @@ pub fn handle_theme_command(
         "list" | "ls" => ThemeCommandResult::List(list_available_themes(theme_colors)),
         "next" => {
             let themes = builtin_themes();
+            if themes.is_empty() {
+                return ThemeCommandResult::Error("No themes available".to_string());
+            }
             let current_name = get_current_theme_name(theme_colors);
 
             if let Some(current_idx) = themes.iter().position(|t| t.name == current_name) {
@@ -44,6 +47,9 @@ pub fn handle_theme_command(
         }
         "prev" => {
             let themes = builtin_themes();
+            if themes.is_empty() {
+                return ThemeCommandResult::Error("No themes available".to_string());
+            }
             let current_name = get_current_theme_name(theme_colors);
 
             if let Some(current_idx) = themes.iter().position(|t| t.name == current_name) {

@@ -387,6 +387,9 @@ impl ToastManager {
         // Render each toast stacked vertically with slide animation
         let toast_height = 4;
         let toast_width = 60.min(area.width.saturating_sub(4));
+        if toast_width < 6 {
+            return; // Terminal too narrow for meaningful toast
+        }
 
         for (i, toast) in toasts.iter().enumerate() {
             let input_area_reserve = 5u16;
@@ -635,5 +638,44 @@ mod tests {
         manager.error("Error");
 
         assert_eq!(manager.active().len(), 4);
+    }
+
+    /// Regression: toast rendering panics or renders garbage on very narrow terminals
+    /// (width < 6). Added guard `if toast_width < 6 { return; }`.
+    #[test]
+    fn test_toast_no_panic_on_narrow_terminal() {
+        use ratatui::backend::TestBackend;
+        use ratatui::Terminal;
+
+        let mut manager = ToastManager::new();
+        manager.info("Test message");
+
+        let backend = TestBackend::new(3, 10);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|f| {
+                manager.render(f, f.area(), None);
+            })
+            .unwrap();
+    }
+
+    /// Regression: ensure toast renders normally on a standard-width terminal.
+    #[test]
+    fn test_toast_render_normal_width() {
+        use ratatui::backend::TestBackend;
+        use ratatui::Terminal;
+
+        let mut manager = ToastManager::new();
+        manager.success("All good");
+
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|f| {
+                manager.render(f, f.area(), None);
+            })
+            .unwrap();
     }
 }

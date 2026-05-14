@@ -132,4 +132,39 @@ mod tests {
         assert!(pct >= 0.0);
         assert!(pct <= 1.0);
     }
+
+    /// Regression: Ctrl+C handler must be able to escape the preview by clearing flags.
+    #[test]
+    fn clear_flags_allows_ctrl_c_escape() {
+        let mut state = CompactionState::default();
+        state.show_preview();
+        state.mark_pending();
+        assert!(state.is_previewing());
+        // Simulate what the Ctrl+C handler does — clear flags
+        state.clear_flags();
+        assert!(!state.is_previewing());
+        assert!(!state.is_pending());
+    }
+
+    /// Regression: show_preview() must not accidentally set the pending flag.
+    #[test]
+    fn show_preview_does_not_set_pending() {
+        let mut state = CompactionState::default();
+        state.show_preview();
+        assert!(state.is_previewing());
+        assert!(!state.is_pending()); // pending is separate
+    }
+
+    /// Regression: dismiss_preview() must not clear the pending flag.
+    #[test]
+    fn dismiss_preview_does_not_clear_pending() {
+        let mut state = CompactionState::default();
+        state.show_preview();
+        state.mark_pending();
+        state.dismiss_preview();
+        assert!(!state.is_previewing());
+        assert!(state.is_pending()); // pending survives dismiss
+        state.clear_pending();
+        assert!(!state.is_pending());
+    }
 }

@@ -64,7 +64,11 @@ impl BrutalistRenderer<'_> {
                 cwd_str
             };
             let path_display = if display.len() > 50 {
-                format!("…{}", &display[display.len().saturating_sub(47)..])
+                let mut start = display.len().saturating_sub(47);
+                while !display.is_char_boundary(start) {
+                    start += 1;
+                }
+                format!("…{}", &display[start..])
             } else {
                 display
             };
@@ -156,4 +160,64 @@ impl BrutalistRenderer<'_> {
         frame.render_widget(paragraph, area);
     }
 
+}
+
+#[cfg(test)]
+mod welcome_tests {
+    // Regression: the old `&display[display.len().saturating_sub(47)..]` panicked when
+    // the byte offset landed inside a multi-byte character. The fix walks forward to a
+    // char boundary. This helper replicates the same pattern for isolated testing.
+    fn truncate_path_display(display: &str, max_len: usize, ellipsis_reserve: usize) -> String {
+        if display.len() > max_len {
+            let mut start = display.len().saturating_sub(max_len - ellipsis_reserve);
+            while !display.is_char_boundary(start) {
+                start += 1;
+            }
+            format!("…{}", &display[start..])
+        } else {
+            display.to_string()
+        }
+    }
+
+    #[test]
+    fn test_truncate_multi_byte_cjk_path_does_not_panic() {
+        let cjk_segment = "世界";
+        let mut path = "/home/user/projects/".to_string();
+        while path.len() <= 50 {
+            path.push_str(cjk_segment);
+        }
+        assert!(path.len() > 50);
+
+        let truncated = truncate_path_display(&path, 50, 3);
+        assert!(!truncated.is_empty());
+        assert!(truncated.starts_with('…'));
+    }
+
+    #[test]
+    fn test_truncate_short_path_unchanged() {
+        let path = "/home/user/proj";
+        let result = truncate_path_display(path, 50, 3);
+        assert_eq!(result, path);
+    }
+
+    #[test]
+    fn test_truncate_ascii_path_preserves_content() {
+        let path = "/very/long/directory/path/that/exceeds/fifty/characters/total";
+        assert!(path.len() > 50);
+
+        let truncated = truncate_path_display(path, 50, 3);
+        assert!(truncated.starts_with('…'));
+        assert!(truncated.len() < path.len());
+        assert!(path.ends_with(truncated.trim_start_matches('…')));
+    }
+
+    #[test]
+    fn test_truncate_all_multi_byte_string() {
+        let s: String = "世界".repeat(20);
+        assert!(s.len() > 50);
+
+        let truncated = truncate_path_display(&s, 50, 3);
+        assert!(truncated.starts_with('…'));
+        assert!(!truncated.is_empty());
+    }
 }

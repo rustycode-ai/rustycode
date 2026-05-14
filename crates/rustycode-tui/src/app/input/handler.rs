@@ -116,19 +116,27 @@ impl TUI {
                     return Ok(());
                 }
                 if self.sys.compaction.showing_preview {
-                    return match key.code {
+                    match key.code {
                         KeyCode::Enter => {
                             self.execute_compaction();
-                            Ok(())
+                            return Ok(());
                         }
                         KeyCode::Esc => {
                             self.sys.compaction.showing_preview = false;
                             self.sys.compaction.pending = false;
                             self.sys.dirty = true;
-                            Ok(())
+                            return Ok(());
                         }
-                        _ => Ok(()),
-                    };
+                        KeyCode::Char('c') | KeyCode::Char('q')
+                            if key.modifiers.contains(KeyModifiers::CONTROL) =>
+                        {
+                            // Allow Ctrl+C/Ctrl+Q to fall through to global shortcut handler
+                        }
+                        _ => {
+                            self.sys.dirty = true;
+                            return Ok(());
+                        }
+                    }
                 }
                 // Dismiss tool result overlay before global shortcuts can intercept
                 if self.panels.tool_panel.showing_tool_result {
@@ -262,14 +270,18 @@ impl TUI {
                             return Ok(());
                         }
                         KeyCode::End => {
-                            self.ui.help_state.scroll_offset = usize::MAX;
+                            // Will be clamped to actual content max_scroll during render
+                            self.ui.help_state.scroll_offset = self
+                                .ui
+                                .help_state
+                                .scroll_offset
+                                .saturating_add(crate::app::HELP_SCROLL_STEP * 100);
                             self.sys.dirty = true;
                             return Ok(());
                         }
                         KeyCode::Esc => {} // Esc handled by global shortcuts
                         _ => {
-                            self.sys.dirty = true;
-                            return Ok(());
+                            // Let unhandled keys fall through to input handler
                         }
                     }
                 }

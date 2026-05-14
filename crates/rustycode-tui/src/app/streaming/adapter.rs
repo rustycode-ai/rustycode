@@ -124,6 +124,7 @@ impl StreamEventAdapter {
                 });
             }
             rustycode_protocol::EventMsg::Done => {
+                self.active_tools.clear();
                 self.emit(StreamChunk::Done);
             }
             rustycode_protocol::EventMsg::ApprovalRequired {

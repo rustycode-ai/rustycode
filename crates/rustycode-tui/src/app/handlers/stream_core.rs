@@ -439,6 +439,7 @@ pub fn handle_stream_chunk(tui: &mut TUI, chunk: StreamChunk) {
         } => {
             tui.model.token_budget.session_cache_read_tokens += cache_read_tokens;
             tui.model.token_budget.session_cache_creation_tokens += cache_creation_tokens;
+            tui.sys.dirty = true;
         }
         StreamChunk::ExecutionTrace(trace) => handle_execution_trace_chunk(tui, trace),
         StreamChunk::SystemMessage(msg) => handle_system_message_chunk(tui, msg),
@@ -463,5 +464,33 @@ pub fn handle_stream_chunk(tui: &mut TUI, chunk: StreamChunk) {
             plan_rows,
         ),
         StreamChunk::Stopped { stop_reason } => handle_stopped_chunk(tui, stop_reason),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::app::async_::StreamChunk;
+    use crate::app::event_loop::TUI;
+    use crate::app::handlers::handle_stream_chunk;
+
+    // Regression test: CacheUsage updated token counters but didn't set
+    // tui.sys.dirty = true, so the UI never re-rendered after cache events.
+
+    #[test]
+    fn test_cache_usage_sets_dirty_flag() {
+        let mut tui = TUI::default();
+        tui.sys.dirty = false;
+
+        handle_stream_chunk(
+            &mut tui,
+            StreamChunk::CacheUsage {
+                cache_read_tokens: 500,
+                cache_creation_tokens: 200,
+            },
+        );
+
+        assert!(tui.sys.dirty, "CacheUsage must set dirty = true");
+        assert_eq!(tui.model.token_budget.session_cache_read_tokens, 500);
+        assert_eq!(tui.model.token_budget.session_cache_creation_tokens, 200);
     }
 }

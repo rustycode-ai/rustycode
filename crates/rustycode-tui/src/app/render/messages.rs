@@ -244,9 +244,7 @@ impl PolishedRenderer {
                         }
                     }
                 } else if unicode_width::UnicodeWidthStr::width(first_line) > COLLAPSED_PREVIEW_MAX_WIDTH {
-                    // floor_char_boundary ensures we don't slice mid-UTF-8
-                    let end = first_line.floor_char_boundary(COLLAPSED_PREVIEW_MAX_WIDTH.saturating_sub(3));
-                    format!("{}...", &first_line[..end])
+                    crate::unicode::truncate_display(first_line, COLLAPSED_PREVIEW_MAX_WIDTH)
                 } else {
                     first_line.to_string()
                 };

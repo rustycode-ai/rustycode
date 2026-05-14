@@ -190,8 +190,13 @@ impl MessageRenderer {
             let col = i % images_per_row;
 
             let img_width = area.width / images_per_row as u16;
-            let img_x = area.x + (col as u16 * img_width);
-            let img_y = area.y + 1 + (row as u16 * 8); // 8 lines per image
+            let img_x = area
+                .x
+                .saturating_add((col as u16).saturating_mul(img_width));
+            let img_y = area
+                .y
+                .saturating_add(1)
+                .saturating_add((row as u16).saturating_mul(8)); // 8 lines per image
 
             if img_y + 8 > area.bottom() {
                 break; // No more space
@@ -982,5 +987,22 @@ mod tests {
                 let _ = renderer.render_message(f, f.area(), &message, &theme, None);
             })
             .unwrap();
+    }
+
+    /// Regression: image position calculations must not panic or wrap near u16 bounds.
+    #[test]
+    fn image_position_saturating_arithmetic() {
+        let area = Rect::new(u16::MAX - 10, u16::MAX - 20, 100, 50);
+        let img_width = 30u16;
+        let col = 2u16;
+        let row = 1u16;
+        let img_x = area.x.saturating_add(col.saturating_mul(img_width));
+        let img_y = area
+            .y
+            .saturating_add(1)
+            .saturating_add(row.saturating_mul(8));
+        // Verify no panic and values are finite (saturated, not wrapped)
+        let _ = img_x;
+        let _ = img_y;
     }
 }

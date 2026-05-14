@@ -502,7 +502,7 @@ impl PolishedRenderer {
         }
 
         if tui.ui.help_state.visible {
-            crate::help::render_help(frame, size, &tui.ui.help_state);
+            crate::help::render_help(frame, size, &mut tui.ui.help_state);
         }
 
         if tui.panels.tool_approval.awaiting {

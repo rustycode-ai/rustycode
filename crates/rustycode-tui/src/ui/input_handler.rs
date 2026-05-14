@@ -155,13 +155,7 @@ impl InputHandler {
             (KeyCode::Char('y'), KeyModifiers::CONTROL) => {
                 // Ctrl+Y: Yank (paste last killed text from Ctrl+W/Ctrl+K)
                 if let Some(killed) = self.last_kill.take() {
-                    if self.state.cursor_row < self.state.lines.len() {
-                        let current_line = &mut self.state.lines[self.state.cursor_row];
-                        let col = current_line
-                            .floor_char_boundary(self.state.cursor_col.min(current_line.len()));
-                        current_line.insert_str(col, &killed);
-                        self.state.cursor_col = col + killed.len();
-                    }
+                    self.state.insert_text_at_cursor(&killed);
                 }
                 InputAction::Consumed
             }

@@ -281,6 +281,10 @@ impl TUI {
                     }
                     Err(tokio::sync::broadcast::error::TryRecvError::Lagged(n)) => {
                         tracing::warn!("Team event receiver lagged by {} events", n);
+                        team_messages.push(format!(
+                            "⚠ {} team events were lost due to slow processing",
+                            n
+                        ));
                         continue;
                     }
                 }

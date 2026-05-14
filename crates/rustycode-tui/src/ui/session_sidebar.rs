@@ -680,7 +680,10 @@ impl SessionSidebar {
         }
 
         // Check if click is within sidebar area
-        if col < area.x || col >= area.x + area.width || row < area.y || row >= area.y + area.height
+        if col < area.x
+            || col >= area.x.saturating_add(area.width)
+            || row < area.y
+            || row >= area.y.saturating_add(area.height)
         {
             return false;
         }
@@ -722,7 +725,9 @@ impl SessionSidebar {
 
         let sidebar_width = area.width.clamp(24, 34).min(area.width);
         let sidebar_area = Rect {
-            x: area.x + area.width.saturating_sub(sidebar_width),
+            x: area
+                .x
+                .saturating_add(area.width.saturating_sub(sidebar_width)),
             y: area.y,
             width: sidebar_width,
             height: area.height,
@@ -730,7 +735,7 @@ impl SessionSidebar {
 
         let render_area = Rect {
             x: sidebar_area.x,
-            y: sidebar_area.y + 1,
+            y: sidebar_area.y.saturating_add(1),
             width: sidebar_area.width,
             height: area.height.saturating_sub(1),
         };
@@ -809,7 +814,7 @@ impl SessionSidebar {
             .collect::<Vec<_>>();
 
         let paragraph = Paragraph::new(display_lines)
-            .scroll((scroll_offset as u16, 0))
+            .scroll((scroll_offset.min(u16::MAX as usize) as u16, 0))
             .wrap(Wrap { trim: false })
             .block(Block::default());
         frame.render_widget(paragraph, render_area);
@@ -1782,5 +1787,67 @@ mod tests {
         // Active session should have no recovery actions
         let actions = sidebar.recovery_actions("nonexistent");
         assert_eq!(actions.len(), 0);
+    }
+
+    // --- Regression tests for scroll truncation and saturating_add ---
+
+    /// Regression: scroll_offset was cast `as u16` without capping, truncating
+    /// values > 65535. The render path now uses `.min(u16::MAX as usize) as u16`.
+    #[test]
+    fn test_scroll_offset_capped_to_u16_max_in_render() {
+        use ratatui::backend::TestBackend;
+        use ratatui::Terminal;
+
+        let mut sidebar = SessionSidebar::new();
+        sidebar.state.scroll_offset = 70000;
+
+        let backend = TestBackend::new(30, 20);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|f| {
+                sidebar.render(f, f.area());
+            })
+            .unwrap();
+
+        assert!(
+            u16::try_from(sidebar.state.scroll_offset).is_ok(),
+            "scroll_offset should be capped to u16::MAX (65535), got {}",
+            sidebar.state.scroll_offset
+        );
+    }
+
+    /// Regression: u16 overflow when area.x + width or area.y + height near u16::MAX.
+    /// The render path now uses saturating_add to prevent panic on overflow.
+    #[test]
+    fn test_render_no_panic_with_area_near_u16_max() {
+        use ratatui::backend::TestBackend;
+        use ratatui::Terminal;
+
+        let mut sidebar = SessionSidebar::new();
+
+        let backend = TestBackend::new(30, 20);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        let area = Rect::new(u16::MAX - 5, u16::MAX - 10, 10, 10);
+
+        terminal
+            .draw(|f| {
+                sidebar.render(f, area);
+            })
+            .unwrap();
+    }
+
+    /// Regression: handle_click used plain addition for area.x + area.width,
+    /// which panics on u16 overflow. Now uses saturating_add.
+    #[test]
+    fn test_handle_click_no_panic_with_area_near_u16_max() {
+        let mut sidebar = SessionSidebar::new();
+        sidebar.show();
+
+        let area = Rect::new(u16::MAX - 2, u16::MAX - 2, 10, 10);
+
+        let result = sidebar.handle_click(u16::MAX, u16::MAX, area);
+        assert!(!result);
     }
 }

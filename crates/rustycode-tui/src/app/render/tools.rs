@@ -432,8 +432,9 @@ fn render_tool_result_detail(
     ]));
 
     // Summary line
+    let clean_summary = crate::app::tool_output_format::strip_ansi_escapes(&tool.result_summary);
     lines.push(Line::from(vec![Span::styled(
-        &tool.result_summary,
+        clean_summary,
         Style::default().fg(Color::White),
     )]));
     lines.push(Line::from(""));
@@ -497,10 +498,11 @@ fn render_tool_result_detail(
 
     // Error section for failed tools — prominent red header
     if tool.status == crate::ui::message::ToolStatus::Failed {
-        let error_source = tool
+        let raw_error = tool
             .detailed_output
             .as_deref()
             .unwrap_or(&tool.result_summary);
+        let error_source = crate::app::tool_output_format::strip_ansi_escapes(raw_error);
         if !error_source.is_empty() {
             lines.push(Line::from(vec![Span::styled(
                 "Error:",
@@ -539,12 +541,14 @@ fn render_tool_result_detail(
             && !tool.result_summary.is_empty()
             && tool.status != crate::ui::message::ToolStatus::Failed
         {
+            let clean_summary = crate::app::tool_output_format::strip_ansi_escapes(&tool.result_summary);
             lines.push(Line::from(vec![Span::styled(
-                tool.result_summary.clone(),
+                clean_summary,
                 Style::default().fg(Color::Gray),
             )]));
         }
-    } else if let Some(output) = &tool.detailed_output {
+    } else if let Some(raw_output) = &tool.detailed_output {
+        let output = crate::app::tool_output_format::strip_ansi_escapes(raw_output);
         // Output header
         lines.push(Line::from(vec![Span::styled(
             "Output:",
@@ -592,7 +596,7 @@ fn render_tool_result_detail(
 
             // Close any open code fences in head
             let open_fences = result.matches("```").count();
-            if open_fences % 2 != 0 {
+            if !open_fences.is_multiple_of(2) {
                 result.push_str("\n```\n");
             }
 
@@ -604,7 +608,7 @@ fn render_tool_result_detail(
 
             // Open code fence if tail starts inside one
             let tail_fences = tail_part.matches("```").count();
-            if tail_fences % 2 != 0 {
+            if !tail_fences.is_multiple_of(2) {
                 result.push_str("```\n");
             }
 
@@ -612,7 +616,7 @@ fn render_tool_result_detail(
 
             // Close any remaining open fences
             let total_fences = result.matches("```").count();
-            if total_fences % 2 != 0 {
+            if !total_fences.is_multiple_of(2) {
                 result.push_str("\n```\n");
             }
 
@@ -636,6 +640,7 @@ fn render_tool_result_detail(
         let scroll_offset = tui
             .panels.tool_panel.tool_result_scroll_offset
             .min(total_rendered.saturating_sub(1));
+        tui.panels.tool_panel.tool_result_scroll_offset = scroll_offset;
         for line in rendered
             .into_iter()
             .skip(scroll_offset)
@@ -644,6 +649,7 @@ fn render_tool_result_detail(
             lines.push(line);
         }
     } else if !tool.result_summary.is_empty() {
+        let clean_summary = crate::app::tool_output_format::strip_ansi_escapes(&tool.result_summary);
         // Fallback: show result_summary when no detailed_output
         lines.push(Line::from(vec![Span::styled(
             "Output:",
@@ -652,7 +658,7 @@ fn render_tool_result_detail(
                 .add_modifier(ratatui::style::Modifier::BOLD),
         )]));
         lines.push(Line::from(vec![Span::styled(
-            tool.result_summary.clone(),
+            clean_summary,
             Style::default().fg(Color::Gray),
         )]));
     } else {

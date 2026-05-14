@@ -96,8 +96,9 @@ pub fn get_injection_summary(
     if let Some(injection) = prepare_injection(user_message, memories, config) {
         // Extract count from injection text
         if let Some(start) = injection.find("Using ") {
-            if let Some(end) = injection.find(" related") {
-                let count_str = &injection[start + 6..end];
+            let after = &injection[start + 6..];
+            if let Some(end) = after.find(" related") {
+                let count_str = &after[..end];
                 return format!("💭 Using {} related memories", count_str);
             }
         }
@@ -324,5 +325,40 @@ mod tests {
 
         let injection = prepare_injection("theme", &memories, &config);
         assert!(injection.is_none());
+    }
+
+    // Regression test: the old code did `injection.find(" related")` on the full
+    // string independently of `injection.find("Using ")`. If " related" appeared
+    // before "Using ", slicing with `[start+6..end]` would panic (start > end).
+    // The fix searches " related" only in the substring after "Using ".
+    fn parse_injection_count(injection: &str) -> Option<String> {
+        if let Some(start) = injection.find("Using ") {
+            let after = &injection[start + 6..];
+            if let Some(end) = after.find(" related") {
+                let count_str = &after[..end];
+                return Some(count_str.to_string());
+            }
+        }
+        None
+    }
+
+    #[test]
+    fn test_slice_ordering_when_related_appears_before_using() {
+        let crafted = "stuff related to Using 3 related memories:\ncontent\n";
+        let result = parse_injection_count(crafted);
+        assert_eq!(result, Some("3".to_string()));
+    }
+
+    #[test]
+    fn test_slice_ordering_normal_injection() {
+        let normal = "💭 Using 2 related memories:\n- theme: dark mode\n";
+        let result = parse_injection_count(normal);
+        assert_eq!(result, Some("2".to_string()));
+    }
+
+    #[test]
+    fn test_slice_ordering_no_using() {
+        let result = parse_injection_count("no injection markers here");
+        assert!(result.is_none());
     }
 }

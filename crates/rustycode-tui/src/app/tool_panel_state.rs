@@ -68,6 +68,18 @@ impl ToolPanelState {
         };
         self.tool_result_scroll_offset = new_offset;
     }
+
+    /// Clamp the scroll offset to the valid range for `total_lines` of content.
+    ///
+    /// Call after rendering or when the total line count is known to prevent
+    /// unbounded growth from repeated scroll-down events.
+    pub(crate) fn clamp_scroll(&mut self, total_lines: usize) {
+        if total_lines == 0 {
+            self.tool_result_scroll_offset = 0;
+        } else {
+            self.tool_result_scroll_offset = self.tool_result_scroll_offset.min(total_lines - 1);
+        }
+    }
 }
 
 impl Default for ToolPanelState {
@@ -175,5 +187,56 @@ mod tests {
         assert!(!state.showing_tool_result);
         assert!(!state.tool_result_show_full);
         assert_eq!(state.tool_result_scroll_offset, 0);
+    }
+
+    /// Regression: scroll_result() could set tool_result_scroll_offset to
+    /// usize::MAX when no tool result exists. clamp_scroll(total_lines=0)
+    /// now resets to 0.
+    #[test]
+    fn test_clamp_scroll_resets_on_empty_content() {
+        let mut state = ToolPanelState::new();
+        state.tool_result_scroll_offset = 9999;
+        state.clamp_scroll(0);
+        assert_eq!(state.tool_result_scroll_offset, 0);
+    }
+
+    /// Regression: clamp_scroll prevents offset from exceeding content.
+    #[test]
+    fn test_clamp_scroll_caps_to_total_lines() {
+        let mut state = ToolPanelState::new();
+        state.tool_result_scroll_offset = 500;
+        state.clamp_scroll(10);
+        assert_eq!(state.tool_result_scroll_offset, 9);
+    }
+
+    /// Verify scroll_result + clamp_scroll on empty content keeps offset at 0.
+    #[test]
+    fn test_scroll_and_clamp_on_empty_result() {
+        let mut state = ToolPanelState::new();
+        state.scroll_result(100);
+        state.clamp_scroll(0);
+        assert_eq!(state.tool_result_scroll_offset, 0);
+
+        state.scroll_result(-50);
+        state.clamp_scroll(0);
+        assert_eq!(state.tool_result_scroll_offset, 0);
+    }
+
+    /// Regression: scroll offset must not underflow when scrolling up from zero.
+    #[test]
+    fn tool_result_scroll_does_not_underflow() {
+        let mut state = ToolPanelState::new();
+        assert_eq!(state.tool_result_scroll_offset, 0);
+        state.scroll_result(-100);
+        assert_eq!(state.tool_result_scroll_offset, 0);
+    }
+
+    /// Regression: scroll offset saturates instead of overflowing on huge positive delta.
+    #[test]
+    fn tool_result_scroll_saturating_add() {
+        let mut state = ToolPanelState::new();
+        state.tool_result_scroll_offset = usize::MAX - 5;
+        state.scroll_result(100);
+        assert_eq!(state.tool_result_scroll_offset, usize::MAX);
     }
 }

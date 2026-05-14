@@ -267,6 +267,7 @@ impl HistoryManager {
                 set_input_from_text(input_state, match_cmd);
             } else {
                 input_state.lines = vec![self.reverse_search_query.clone()];
+                input_state.cursor_row = 0;
                 input_state.cursor_col = input_state.lines[0].len();
             }
         }
@@ -600,5 +601,26 @@ mod tests {
 
         manager.navigate_previous(&mut state);
         assert_eq!(manager.history_position(), (2, 2));
+    }
+
+    #[test]
+    fn test_remove_reverse_search_char_resets_cursor_row() {
+        let mut manager = HistoryManager::new();
+        manager.set_history(vec!["command1".to_string(), "command2".to_string()]);
+
+        let mut state = InputState::new();
+        state.lines = vec![
+            "line0".to_string(),
+            "line1".to_string(),
+            "line2".to_string(),
+        ];
+        state.cursor_row = 5;
+
+        manager.start_reverse_search(&mut state);
+        manager.add_reverse_search_char(&mut state, 'c');
+        assert_eq!(manager.reverse_search_info().0, "c");
+
+        manager.remove_reverse_search_char(&mut state);
+        assert_eq!(state.cursor_row, 0);
     }
 }

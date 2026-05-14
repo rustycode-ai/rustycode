@@ -405,9 +405,9 @@ impl BrutalistRenderer<'_> {
                 height: 1,
             };
             let above_text = format!(
-                "  ▲ {} message{} above",
-                start_idx,
-                if start_idx != 1 { "s" } else { "" }
+                "  ▲ {} line{} above",
+                effective_offset,
+                if effective_offset != 1 { "s" } else { "" }
             );
             let padded = format!("{:<width$}", above_text, width = area.width as usize);
             let indicator = Paragraph::new(Line::from(vec![Span::styled(
@@ -436,7 +436,7 @@ impl BrutalistRenderer<'_> {
                 Color::Rgb(80, 80, 100)
             };
             let below_text = format!(
-                "  ▼ {} message{} below",
+                "  ▼ {} line{} below",
                 messages_below,
                 if messages_below != 1 { "s" } else { "" }
             );
@@ -1250,10 +1250,11 @@ impl BrutalistRenderer<'_> {
 
                     // Show error preview for failed tools (inline error context)
                     if tool.status == ToolStatus::Failed {
-                        let error_source = tool
+                        let raw_error = tool
                             .detailed_output
                             .as_deref()
                             .unwrap_or(&tool.result_summary);
+                        let error_source = crate::app::tool_output_format::strip_ansi_escapes(raw_error);
                         if !error_source.is_empty() {
                             // Take first meaningful line, truncate for inline display
                             let first_line = error_source
@@ -1286,11 +1287,12 @@ impl BrutalistRenderer<'_> {
 
                     // Show output preview for running tools (live output preview)
                     if tool.status == ToolStatus::Running {
-                        let output = tool
+                        let raw_output = tool
                             .detailed_output
                             .as_deref()
                             .filter(|o| !o.is_empty())
                             .unwrap_or(&tool.result_summary);
+                        let output = crate::app::tool_output_format::strip_ansi_escapes(raw_output);
                         if !output.is_empty() {
                             // Take last meaningful line (most recent output)
                             let last_line = output
@@ -1347,7 +1349,8 @@ impl BrutalistRenderer<'_> {
                         }
 
                         // Show detailed output (head/tail truncation)
-                        if let Some(output) = &tool.detailed_output {
+                        if let Some(raw_output) = &tool.detailed_output {
+                            let output = crate::app::tool_output_format::strip_ansi_escapes(raw_output);
                             if tool.input_json.is_some() {
                                 lines.push(Line::from(vec![Span::styled(
                                     "      ╰─ output ─╴",

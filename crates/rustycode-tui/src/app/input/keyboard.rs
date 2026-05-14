@@ -217,6 +217,8 @@ impl TUI {
                 if !self.is_any_overlay_open() || self.overlays.showing_skill_palette {
                     self.overlays.showing_command_palette = false;
                     self.overlays.command_palette.hide();
+                    self.overlays.showing_plugin_manager = false;
+                    self.overlays.showing_marketplace_browser = false;
                     self.overlays.showing_skill_palette = !self.overlays.showing_skill_palette;
                     if self.overlays.showing_skill_palette {
                         self.ui.skill_palette.open();
@@ -675,8 +677,6 @@ impl TUI {
 
     /// Returns true if any modal overlay is currently visible.
     /// Used to prevent opening new overlays on top of existing ones.
-    /// Persistent panels (sidebar, worker panel, team panel, tool panel) are
-    /// excluded since they don't block modal interactions.
     pub(crate) fn is_any_overlay_open(&self) -> bool {
         self.session.wizard.showing_wizard
             || !self.panels.tool_approval.pending_requests.is_empty()
@@ -693,6 +693,11 @@ impl TUI {
             || self.search.search_state.visible
             || self.theme.theme_preview.is_visible()
             || self.ui.help_state.visible
+            || self.panels.tool_panel.showing_tool_result
+            || self.panels.tool_panel.showing_tool_panel
+            || self.team.worker_panel.visible
+            || self.team.team_panel.visible
+            || self.model.show_task_dashboard
     }
 
     /// Dismiss the topmost overlay (if any). Returns true if one was dismissed.
@@ -812,5 +817,51 @@ impl TUI {
             return true;
         }
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::app::event_loop::TUI;
+
+    // Regression test: is_any_overlay_open was missing 5 overlay states:
+    // showing_tool_result, showing_tool_panel, worker_panel.visible,
+    // team_panel.visible, show_task_dashboard. Each caused keyboard shortcuts
+    // to fire while an overlay was visible.
+
+    #[test]
+    fn test_overlay_open_when_showing_tool_result() {
+        let mut tui = TUI::default();
+        assert!(!tui.is_any_overlay_open());
+        tui.panels.tool_panel.showing_tool_result = true;
+        assert!(tui.is_any_overlay_open());
+    }
+
+    #[test]
+    fn test_overlay_open_when_showing_tool_panel() {
+        let mut tui = TUI::default();
+        tui.panels.tool_panel.showing_tool_panel = true;
+        assert!(tui.is_any_overlay_open());
+    }
+
+    #[test]
+    fn test_overlay_open_when_worker_panel_visible() {
+        let mut tui = TUI::default();
+        tui.team.worker_panel.visible = true;
+        assert!(tui.is_any_overlay_open());
+    }
+
+    #[test]
+    fn test_overlay_open_when_team_panel_visible() {
+        let mut tui = TUI::default();
+        tui.team.team_panel.visible = true;
+        assert!(tui.is_any_overlay_open());
+    }
+
+    #[test]
+    fn test_overlay_open_when_task_dashboard_visible() {
+        let mut tui = TUI::default();
+        tui.model.show_task_dashboard = true;
+        assert!(tui.is_any_overlay_open());
     }
 }

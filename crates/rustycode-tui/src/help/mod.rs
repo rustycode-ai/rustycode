@@ -98,7 +98,7 @@ pub fn filter_topics(
 }
 
 /// Render help UI as a centered bordered dialog
-pub fn render_help(frame: &mut ratatui::Frame, area: ratatui::layout::Rect, state: &HelpState) {
+pub fn render_help(frame: &mut ratatui::Frame, area: ratatui::layout::Rect, state: &mut HelpState) {
     // Only render if help is visible
     if !state.visible {
         return;
@@ -216,6 +216,7 @@ pub fn render_help(frame: &mut ratatui::Frame, area: ratatui::layout::Rect, stat
     let inner_height = dialog_height.saturating_sub(2) as usize; // subtract borders
     let max_scroll = lines.len().saturating_sub(inner_height);
     let scroll_offset = state.scroll_offset.min(max_scroll);
+    state.scroll_offset = scroll_offset;
     let visible_lines: Vec<Line> = lines
         .into_iter()
         .skip(scroll_offset)
@@ -226,4 +227,76 @@ pub fn render_help(frame: &mut ratatui::Frame, area: ratatui::layout::Rect, stat
         .block(block)
         .wrap(ratatui::widgets::Wrap { trim: false });
     frame.render_widget(paragraph, dialog_area);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui::backend::TestBackend;
+    use ratatui::Terminal;
+
+    /// Regression: render_help must write back clamped scroll_offset to HelpState.
+    /// Previously, scrolling past content and resizing could leave scroll in invalid state
+    /// because the clamped value was only used locally and never written back.
+    #[test]
+    fn test_scroll_offset_clamped_after_render() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        let mut state = HelpState::new();
+        state.visible = true;
+        state.scroll_offset = 9999; // Far past any content
+
+        terminal
+            .draw(|f| {
+                render_help(f, f.area(), &mut state);
+            })
+            .unwrap();
+
+        // After rendering with small area, scroll_offset must be clamped down
+        // to a value much smaller than 9999 (it will be 0 if content fits).
+        assert!(
+            state.scroll_offset < 9999,
+            "scroll_offset should have been clamped down, got {}",
+            state.scroll_offset
+        );
+    }
+
+    /// Verify that a normal (non-overflow) scroll_offset is preserved after render.
+    #[test]
+    fn test_scroll_offset_preserved_when_valid() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        let mut state = HelpState::new();
+        state.visible = true;
+        state.scroll_offset = 0;
+
+        terminal
+            .draw(|f| {
+                render_help(f, f.area(), &mut state);
+            })
+            .unwrap();
+
+        assert_eq!(state.scroll_offset, 0);
+    }
+
+    /// Verify that hidden help does not modify scroll_offset.
+    #[test]
+    fn test_scroll_offset_unchanged_when_hidden() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        let mut state = HelpState::new();
+        state.visible = false;
+        state.scroll_offset = 42;
+
+        terminal
+            .draw(|f| {
+                render_help(f, f.area(), &mut state);
+            })
+            .unwrap();
+
+        assert_eq!(state.scroll_offset, 42);
+    }
 }
