@@ -189,7 +189,7 @@ pub fn extract_summary(message: &rustycode_protocol::Message) -> Option<CompactS
 // Cost analysis
 
 /// Result of a token-cost comparison between separate and piggyback approaches.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CostComparison {
     /// Tokens in the full conversation context.
     pub context_tokens: usize,
@@ -262,12 +262,16 @@ pub enum PiggybackState {
     Pending {
         /// How many attempts have been made (max 2 before fallback).
         attempts: u8,
+        /// Token count when compaction was triggered (for cost reporting).
+        context_tokens: usize,
     },
     /// Summary extracted, waiting for caller to apply compaction.
     Compacted {
         summary: CompactSummary,
         /// The assistant's normal response text (tool call stripped).
         response_text: String,
+        /// Token cost comparison for telemetry.
+        cost_savings: CostComparison,
     },
 }
 
@@ -279,6 +283,8 @@ pub enum PiggybackResult {
         summary: CompactSummary,
         /// The assistant's normal response (compact_context tool call removed).
         response_text: String,
+        /// Token cost comparison for telemetry/logging.
+        cost_savings: CostComparison,
     },
     /// The LLM did NOT call compact_context.
     NotCalled,
@@ -307,7 +313,10 @@ impl PiggybackState {
 
         match self {
             Self::Idle => {
-                *self = Self::Pending { attempts: 0 };
+                *self = Self::Pending {
+                    attempts: 0,
+                    context_tokens: current_tokens,
+                };
                 true
             }
             Self::Pending { .. } | Self::Compacted { .. } => {
@@ -335,7 +344,7 @@ impl PiggybackState {
     ///   (escalated urgency — higher call rate but may compress response).
     pub fn system_suffix(&self) -> Option<&'static str> {
         match self {
-            Self::Pending { attempts } => {
+            Self::Pending { attempts, .. } => {
                 if *attempts == 0 {
                     Some(SYSTEM_PROMPT_SUFFIX)
                 } else {
@@ -355,31 +364,34 @@ impl PiggybackState {
         &mut self,
         assistant_message: &rustycode_protocol::Message,
     ) -> PiggybackResult {
-        let attempts = match self {
-            Self::Pending { attempts } => *attempts,
+        let (attempts, context_tokens) = match self {
+            Self::Pending {
+                attempts,
+                context_tokens,
+            } => (*attempts, *context_tokens),
             _ => return PiggybackResult::NotCalled,
         };
 
-        // Try to extract the summary.
         if let Some(summary) = extract_summary(assistant_message) {
-            // Strip the tool call from the response text.
             let response_text = strip_compact_tool_call(assistant_message);
+            let cost_savings = compare_costs(context_tokens);
             *self = Self::Compacted {
                 summary: summary.clone(),
                 response_text: response_text.clone(),
+                cost_savings: cost_savings.clone(),
             };
             PiggybackResult::Compacted {
                 summary,
                 response_text,
+                cost_savings,
             }
         } else if attempts + 1 >= MAX_ATTEMPTS {
-            // Exhausted attempts — signal fallback.
             *self = Self::Idle;
             PiggybackResult::Fallback
         } else {
-            // Retry next turn.
             *self = Self::Pending {
                 attempts: attempts + 1,
+                context_tokens,
             };
             PiggybackResult::NotCalled
         }
@@ -539,12 +551,11 @@ pub struct EmergencyCompactResult {
     pub tiers_applied: Vec<String>,
 }
 
-/// Estimate tokens for a slice of messages using the canonical heuristic.
+/// Estimate tokens for a slice of messages.
+///
+/// Delegates to the canonical \[\] implementation.
 fn estimate_message_tokens(messages: &[rustycode_protocol::Message]) -> usize {
-    messages
-        .iter()
-        .map(|m| rustycode_protocol::estimate_tokens(&m.content.as_text()))
-        .sum()
+    super::pipeline::estimate_tokens(messages)
 }
 
 /// Extract the assistant's text response, stripping any compact_context tool
@@ -863,7 +874,13 @@ mod tests {
     fn state_transitions_to_pending_when_threshold_exceeded() {
         let mut state = PiggybackState::new();
         assert!(state.should_inject(100_000, 80_000));
-        assert_eq!(state, PiggybackState::Pending { attempts: 0 });
+        assert_eq!(
+            state,
+            PiggybackState::Pending {
+                attempts: 0,
+                context_tokens: 100_000
+            }
+        );
         assert!(state.needs_tool_injection());
         assert!(state.needs_system_suffix());
     }
@@ -880,7 +897,13 @@ mod tests {
         let mut state = PiggybackState::new();
         state.should_inject(100_000, 80_000);
         assert!(!state.should_inject(120_000, 80_000));
-        assert_eq!(state, PiggybackState::Pending { attempts: 0 });
+        assert_eq!(
+            state,
+            PiggybackState::Pending {
+                attempts: 0,
+                context_tokens: 100_000
+            }
+        );
     }
 
     #[test]
@@ -916,7 +939,9 @@ mod tests {
             PiggybackResult::Compacted {
                 summary,
                 response_text,
+                cost_savings,
             } => {
+                assert!(cost_savings.savings_pct > 49.0, "should report savings");
                 assert_eq!(summary.goal, "Fix auth");
                 assert_eq!(response_text, "Here are the tests.");
             }
@@ -933,12 +958,21 @@ mod tests {
         let msg = Message::assistant("just a normal response");
         let result = state.process_response(&msg);
         assert!(matches!(result, PiggybackResult::NotCalled));
-        assert_eq!(state, PiggybackState::Pending { attempts: 1 });
+        assert_eq!(
+            state,
+            PiggybackState::Pending {
+                attempts: 1,
+                context_tokens: 100_000
+            }
+        );
     }
 
     #[test]
     fn process_response_fallback_after_max_attempts() {
-        let mut state = PiggybackState::Pending { attempts: 1 };
+        let mut state = PiggybackState::Pending {
+            attempts: 1,
+            context_tokens: 100_000,
+        };
         let msg = Message::assistant("still no tool call");
         let result = state.process_response(&msg);
         assert!(matches!(result, PiggybackResult::Fallback));
@@ -958,6 +992,7 @@ mod tests {
         let state = PiggybackState::Compacted {
             summary,
             response_text: "Done.".to_string(),
+            cost_savings: compare_costs(100_000),
         };
 
         let old_messages = vec![
@@ -1003,6 +1038,7 @@ mod tests {
                 next_step: "Z".to_string(),
             },
             response_text: "done".to_string(),
+            cost_savings: compare_costs(100_000),
         };
         state.reset();
         assert_eq!(state, PiggybackState::Idle);
@@ -1022,7 +1058,10 @@ mod tests {
 
     #[test]
     fn system_suffix_returns_strong_on_second_attempt() {
-        let state = PiggybackState::Pending { attempts: 1 };
+        let state = PiggybackState::Pending {
+            attempts: 1,
+            context_tokens: 50_000,
+        };
         let suffix = state.system_suffix();
         assert_eq!(suffix, Some(STRONG_SYSTEM_PROMPT_SUFFIX));
         assert!(
@@ -1045,6 +1084,7 @@ mod tests {
                 next_step: "Z".to_string(),
             },
             response_text: "done".to_string(),
+            cost_savings: compare_costs(100_000),
         };
         assert!(state.system_suffix().is_none());
     }
