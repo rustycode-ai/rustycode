@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.2] - 2026-05-14
+
+### Features
+
+- **bench**: Expand SWE-bench runner with prediction scoring and agent improvements
+- **runtime**: Extend piggyback compaction with adaptive budget and quality metrics
+- **tui**: Add compaction state, tool panel, input improvements, and toast notifications
+
+### Documentation
+
+- Add Configuration section with correct JSON format
+
 ## [0.5.1] - 2026-05-14
 
 ### Features
@@ -34,6 +46,7 @@ All notable changes to this project will be documented in this file.
 - Add GSD and generated dirs to .gitignore
 - Add planning docs, tool plugin design, code maps, reports, and test scripts
 - **tui**: Apply cargo fmt formatting
+- Bump version to 0.5.1
 
 ## [0.5.0] - 2026-05-14
 
