@@ -189,3 +189,27 @@ pub fn run(cwd: PathBuf, reconfigure: bool, resume: bool) -> Result<()> {
     info_log!("[PERF] pre-run setup took {}ms", t0.elapsed().as_millis());
     tui.run(resume)
 }
+
+/// Alternative entry point using the decomposed AppShell architecture.
+///
+/// Creates an [`AppShell`] with a registered [`PluginManagerFeature`] to
+/// verify that the dual-path feature wiring compiles. Still bails because
+/// the full shell event loop is not yet implemented.
+#[cfg(feature = "app-shell")]
+pub fn run_with_shell(_cwd: PathBuf, _reconfigure: bool, _resume: bool) -> Result<()> {
+    use std::sync::{Arc, RwLock};
+
+    use crate::app::features::plugin_manager::PluginManagerFeature;
+    use crate::app::shell::AppShell;
+    use crate::plugin::PluginManager;
+    use crate::theme::Theme;
+
+    let theme = Arc::new(Theme::default());
+    let mut shell = AppShell::new(theme);
+
+    let manager = Arc::new(RwLock::new(PluginManager::default()));
+    let plugin_feature = PluginManagerFeature::new(manager);
+    shell.register_feature(Box::new(plugin_feature));
+
+    anyhow::bail!("app-shell entry point not yet implemented")
+}

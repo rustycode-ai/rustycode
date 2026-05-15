@@ -696,6 +696,9 @@ def resolve_test_names(test_names, test_patch):
         # Already a full path
         if '::' in name or '/' in name or name.endswith('.py'):
             resolved.append(name)
+        # Django-style: test_name (module.path.ClassName)
+        elif '(' in name:
+            resolved.append(name)
         else:
             # Bare function name — prefix with test file
             resolved.append(f"{test_file}::{name}")
@@ -749,9 +752,15 @@ def run_tests(repo_dir, test_names, venv_python="python3"):
     all_passed = True
     for test in test_names:
         if has_django:
-            # Extract module from Django test format
-            module = test.split("(")[0].rsplit(".", 1)[0] if "(" in test else test
-            cmd = f"{python} tests/runtests.py {module} --verbosity=2 2>&1"
+            # Extract module from Django test format: test_name (module.path.ClassName)
+            if "(" in test:
+                # e.g. test_foo (queries.test_qs_combinators.ClassName) -> queries.test_qs_combinators.ClassName.test_foo
+                test_name = test.split("(")[0].strip()
+                mod_cls = test.split("(")[1].rstrip(")").strip()
+                full_path = f"{mod_cls}.{test_name}"
+            else:
+                full_path = test
+            cmd = f"{python} tests/runtests.py {full_path} --verbosity=2 2>&1"
         else:
             # Use venv python with PYTHONPATH set
             cmd = (
