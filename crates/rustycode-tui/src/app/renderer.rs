@@ -673,4 +673,74 @@ mod tests {
 
         assert!(layout.is_too_small);
     }
+
+    // ── Characterization tests for RendererState ────────────────────────────
+    //
+    // These tests document the current fields of RendererState.
+    // If RendererState changes, update these tests to match.
+
+    #[test]
+    fn renderer_state_has_layout_area_field() {
+        // RendererState.area captures the full terminal Rect for the frame.
+        // This test documents that the field exists and is accessible.
+        let area = Rect::new(0, 0, 80, 24);
+        // We verify from_tui construction sets a valid area
+        let mut tui = crate::app::event_loop::TUI::default();
+        let state = super::RendererState::from_tui(&mut tui, area);
+        assert_eq!(
+            state.area, area,
+            "RendererState.area should match input Rect"
+        );
+    }
+
+    #[test]
+    fn renderer_state_has_project_name() {
+        let area = Rect::new(0, 0, 80, 24);
+        let mut tui = crate::app::event_loop::TUI::default();
+        let state = super::RendererState::from_tui(&mut tui, area);
+        // project_name is derived from cwd basename — default TUI uses "."
+        assert!(
+            !state.project_name.is_empty(),
+            "RendererState.project_name should be non-empty"
+        );
+    }
+
+    #[test]
+    fn renderer_state_has_header_status() {
+        use crate::ui::header::HeaderStatus;
+        let area = Rect::new(0, 0, 80, 24);
+        let mut tui = crate::app::event_loop::TUI::default();
+        let state = super::RendererState::from_tui(&mut tui, area);
+        // Default TUI is not streaming, no error, no banner → Ready
+        assert!(
+            matches!(state.header_status, HeaderStatus::Ready),
+            "Default TUI should have Ready header status"
+        );
+    }
+
+    #[test]
+    fn renderer_state_has_session_metrics() {
+        let area = Rect::new(0, 0, 80, 24);
+        let mut tui = crate::app::event_loop::TUI::default();
+        let state = super::RendererState::from_tui(&mut tui, area);
+        // Default TUI has no messages → turn_count = 0, session_cost = 0.0
+        assert_eq!(state.turn_count, 0, "Default TUI should have 0 turns");
+        assert_eq!(state.session_cost, 0.0, "Default TUI should have 0 cost");
+    }
+
+    #[test]
+    fn renderer_state_captures_chrome_visibility() {
+        let area = Rect::new(0, 0, 80, 24);
+        let mut tui = crate::app::event_loop::TUI::default();
+        let state = super::RendererState::from_tui(&mut tui, area);
+        // Default: both visible
+        assert!(
+            !state.status_bar_collapsed,
+            "Default RendererState should have status_bar visible"
+        );
+        assert!(
+            !state.footer_collapsed,
+            "Default RendererState should have footer visible"
+        );
+    }
 }

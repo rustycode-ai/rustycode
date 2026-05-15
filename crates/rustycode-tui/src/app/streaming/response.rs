@@ -405,12 +405,17 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
         ))?
     };
 
+    // Classify intent from user's message to inject per-request guidance
+    let intent_category = rustycode_protocol::intent::classify_intent(&content);
+    let intent_suffix = intent_category.prompt_suffix();
+
     let system_message = super::system_prompt::build_system_prompt(
         &cwd,
         workspace_context.as_deref(),
         agent_mode.as_ref(),
         orchestration_guidance.as_deref(),
         phase_context.as_deref(),
+        Some(intent_suffix),
     )
     .await;
     let mut messages = vec![rustycode_llm::provider::ChatMessage::system(

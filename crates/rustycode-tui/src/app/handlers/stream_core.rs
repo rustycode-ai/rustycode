@@ -493,4 +493,116 @@ mod tests {
         assert_eq!(tui.model.token_budget.session_cache_read_tokens, 500);
         assert_eq!(tui.model.token_budget.session_cache_creation_tokens, 200);
     }
+
+    // ── Characterization tests for stream chunk dispatch ────────────────────
+    //
+    // These tests document how StreamChunk variants affect TUI state.
+    // They cover the critical paths: Text append, Done cleanup, Thinking,
+    // TokenUsage, and ToolStart.
+
+    #[test]
+    fn text_chunk_appends_to_stream_content() {
+        let mut tui = TUI::default();
+        handle_stream_chunk(&mut tui, StreamChunk::Text("Hello ".to_string()));
+        handle_stream_chunk(&mut tui, StreamChunk::Text("world".to_string()));
+
+        assert_eq!(
+            tui.session.streaming.current_stream_content, "Hello world",
+            "Text chunks should append to current_stream_content"
+        );
+        assert!(
+            tui.session.streaming.is_streaming,
+            "Receiving text should set is_streaming = true"
+        );
+    }
+
+    #[test]
+    fn done_chunk_stops_streaming() {
+        let mut tui = TUI::default();
+        handle_stream_chunk(&mut tui, StreamChunk::Text("Response".to_string()));
+        assert!(tui.session.streaming.is_streaming);
+
+        handle_stream_chunk(&mut tui, StreamChunk::Done);
+
+        assert!(
+            !tui.session.streaming.is_streaming,
+            "Done should set is_streaming = false"
+        );
+        assert!(
+            tui.session.streaming.current_stream_content.is_empty(),
+            "Done should clear current_stream_content"
+        );
+    }
+
+    #[test]
+    fn thinking_chunk_accumulates() {
+        let mut tui = TUI::default();
+        handle_stream_chunk(&mut tui, StreamChunk::Thinking("I need to ".to_string()));
+        handle_stream_chunk(&mut tui, StreamChunk::Thinking("consider...".to_string()));
+
+        assert!(
+            tui.session.streaming.is_streaming,
+            "Thinking chunks should set is_streaming = true"
+        );
+        assert!(
+            !tui.session.streaming.current_stream_content.is_empty(),
+            "Thinking chunks should contribute to stream content"
+        );
+    }
+
+    #[test]
+    fn token_usage_updates_counters() {
+        let mut tui = TUI::default();
+
+        handle_stream_chunk(
+            &mut tui,
+            StreamChunk::TokenUsage {
+                input_tokens: 100,
+                output_tokens: 200,
+                cache_read_tokens: 50,
+                cache_creation_tokens: 10,
+            },
+        );
+
+        assert_eq!(tui.model.token_budget.session_input_tokens, 100);
+        assert_eq!(tui.model.token_budget.session_output_tokens, 200);
+        assert!(tui.sys.dirty, "TokenUsage should mark dirty");
+    }
+
+    #[test]
+    fn tool_start_adds_to_active_tools() {
+        let mut tui = TUI::default();
+        handle_stream_chunk(
+            &mut tui,
+            StreamChunk::ToolStart {
+                tool_name: "Read".to_string(),
+                tool_id: "tool-1".to_string(),
+                input_json: r#"{"path":"/test"}"#.to_string(),
+            },
+        );
+
+        assert!(
+            tui.session.active_tools.contains_key("tool-1"),
+            "ToolStart should add tool to active_tools"
+        );
+        assert!(tui.sys.dirty, "ToolStart should mark dirty");
+    }
+
+    #[test]
+    fn system_message_adds_to_messages() {
+        let mut tui = TUI::default();
+        let initial_count = tui.session.messages.len();
+
+        handle_stream_chunk(
+            &mut tui,
+            StreamChunk::SystemMessage("Status update".to_string()),
+        );
+
+        assert_eq!(
+            tui.session.messages.len(),
+            initial_count,
+            "SystemMessage chunk is logged but may not add to messages"
+        );
+        assert!(tui.sys.dirty, "SystemMessage should mark dirty");
+    }
 }

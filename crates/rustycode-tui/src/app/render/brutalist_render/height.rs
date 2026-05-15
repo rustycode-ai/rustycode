@@ -178,10 +178,11 @@ impl BrutalistRenderer<'_> {
                 .iter()
                 .filter(|t| {
                     t.status == ToolStatus::Failed
-                        && t.detailed_output
+                        && (t
+                            .detailed_output
                             .as_ref()
                             .is_some_and(|o| !o.trim().is_empty())
-                        || !t.result_summary.is_empty()
+                            || !t.result_summary.is_empty())
                 })
                 .count();
             height += failed_with_output;

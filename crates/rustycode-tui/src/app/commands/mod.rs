@@ -364,3 +364,101 @@ pub fn is_registered_command(name: &str) -> bool {
 pub fn is_known_slash_command(name: &str) -> bool {
     is_registered_command(name) || KNOWN_ALIASES.contains(&name)
 }
+
+#[cfg(test)]
+mod characterization_tests {
+    use super::*;
+
+    // ── Characterization tests for CommandEffect variants ────────────────────
+    //
+    // These tests document the dispatch of CommandEffect variants.
+    // They verify that the enum variants exist and that known slash commands
+    // dispatch to the correct handlers.
+
+    #[test]
+    fn command_effect_show_help_exists() {
+        let effect = CommandEffect::ShowHelp;
+        // Verify variant exists and can be constructed
+        assert!(matches!(effect, CommandEffect::ShowHelp));
+    }
+
+    #[test]
+    fn command_effect_clear_conversation_exists() {
+        let effect = CommandEffect::ClearConversation;
+        assert!(matches!(effect, CommandEffect::ClearConversation));
+    }
+
+    #[test]
+    fn command_effect_model_switch_exists() {
+        let effect = CommandEffect::ModelSwitch {
+            model_id: "claude-sonnet-4".to_string(),
+        };
+        assert!(matches!(effect, CommandEffect::ModelSwitch { .. }));
+    }
+
+    #[test]
+    fn command_effect_none_exists() {
+        let effect = CommandEffect::None;
+        assert!(matches!(effect, CommandEffect::None));
+    }
+
+    #[test]
+    fn command_effect_system_message_carries_text() {
+        let msg = "Operation completed".to_string();
+        let effect = CommandEffect::SystemMessage(msg.clone());
+        if let CommandEffect::SystemMessage(text) = effect {
+            assert_eq!(text, msg);
+        } else {
+            panic!("Expected SystemMessage variant");
+        }
+    }
+
+    #[test]
+    fn command_effect_retry_last_message_exists() {
+        let effect = CommandEffect::RetryLastMessage;
+        assert!(matches!(effect, CommandEffect::RetryLastMessage));
+    }
+
+    #[test]
+    fn known_slash_commands_recognized() {
+        // Characterization: verify known slash commands are recognized
+        assert!(is_known_slash_command("/help"));
+        assert!(is_known_slash_command("/clear"));
+        assert!(is_known_slash_command("/quit"));
+        assert!(is_known_slash_command("/q"));
+        assert!(is_known_slash_command("/exit"));
+    }
+
+    #[test]
+    fn unknown_commands_not_recognized() {
+        assert!(!is_known_slash_command("/nonexistent"));
+        assert!(!is_known_slash_command("/random"));
+    }
+
+    #[test]
+    fn command_effect_set_plan_mode_exists() {
+        let effect = CommandEffect::SetPlanMode { planning: true };
+        assert!(matches!(
+            effect,
+            CommandEffect::SetPlanMode { planning: true }
+        ));
+    }
+
+    #[test]
+    fn command_effect_set_budget_exists() {
+        let effect = CommandEffect::SetBudget { limit: Some(5.0) };
+        assert!(matches!(effect, CommandEffect::SetBudget { .. }));
+    }
+
+    #[test]
+    fn command_effect_async_started_exists() {
+        let effect = CommandEffect::AsyncStarted("task-123".to_string());
+        assert!(matches!(effect, CommandEffect::AsyncStarted(_)));
+    }
+
+    #[test]
+    fn command_effect_switch_to_mcp_mode_exists() {
+        let effect = CommandEffect::SwitchToMcpMode;
+        assert!(matches!(effect, CommandEffect::SwitchToMcpMode));
+    }
+}

@@ -16,12 +16,39 @@ pub async fn build_system_prompt(
     agent_mode: Option<&crate::services::agent_mode::AgentMode>,
     orchestration_guidance: Option<&str>,
     phase_context: Option<&str>,
+    intent_suffix: Option<&str>,
 ) -> String {
     let mut parts = vec![
         // ── Identity + Workflow ──
         "You are RustyCode, an AI coding assistant.\n\
         \n\
         Output complete working code. No placeholders, no TODOs, no explanations of what you would do.\n\
+        \n\
+        ## Decode User Intent\n\
+        \n\
+        The user's request is surface-level. Your job is to understand what they ACTUALLY need.\n\
+        \n\
+        Before acting, answer these questions silently:\n\
+        1. What is the user trying to accomplish? (the goal behind the request)\n\
+        2. What does the codebase already do? (existing patterns, conventions, nearby code)\n\
+        3. What would success look like? (tests passing, error gone, feature working)\n\
+        4. What is the MINIMUM change that achieves this? (not the most impressive, the most correct)\n\
+        \n\
+        Common intent mismatches to avoid:\n\
+        - User says 'fix X' but the real problem is upstream of X → trace the actual failure\n\
+        - User describes a symptom but needs the root cause fixed → don't band-aid symptoms\n\
+        - User asks for a new feature but an existing API already does it → find and use what exists\n\
+        - Error message names one module but the bug is in another → follow the call chain, not the error text\n\
+        \n\
+        ## Understand Before Acting\n\
+        \n\
+        Before making ANY code change, complete this reasoning chain:\n\
+        1. What is the expected behavior? (from the error, test, or issue description)\n\
+        2. What specific function/module causes the failure? Trace the call chain, don't guess.\n\
+        3. Why does it fail? Identify root cause: wrong logic, missing parameter, import resolution, etc.\n\
+        4. What exact change fixes it? State the specific file and line before editing.\n\
+        \n\
+        If you can't answer steps 1-3, read more code before editing. NEVER guess at a fix.\n\
         \n\
         ## Workflow\n\
         \n\
@@ -43,6 +70,7 @@ pub async fn build_system_prompt(
         ## Self-check\n\
         \n\
         Before each turn, ask:\n\
+        - Does this change actually solve what the user asked for? (intention alignment)\n\
         - Am I closer to done than last turn? If not, stop exploring and act now.\n\
         - Am I going backwards? (re-reading files, re-running searches already done) If yes, make your best edit instead.\n\
         - Do I understand enough to edit right now? If yes, edit — don't read more for confirmation.\n\
@@ -65,15 +93,20 @@ pub async fn build_system_prompt(
         - Use parallel tool calls when operations are independent\n\
         - After making changes, always verify (build/test/lint) before declaring success\n\
         - If repeating the same failed approach, switch strategy rather than retrying\n\
+        - Fix the ROOT CAUSE, not the symptom. Trace the actual failure, don't apply pattern-matching.\n\
         \n\
         ## Anti-patterns\n\
         \n\
+        - Fixing what the error message says instead of what the test actually checks — the test IS the specification\n\
+        - Making changes without understanding why they fail — guessing wastes turns\n\
         - Writing reproduction scripts when error output is already available\n\
         - Reading files unrelated to the task out of curiosity\n\
         - Re-reading a file you already have in context\n\
         - Exploring for more than 3 turns without making an edit\n\
         - Writing test scripts to verify when you can just run the existing tests\n\
         - Continuing to edit after tests pass — ship what works\n\
+        - Fixing a different function/module than the one that actually fails\n\
+        - Solving the surface request while ignoring the underlying intent\n\
         \n\
         ## Before saying 'done'\n\
         \n\
@@ -111,6 +144,13 @@ pub async fn build_system_prompt(
         - After making changes, always verify (build/test/lint) before declaring success."
             .to_string(),
     ];
+
+    // ── Intent suffix ──
+    if let Some(suffix) = intent_suffix {
+        if !suffix.is_empty() {
+            parts.push(format!("## Intent Guidance\n{}", suffix));
+        }
+    }
 
     // ── Agent mode suffix ──
     if let Some(mode) = agent_mode {
@@ -181,8 +221,11 @@ mod tests {
     #[tokio::test]
     async fn system_prompt_contains_identity() {
         let tmp = tempfile::tempdir().unwrap();
-        let prompt = build_system_prompt(tmp.path(), None, None, None, None).await;
+        let prompt = build_system_prompt(tmp.path(), None, None, None, None, None).await;
         assert!(prompt.contains("RustyCode"));
+        assert!(prompt.contains("## Decode User Intent"));
+        assert!(prompt.contains("intention alignment"));
+        assert!(prompt.contains("## Understand Before Acting"));
         assert!(prompt.contains("## Workflow"));
         assert!(prompt.contains("## Self-check"));
         assert!(prompt.contains("## Rules"));
@@ -201,8 +244,15 @@ mod tests {
     #[tokio::test]
     async fn system_prompt_includes_workspace_context() {
         let tmp = tempfile::tempdir().unwrap();
-        let prompt =
-            build_system_prompt(tmp.path(), Some("A Rust TUI project"), None, None, None).await;
+        let prompt = build_system_prompt(
+            tmp.path(),
+            Some("A Rust TUI project"),
+            None,
+            None,
+            None,
+            None,
+        )
+        .await;
         assert!(prompt.contains("## Project"));
         assert!(prompt.contains("A Rust TUI project"));
     }
@@ -213,8 +263,24 @@ mod tests {
         tokio::fs::write(tmp.path().join("AGENTS.md"), "Use Rust 2021 edition.")
             .await
             .unwrap();
-        let prompt = build_system_prompt(tmp.path(), None, None, None, None).await;
+        let prompt = build_system_prompt(tmp.path(), None, None, None, None, None).await;
         assert!(prompt.contains("Project Instructions (AGENTS.md)"));
         assert!(prompt.contains("Use Rust 2021 edition."));
+    }
+
+    #[tokio::test]
+    async fn system_prompt_includes_intent_suffix() {
+        let tmp = tempfile::tempdir().unwrap();
+        let suffix = "The user wants code written or a feature built.";
+        let prompt = build_system_prompt(tmp.path(), None, None, None, None, Some(suffix)).await;
+        assert!(prompt.contains("## Intent Guidance"));
+        assert!(prompt.contains(suffix));
+    }
+
+    #[tokio::test]
+    async fn system_prompt_without_intent_suffix() {
+        let tmp = tempfile::tempdir().unwrap();
+        let prompt = build_system_prompt(tmp.path(), None, None, None, None, None).await;
+        assert!(!prompt.contains("## Intent Guidance"));
     }
 }
