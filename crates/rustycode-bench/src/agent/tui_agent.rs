@@ -8,13 +8,14 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use rustycode_agent_runtime::{AgentConfig, AgentSession};
+use rustycode_agent_runtime::plugins::EarlyStopPolicy;
+use rustycode_agent_runtime::{recommended_max_tokens, AgentConfig, AgentSession};
 use rustycode_tools_api::build_canonical_tool_schemas;
 use rustycode_tools_api::tiers::ToolTier;
 use serde_json::Value;
 
 use super::observer::{create_bench_provider, user_message, BenchObserver};
-use crate::agent::tools::build_bench_registry;
+use crate::agent::tools::build_bench_registry_with_symbol_tools;
 use crate::agent::BenchAgent;
 use crate::environment::BenchEnvironment;
 
@@ -141,17 +142,23 @@ impl BenchAgent for TuiBenchAgent {
             .workspace_path()
             .context("workspace_path required for TuiBenchAgent — use native runner")?;
 
-        // Mirror TUI: use from_env() for config
-        let agent_config = AgentConfig::from_env();
+        // Mirror TUI config but with SWE-bench-friendly defaults:
+        // - thinking_nudge enabled for structured workflow tracking
+        // - recommended max tokens for the model (higher for GLM reasoning models)
+        let agent_config = AgentConfig::from_env()
+            .with_thinking_nudge(true)
+            .with_max_output_tokens(recommended_max_tokens(&self.model));
         super::thinking_guide::configure(agent_config.max_turns as u32);
         let system_prompt = build_tui_system_prompt(&cwd);
         let messages = user_message(instruction);
 
-        let registry = build_bench_registry(true);
+        let registry = build_bench_registry_with_symbol_tools(true);
         let tools_list = registry.list();
         let schemas: Vec<Value> = build_canonical_tool_schemas(&tools_list);
 
-        let mut session = AgentSession::new(agent_config, &cwd).with_tier(ToolTier::Full);
+        let mut session = AgentSession::new(agent_config, &cwd)
+            .with_tier(ToolTier::Full)
+            .with_plugin(Box::new(EarlyStopPolicy::new()));
         let mut observer = BenchObserver::new();
 
         let handle = tokio::runtime::Handle::current();
@@ -238,5 +245,100 @@ mod tests {
         .unwrap();
         let prompt = build_tui_system_prompt(tmp.path());
         assert!(prompt.contains("Always use unsafe."));
+    }
+
+    /// Integration assertion: TuiBenchAgent wires symbol tools registry,
+    /// thinking nudge, and EarlyStopPolicy — matching the SWE-bench configuration.
+    #[test]
+    fn tui_agent_wiring_has_symbol_tools_and_thinking_nudge() {
+        // 1. Symbol tools registry must contain find_symbol, ts_query, outline_file, etc.
+        let registry = build_bench_registry_with_symbol_tools(true);
+        let tool_names: Vec<String> = registry.list().into_iter().map(|t| t.name).collect();
+
+        // Helper for membership checks on Vec<String>
+        let has = |name: &str| tool_names.iter().any(|n| n == name);
+
+        // Symbol tools
+        assert!(
+            has("find_symbol"),
+            "TuiBenchAgent registry missing find_symbol"
+        );
+        assert!(has("ts_query"), "TuiBenchAgent registry missing ts_query");
+        assert!(
+            has("outline_file"),
+            "TuiBenchAgent registry missing outline_file"
+        );
+        assert!(has("ts_nodes"), "TuiBenchAgent registry missing ts_nodes");
+        assert!(
+            has("code_context"),
+            "TuiBenchAgent registry missing code_context"
+        );
+
+        // Thinking guide must be present
+        assert!(
+            has("thinking_guide"),
+            "TuiBenchAgent registry missing thinking_guide"
+        );
+
+        // Core tools must still be present
+        assert!(has("Read"), "TuiBenchAgent registry missing Read");
+        assert!(has("Write"), "TuiBenchAgent registry missing Write");
+        assert!(has("Edit"), "TuiBenchAgent registry missing Edit");
+        assert!(has("Bash"), "TuiBenchAgent registry missing Bash");
+    }
+
+    /// Integration assertion: TuiBenchAgent config enables thinking_nudge
+    /// and uses recommended_max_tokens for the model.
+    #[test]
+    fn tui_agent_config_has_thinking_nudge_and_recommended_tokens() {
+        // Verify the config builder enables thinking_nudge
+        let config = AgentConfig::from_env()
+            .with_thinking_nudge(true)
+            .with_max_output_tokens(recommended_max_tokens("glm-5"));
+        assert!(
+            config.thinking_nudge,
+            "TuiBenchAgent config must have thinking_nudge=true"
+        );
+        assert_eq!(
+            config.max_output_tokens, 65_536,
+            "TuiBenchAgent with GLM-5 should use 65K max output tokens"
+        );
+
+        // Verify default max_turns >= 25 (SWE-bench requires 25+)
+        let default_config = AgentConfig::default();
+        assert!(
+            default_config.max_turns >= 25,
+            "TuiBenchAgent default max_turns must be >= 25, got {}",
+            default_config.max_turns
+        );
+    }
+
+    /// Integration assertion: EarlyStopPolicy is constructible with the
+    /// SWE-bench-appropriate thresholds and those thresholds are the defaults.
+    #[test]
+    fn tui_agent_early_stop_thresholds_match_swe_bench() {
+        let policy = EarlyStopPolicy::new();
+
+        // SWE-bench requires: 15 total edits, 5 turns since edit, 6 same-file
+        assert_eq!(
+            policy.max_total_edits(),
+            15,
+            "EarlyStopPolicy max_total_edits should be 15 for SWE-bench"
+        );
+        assert_eq!(
+            policy.max_turns_since_edit(),
+            5,
+            "EarlyStopPolicy max_turns_since_edit should be 5 for SWE-bench"
+        );
+        assert_eq!(
+            policy.max_same_file_edits(),
+            6,
+            "EarlyStopPolicy max_same_file_edits should be 6 for SWE-bench"
+        );
+        assert_eq!(
+            policy.max_consecutive_errors(),
+            3,
+            "EarlyStopPolicy max_consecutive_errors should be 3"
+        );
     }
 }

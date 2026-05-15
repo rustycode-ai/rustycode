@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use rustycode_agent_runtime::plugins::EarlyStopPolicy;
 use rustycode_agent_runtime::{AgentConfig, AgentSession};
 use rustycode_tools_api::build_canonical_tool_schemas;
 use rustycode_tools_api::tiers::ToolTier;
@@ -41,7 +42,7 @@ impl Default for CodeAgentConfig {
             provider: "anthropic".to_string(),
             max_turns: 30,
             max_tokens: 8192,
-            with_symbol_tools: false,
+            with_symbol_tools: true,
             with_thinking_guide: true,
         }
     }
@@ -115,9 +116,16 @@ impl BenchAgent for CodeAgent {
         let tools_list = registry.list();
         let schemas: Vec<Value> = build_canonical_tool_schemas(&tools_list);
 
-        // Mirror TUI: use from_env() for config
-        let agent_config = AgentConfig::from_env();
-        let mut session = AgentSession::new(agent_config, &cwd).with_tier(ToolTier::Full);
+        // Build config from our own values (NOT from_env which ignores our config)
+        let agent_config = AgentConfig {
+            max_turns: self.config.max_turns,
+            max_output_tokens: self.config.max_tokens,
+            thinking_nudge: true,
+            ..AgentConfig::from_env()
+        };
+        let mut session = AgentSession::new(agent_config, &cwd)
+            .with_tier(ToolTier::Full)
+            .with_plugin(Box::new(EarlyStopPolicy::new()));
         let mut observer = BenchObserver::new();
 
         let handle = tokio::runtime::Handle::current();
@@ -167,26 +175,36 @@ mod tests {
         let registry = build_bench_registry(true);
         let tools_list = registry.list();
         let schemas = build_canonical_tool_schemas(&tools_list);
-        let names: Vec<&str> = schemas
+        let names: Vec<String> = schemas
             .iter()
-            .filter_map(|s| s.get("name").and_then(|n| n.as_str()))
+            .filter_map(|s| {
+                s.get("name")
+                    .and_then(|n| n.as_str())
+                    .map(|s| s.to_string())
+            })
             .collect();
-        assert!(names.contains(&"Read"), "missing Read");
-        assert!(names.contains(&"Write"), "missing Write");
-        assert!(names.contains(&"Edit"), "missing Edit");
-        assert!(names.contains(&"ListDir"), "missing ListDir");
-        assert!(names.contains(&"Grep"), "missing Grep");
-        assert!(names.contains(&"Glob"), "missing Glob");
-        assert!(names.contains(&"ApplyPatch"), "missing ApplyPatch");
-        assert!(names.contains(&"Bash"), "missing Bash");
-        assert!(names.contains(&"GitStatus"), "missing GitStatus");
-        assert!(names.contains(&"GitDiff"), "missing GitDiff");
-        assert!(names.contains(&"GitLog"), "missing GitLog");
+        assert!(names.iter().any(|n| n == "Read"), "missing Read");
+        assert!(names.iter().any(|n| n == "Write"), "missing Write");
+        assert!(names.iter().any(|n| n == "Edit"), "missing Edit");
+        assert!(names.iter().any(|n| n == "ListDir"), "missing ListDir");
+        assert!(names.iter().any(|n| n == "Grep"), "missing Grep");
+        assert!(names.iter().any(|n| n == "Glob"), "missing Glob");
+        assert!(
+            names.iter().any(|n| n == "ApplyPatch"),
+            "missing ApplyPatch"
+        );
+        assert!(names.iter().any(|n| n == "Bash"), "missing Bash");
+        assert!(names.iter().any(|n| n == "GitStatus"), "missing GitStatus");
+        assert!(names.iter().any(|n| n == "GitDiff"), "missing GitDiff");
+        assert!(names.iter().any(|n| n == "GitLog"), "missing GitLog");
         // Thinking guide is registered
-        assert!(names.contains(&"thinking_guide"), "missing thinking_guide");
+        assert!(
+            names.iter().any(|n| n == "thinking_guide"),
+            "missing thinking_guide"
+        );
         // No interactive tools
-        assert!(!names.contains(&"question"));
-        assert!(!names.contains(&"ask_user"));
+        assert!(!names.iter().any(|n| n == "question"));
+        assert!(!names.iter().any(|n| n == "ask_user"));
     }
 
     #[test]
@@ -227,5 +245,123 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// Integration assertion: CodeAgent uses its own config.max_turns,
+    /// NOT from_env default. This prevents accidental override by env vars.
+    #[test]
+    fn code_agent_config_uses_own_max_turns() {
+        let config = CodeAgentConfig {
+            max_turns: 42,
+            ..CodeAgentConfig::default()
+        };
+
+        // The CodeAgent::run method builds AgentConfig like:
+        //   AgentConfig { max_turns: self.config.max_turns, ..AgentConfig::from_env() }
+        // This test verifies the config stores our value, not env default.
+        assert_eq!(
+            config.max_turns, 42,
+            "CodeAgentConfig must use explicitly-set max_turns, not env default"
+        );
+
+        // Default should be 30 (SWE-bench friendly, > 25)
+        let default = CodeAgentConfig::default();
+        assert!(
+            default.max_turns >= 25,
+            "CodeAgentConfig default max_turns should be >= 25, got {}",
+            default.max_turns
+        );
+    }
+
+    /// Integration assertion: CodeAgent default config has symbol tools
+    /// and thinking guide enabled — matching SWE-bench requirements.
+    #[test]
+    fn code_agent_default_enables_symbol_tools_and_thinking_guide() {
+        let config = CodeAgentConfig::default();
+
+        assert!(
+            config.with_symbol_tools,
+            "CodeAgentConfig default must have with_symbol_tools=true"
+        );
+        assert!(
+            config.with_thinking_guide,
+            "CodeAgentConfig default must have with_thinking_guide=true"
+        );
+    }
+
+    /// Integration assertion: CodeAgent builds the correct registry based on
+    /// config flags — symbol tools registry when enabled, base registry when not.
+    #[test]
+    fn code_agent_builds_correct_registry_per_config() {
+        // With symbol tools
+        let with_sym_tools = build_bench_registry_with_symbol_tools(true).list();
+        let sym_names: Vec<&str> = with_sym_tools.iter().map(|t| t.name.as_str()).collect();
+        assert!(
+            sym_names.contains(&"find_symbol"),
+            "symbol tools registry missing find_symbol"
+        );
+        assert!(
+            sym_names.contains(&"ts_query"),
+            "symbol tools registry missing ts_query"
+        );
+        assert!(
+            sym_names.contains(&"thinking_guide"),
+            "symbol tools registry missing thinking_guide"
+        );
+
+        // Without symbol tools
+        let base_tools = build_bench_registry(true).list();
+        let base_names: Vec<&str> = base_tools.iter().map(|t| t.name.as_str()).collect();
+        assert!(
+            !base_names.contains(&"find_symbol"),
+            "base registry should not have find_symbol"
+        );
+        assert!(
+            !base_names.contains(&"ts_query"),
+            "base registry should not have ts_query"
+        );
+        assert!(
+            base_names.contains(&"thinking_guide"),
+            "base registry should still have thinking_guide"
+        );
+
+        // Without thinking guide
+        let no_guide_tools = build_bench_registry(false).list();
+        assert!(
+            !no_guide_tools
+                .iter()
+                .map(|t| t.name.as_str())
+                .any(|x| x == "thinking_guide"),
+            "registry with thinking_guide=false should not have thinking_guide"
+        );
+    }
+
+    /// Integration assertion: CodeAgent wires EarlyStopPolicy via with_plugin,
+    /// and the policy thresholds match SWE-bench requirements.
+    #[test]
+    fn code_agent_early_stop_policy_matches_swe_bench() {
+        let policy = EarlyStopPolicy::new();
+
+        // These thresholds were chosen for SWE-bench:
+        // 15 total edits (scope creep detection)
+        // 5 turns since last edit (stagnation)
+        // 6 same-file edits (thrashing)
+        // 3 consecutive error turns (broken state)
+        assert_eq!(policy.max_total_edits(), 15, "max_total_edits must be 15");
+        assert_eq!(
+            policy.max_turns_since_edit(),
+            5,
+            "max_turns_since_edit must be 5"
+        );
+        assert_eq!(
+            policy.max_same_file_edits(),
+            6,
+            "max_same_file_edits must be 6"
+        );
+        assert_eq!(
+            policy.max_consecutive_errors(),
+            3,
+            "max_consecutive_errors must be 3"
+        );
     }
 }

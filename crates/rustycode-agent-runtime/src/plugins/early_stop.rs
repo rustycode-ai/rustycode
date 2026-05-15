@@ -1,10 +1,12 @@
 //! Early-stop policy — halts the agent loop when heuristics detect stagnation.
 //!
 //! Conditions (any one triggers stop):
-//! - 2+ turns since last edit (after at least one edit was made)
-//! - Same file edited 3+ times (thrashing)
-//! - 4+ total edits across all files (scope creep)
-//! - 3 consecutive error-only turns
+//! - N+ turns since last edit (after at least one edit was made, default 5)
+//! - Same file edited N+ times (thrashing, default 6)
+//! - N+ total edits across all files (scope creep, default 15)
+//! - N consecutive error-only turns (default 3)
+//!
+//! All thresholds are configurable via `EarlyStopPolicy::with_thresholds()`.
 
 use async_trait::async_trait;
 use serde_json::Value;
@@ -13,6 +15,12 @@ use std::collections::HashMap;
 use super::{AgentPlugin, TurnContext};
 
 const EDIT_TOOLS: &[&str] = &["edit", "write", "apply_patch", "Edit", "Write"];
+
+/// Default thresholds for early-stop policy.
+const DEFAULT_MAX_TURNS_SINCE_EDIT: usize = 5;
+const DEFAULT_MAX_SAME_FILE_EDITS: usize = 6;
+const DEFAULT_MAX_TOTAL_EDITS: usize = 15;
+const DEFAULT_MAX_CONSECUTIVE_ERRORS: usize = 3;
 
 fn is_error_output(output: &str) -> bool {
     output.starts_with("Error ")
@@ -33,6 +41,8 @@ fn extract_path(input: &Value) -> Option<String> {
 }
 
 /// Policy that detects stagnation patterns and requests early loop termination.
+///
+/// Thresholds are configurable via [`EarlyStopPolicy::with_thresholds`].
 pub struct EarlyStopPolicy {
     turns_since_edit: usize,
     file_edit_counts: HashMap<String, usize>,
@@ -43,9 +53,18 @@ pub struct EarlyStopPolicy {
     tool_count_this_turn: usize,
     error_count_this_turn: usize,
     edits_this_turn: usize,
+    /// Maximum total edits before stopping (default 15).
+    max_total_edits: usize,
+    /// Maximum turns since last edit before stopping (default 5).
+    max_turns_since_edit: usize,
+    /// Maximum edits to the same file before stopping (default 6).
+    max_same_file_edits: usize,
+    /// Maximum consecutive error-only turns before stopping (default 3).
+    max_consecutive_errors: usize,
 }
 
 impl EarlyStopPolicy {
+    /// Create a new policy with default thresholds.
     pub fn new() -> Self {
         Self {
             turns_since_edit: 0,
@@ -57,7 +76,47 @@ impl EarlyStopPolicy {
             tool_count_this_turn: 0,
             error_count_this_turn: 0,
             edits_this_turn: 0,
+            max_total_edits: DEFAULT_MAX_TOTAL_EDITS,
+            max_turns_since_edit: DEFAULT_MAX_TURNS_SINCE_EDIT,
+            max_same_file_edits: DEFAULT_MAX_SAME_FILE_EDITS,
+            max_consecutive_errors: DEFAULT_MAX_CONSECUTIVE_ERRORS,
         }
+    }
+
+    /// Create a policy with custom thresholds.
+    pub fn with_thresholds(
+        max_total_edits: usize,
+        max_turns_since_edit: usize,
+        max_same_file_edits: usize,
+        max_consecutive_errors: usize,
+    ) -> Self {
+        Self {
+            max_total_edits,
+            max_turns_since_edit,
+            max_same_file_edits,
+            max_consecutive_errors,
+            ..Self::new()
+        }
+    }
+
+    /// Returns the maximum total edits threshold.
+    pub fn max_total_edits(&self) -> usize {
+        self.max_total_edits
+    }
+
+    /// Returns the maximum turns since last edit threshold.
+    pub fn max_turns_since_edit(&self) -> usize {
+        self.max_turns_since_edit
+    }
+
+    /// Returns the maximum same-file edits threshold.
+    pub fn max_same_file_edits(&self) -> usize {
+        self.max_same_file_edits
+    }
+
+    /// Returns the maximum consecutive error turns threshold.
+    pub fn max_consecutive_errors(&self) -> usize {
+        self.max_consecutive_errors
     }
 }
 
@@ -114,18 +173,18 @@ impl AgentPlugin for EarlyStopPolicy {
         self.had_non_error_this_turn = false;
         self.edits_this_turn = 0;
 
-        if self.made_edits && self.turns_since_edit >= 2 {
+        if self.made_edits && self.turns_since_edit >= self.max_turns_since_edit {
             return true;
         }
         if let Some(count) = self.file_edit_counts.values().max() {
-            if *count >= 3 {
+            if *count >= self.max_same_file_edits {
                 return true;
             }
         }
-        if self.total_edits >= 4 {
+        if self.total_edits >= self.max_total_edits {
             return true;
         }
-        if self.consecutive_error_turns >= 3 {
+        if self.consecutive_error_turns >= self.max_consecutive_errors {
             return true;
         }
 
@@ -148,7 +207,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn stops_after_two_turns_since_last_edit() {
+    async fn stops_after_max_turns_since_last_edit() {
         let mut policy = EarlyStopPolicy::new();
         let edit_input = serde_json::json!({"path": "foo.rs", "content": "hello"});
 
@@ -158,17 +217,24 @@ mod tests {
             .await;
         assert!(!policy.should_stop(&make_ctx(0)).await);
 
-        let mut output = "file contents".to_string();
-        policy
-            .on_tool_result("Read", "2", &Value::Null, &mut output)
-            .await;
-        assert!(!policy.should_stop(&make_ctx(1)).await);
+        // Read turns between edits should not trigger stop until threshold
+        for turn in 1..5 {
+            let mut output = "file contents".to_string();
+            policy
+                .on_tool_result("Read", &format!("{turn}"), &Value::Null, &mut output)
+                .await;
+            assert!(
+                !policy.should_stop(&make_ctx(turn)).await,
+                "should not stop at turn {turn}"
+            );
+        }
 
+        // 6th turn since edit should trigger stop (default threshold is 5)
         let mut output = "more contents".to_string();
         policy
-            .on_tool_result("Read", "3", &Value::Null, &mut output)
+            .on_tool_result("Read", "6", &Value::Null, &mut output)
             .await;
-        assert!(policy.should_stop(&make_ctx(2)).await);
+        assert!(policy.should_stop(&make_ctx(6)).await);
     }
 
     #[tokio::test]
@@ -176,7 +242,8 @@ mod tests {
         let mut policy = EarlyStopPolicy::new();
         let edit_input = serde_json::json!({"path": "main.rs", "content": "x"});
 
-        for i in 0..3 {
+        // Default threshold is 6 same-file edits
+        for i in 0..6 {
             let mut output = "ok".to_string();
             policy
                 .on_tool_result("Edit", &format!("{i}"), &edit_input, &mut output)
@@ -189,7 +256,8 @@ mod tests {
     async fn stops_on_total_edits_exceeding_limit() {
         let mut policy = EarlyStopPolicy::new();
 
-        for i in 0..4 {
+        // Default threshold is 15 total edits
+        for i in 0..15 {
             let input = serde_json::json!({"path": format!("file_{i}.rs"), "content": "x"});
             let mut output = "ok".to_string();
             policy
@@ -253,5 +321,45 @@ mod tests {
         assert_eq!(default.total_edits, new.total_edits);
         assert_eq!(default.consecutive_error_turns, new.consecutive_error_turns);
         assert_eq!(default.made_edits, new.made_edits);
+        assert_eq!(default.max_total_edits, DEFAULT_MAX_TOTAL_EDITS);
+        assert_eq!(default.max_turns_since_edit, DEFAULT_MAX_TURNS_SINCE_EDIT);
+        assert_eq!(default.max_same_file_edits, DEFAULT_MAX_SAME_FILE_EDITS);
+        assert_eq!(
+            default.max_consecutive_errors,
+            DEFAULT_MAX_CONSECUTIVE_ERRORS
+        );
+    }
+
+    #[tokio::test]
+    async fn custom_thresholds_override_defaults() {
+        // Use aggressive thresholds to verify they're respected
+        let mut policy = EarlyStopPolicy::with_thresholds(2, 1, 2, 5);
+
+        // 2 edits should trigger stop (custom max_total_edits=2)
+        for i in 0..2 {
+            let input = serde_json::json!({"path": format!("file_{i}.rs"), "content": "x"});
+            let mut output = "ok".to_string();
+            policy
+                .on_tool_result("Edit", &format!("{i}"), &input, &mut output)
+                .await;
+        }
+        assert!(policy.should_stop(&make_ctx(0)).await);
+    }
+
+    #[tokio::test]
+    async fn does_not_stop_before_custom_thresholds() {
+        let mut policy = EarlyStopPolicy::with_thresholds(100, 100, 100, 100);
+
+        for i in 0..20 {
+            let input = serde_json::json!({"path": format!("file_{i}.rs"), "content": "x"});
+            let mut output = "ok".to_string();
+            policy
+                .on_tool_result("Edit", &format!("{i}"), &input, &mut output)
+                .await;
+            assert!(
+                !policy.should_stop(&make_ctx(i)).await,
+                "should not stop with high thresholds at turn {i}"
+            );
+        }
     }
 }
