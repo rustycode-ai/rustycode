@@ -13,6 +13,9 @@
 //! - `UpdateCtx`/`RenderCtx` borrow from the host, never own data.
 //! - No `&mut AppShell` or `&mut TUI` in any feature module.
 
+// ── Feature implementations ──────────────────────────────────────────────
+pub mod plugin_manager;
+
 use crate::app::async_::StreamChunk;
 use ratatui::Frame;
 use rustycode_protocol::EventMsg;

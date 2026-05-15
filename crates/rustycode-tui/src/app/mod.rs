@@ -97,6 +97,8 @@ pub mod state;
 
 // ── Feature decomposition (new architecture) ─────────────────────────
 pub mod features;
+
+// ── AppShell (new architecture host) ──────────────────────────────
 pub mod shell;
 
 // ── Async & event loop (core runtime) ─────────────────────────

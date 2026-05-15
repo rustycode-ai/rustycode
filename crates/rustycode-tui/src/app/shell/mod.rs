@@ -1,260 +1,463 @@
-//! AppShell: Feature-based TUI host
+//! AppShell — thin host for the decomposed TUI feature architecture.
 //!
-//! Provides a clean architecture for the TUI by separating concerns:
-//! - AppShell owns terminal lifecycle, focus routing, and feature coordination
-//! - Features own their state and lifecycle, implementing the TuiFeature trait
-//! - A narrow UpdateCtx and RenderCtx prevent god-object anti-patterns
+//! Owns focus routing, frame budget, and feature registry.
+//! Runs alongside existing `TUI` god struct (dual-path).
 //!
-//! AppShell runs alongside the existing TUI (feature-gated) and drains events
-//! from the same polling layer, ensuring no architectural conflicts.
+//! ## Design Decisions (from Metis review)
+//!
+//! - **NO terminal ownership** — terminal lifecycle stays in `lib.rs` entry point.
+//! - **NO event_rx ownership** — events are passed in via `handle_event()` method.
+//! - **features HashMap** stores actual feature instances (registry stores routing metadata).
+//! - **handle_event() pattern** — receives events, routes to features, returns actions.
+//!
+//! ## Guardrails
+//!
+//! - Features NEVER receive `&mut AppShell` (GUARDRAIL-AB-1).
+//! - Event routing: input events → focused feature only; service/stream/tick → all features.
 
 pub mod focus;
 
 use crate::app::features::{
-    FeatureRegistry, RenderCtx, SurfaceId, TuiAction, TuiEvent, TuiFeature, UpdateCtx,
+    FeatureRegistry, ModalId, RenderCtx, RouteId, SurfaceId, TuiAction, TuiEvent, TuiFeature,
+    UpdateCtx,
 };
-use crate::theme::ThemeColors;
-use anyhow::Result;
-use focus::FocusRing;
-use ratatui::backend::CrosstermBackend;
-use ratatui::Terminal;
-use std::io::Stdout;
+use crate::app::shell::focus::FocusRing;
+use crate::theme::{Theme, ThemeColors};
+use ratatui::Frame;
+use std::collections::HashMap;
 use std::sync::Arc;
 
-/// Host for the feature-based TUI architecture.
+/// Thin host shell for feature-based TUI architecture.
 ///
-/// AppShell coordinates feature lifecycle, event routing, and rendering.
-/// It owns:
-/// - Terminal lifecycle (setup, teardown)
-/// - Feature registry and instances
-/// - Focus ring for keyboard routing
-/// - Theme and rendering state
-///
-/// # Design Constraints
-///
-/// - **No god-object**: AppShell is narrowly focused on orchestration
-/// - **Feature isolation**: Features never receive `&mut AppShell`
-/// - **Dual-path**: Coexists with existing TUI via feature flag
-/// - **Event preservation**: Drains from same channels as existing system
+/// Features NEVER receive `&mut AppShell` (GUARDRAIL-AB-1).
 pub struct AppShell {
-    /// Registered features (dynamic dispatch)
-    features: Vec<Box<dyn TuiFeature>>,
-    /// Feature registry populated during initialization
+    /// Feature registry: routes, commands, surfaces, keymaps.
     registry: FeatureRegistry,
-    /// Focus ring for keyboard event routing
+    /// Ordered focus ring for surface-based input routing.
     focus: FocusRing,
-    /// Terminal reference (from crossterm)
-    terminal: Terminal<CrosstermBackend<Stdout>>,
-    /// Theme colors (shared reference)
-    theme: Arc<ThemeColors>,
+    /// Shared theme reference for rendering.
+    theme: Arc<Theme>,
+    /// Cached resolved theme colors (derived from `theme`).
+    theme_colors: ThemeColors,
+    /// Feature instances keyed by their ID.
+    features: HashMap<&'static str, Box<dyn TuiFeature>>,
+    /// Active modal, if any.
+    active_modal: Option<&'static str>,
+    /// Current navigation route.
+    current_route: RouteId,
+    /// Whether the shell should exit on the next loop iteration.
+    should_exit: bool,
 }
 
 impl AppShell {
-    /// Create a new AppShell with empty feature list.
-    pub fn new(terminal: Terminal<CrosstermBackend<Stdout>>, theme: Arc<ThemeColors>) -> Self {
+    /// Create a new empty shell with the given theme.
+    pub fn new(theme: Arc<Theme>) -> Self {
+        let theme_colors = ThemeColors::from(theme.as_ref());
         Self {
-            features: Vec::new(),
             registry: FeatureRegistry::new(),
             focus: FocusRing::new(),
-            terminal,
             theme,
+            theme_colors,
+            features: HashMap::new(),
+            active_modal: None,
+            current_route: RouteId::new("home"),
+            should_exit: false,
         }
     }
 
-    /// Register a feature and populate its registry entries.
+    /// Register a feature with the shell.
+    ///
+    /// Calls `feature.register()` to populate the registry with routes,
+    /// surfaces, commands, and keymaps. Adds the feature's surfaces to the
+    /// focus ring.
     pub fn register_feature(&mut self, feature: Box<dyn TuiFeature>) {
-        // Call feature's register hook to populate registry
+        let id = feature.id();
         feature.register(&mut self.registry);
 
-        // Add any surfaces from registry to focus ring
+        // Add surfaces declared by this feature to the focus ring.
         for surface in self.registry.surfaces() {
-            self.focus.add(surface);
-        }
-
-        self.features.push(feature);
-    }
-
-    /// Get the currently focused surface, if any.
-    pub fn focused_surface(&self) -> Option<SurfaceId> {
-        self.focus.focused()
-    }
-
-    /// Move focus to the next surface.
-    pub fn focus_next(&mut self) {
-        self.focus.focus_next();
-    }
-
-    /// Move focus to the previous surface.
-    pub fn focus_prev(&mut self) {
-        self.focus.focus_prev();
-    }
-
-    /// Set focus to a specific surface.
-    pub fn focus_set(&mut self, surface: SurfaceId) {
-        self.focus.focus_set(surface);
-    }
-
-    /// Process an event through all features.
-    ///
-    /// This is a simplified event dispatch that:
-    /// 1. Routes input events to the focused feature only
-    /// 2. Broadcasts service events to all features
-    /// 3. Collects and returns all actions for the host to process
-    ///
-    /// In a full implementation, this would handle action dispatch
-    /// (navigation, modal open/close, etc.) within AppShell.
-    pub fn handle_event(&mut self, event: &TuiEvent) -> Vec<TuiAction> {
-        let mut all_actions = Vec::new();
-        let focused = self.focus.focused();
-
-        for feature in &mut self.features {
-            let feature_id = feature.id();
-
-            // Determine if this feature should receive the event
-            let should_handle = match event {
-                // Input events go only to focused feature
-                TuiEvent::Key(_) => {
-                    if let Some(focused_surface) = focused {
-                        self.registry.surface_feature(focused_surface) == Some(feature_id)
-                    } else {
-                        false
-                    }
-                }
-                // Broadcast events go to all features
-                TuiEvent::Service(_) | TuiEvent::Stream(_) => true,
-                TuiEvent::Resize { .. } => true,
-                TuiEvent::Tick => true,
-                // Focus events go to the affected feature
-                TuiEvent::FocusGained => {
-                    if let Some(focused_surface) = focused {
-                        self.registry.surface_feature(focused_surface) == Some(feature_id)
-                    } else {
-                        false
-                    }
-                }
-                TuiEvent::FocusLost => {
-                    // Only the previously focused feature gets this
-                    // (simplified; full version would track state)
-                    false
-                }
-            };
-
-            if should_handle {
-                // Create a narrow context for this feature
-                let mut navigate_cb = |_route_id| {
-                    // TODO: Implement route navigation
-                };
-                let mut dispatch_cb = |_cmd: &str| {
-                    // TODO: Implement command dispatch
-                };
-                let mut approve_cb = |_tool_id: String, _approved: bool| {
-                    // TODO: Implement tool approval
-                };
-
-                let mut ctx = UpdateCtx {
-                    has_focus: focused
-                        == self
-                            .registry
-                            .surfaces()
-                            .find(|s| self.registry.surface_feature(*s) == Some(feature_id)),
-                    focused_surface: focused,
-                    is_streaming: false,          // TODO: Get from session state
-                    pending_tools: 0,             // TODO: Get from session state
-                    plan_mode_active: false,      // TODO: Get from session state
-                    auto_continue_enabled: false, // TODO: Get from session state
-                    theme_colors: &self.theme,
-                    navigate: &mut navigate_cb,
-                    dispatch_command: &mut dispatch_cb,
-                    approve_tool: &mut approve_cb,
-                };
-
-                let actions = feature.update(event, &mut ctx);
-                all_actions.extend(actions);
+            if self.registry.surface_feature(surface) == Some(id) {
+                self.focus.add(surface);
             }
         }
 
-        all_actions
+        self.features.insert(id, feature);
     }
 
-    /// Render all features to their assigned surfaces.
-    pub fn render_frame(&mut self) -> Result<()> {
-        self.terminal.draw(|frame| {
-            let focused = self.focus.focused();
-            let frame_area = frame.area();
+    /// Handle an incoming event by routing it to the appropriate feature(s).
+    ///
+    /// Input events (Key, FocusGained, FocusLost, Resize) are sent only to the
+    /// focused feature. Service/Stream/Tick events are broadcast to all features.
+    ///
+    /// Returns a list of actions for the host shell to process.
+    pub fn handle_event(&mut self, event: TuiEvent) -> Vec<TuiAction> {
+        let focused_surface = self.focus.focused();
+        let theme_colors = &self.theme_colors;
 
-            let ctx = RenderCtx {
-                frame_area,
-                focused_surface: focused,
-                theme_colors: &self.theme,
-            };
-
-            for feature in &self.features {
-                // Render each surface owned by this feature
-                for surface in self.registry.surfaces() {
-                    if self.registry.surface_feature(surface) == Some(feature.id()) {
-                        feature.render(surface, frame, &ctx);
+        match &event {
+            TuiEvent::Key(_)
+            | TuiEvent::FocusGained
+            | TuiEvent::FocusLost
+            | TuiEvent::Resize { .. } => {
+                // Route input events only to the focused feature.
+                let feature_id = focused_surface.and_then(|s| self.registry.surface_feature(s));
+                if let Some(fid) = feature_id {
+                    if let Some(feature) = self.features.get_mut(fid) {
+                        let mut nav_fn = |_: RouteId| {};
+                        let mut cmd_fn = |_: &str| {};
+                        let mut approve_fn = |_: String, _: bool| {};
+                        let mut ctx = UpdateCtx {
+                            has_focus: focused_surface.is_some(),
+                            focused_surface,
+                            is_streaming: false,
+                            pending_tools: 0,
+                            plan_mode_active: false,
+                            auto_continue_enabled: false,
+                            theme_colors,
+                            navigate: &mut nav_fn,
+                            dispatch_command: &mut cmd_fn,
+                            approve_tool: &mut approve_fn,
+                        };
+                        return feature.update(&event, &mut ctx);
                     }
                 }
+                Vec::new()
             }
-        })?;
-
-        Ok(())
+            TuiEvent::Stream(_) | TuiEvent::Service(_) | TuiEvent::Tick => {
+                // Broadcast to all features.
+                let mut all_actions = Vec::new();
+                for feature in self.features.values_mut() {
+                    let mut nav_fn = |_: RouteId| {};
+                    let mut cmd_fn = |_: &str| {};
+                    let mut approve_fn = |_: String, _: bool| {};
+                    let mut ctx = UpdateCtx {
+                        has_focus: focused_surface.is_some(),
+                        focused_surface,
+                        is_streaming: false,
+                        pending_tools: 0,
+                        plan_mode_active: false,
+                        auto_continue_enabled: false,
+                        theme_colors,
+                        navigate: &mut nav_fn,
+                        dispatch_command: &mut cmd_fn,
+                        approve_tool: &mut approve_fn,
+                    };
+                    let actions = feature.update(&event, &mut ctx);
+                    all_actions.extend(actions);
+                }
+                all_actions
+            }
+        }
     }
 
-    /// Get a reference to the feature registry (read-only).
+    /// Render all features onto the given frame.
+    pub fn render_frame(&self, frame: &mut Frame) {
+        let focused_surface = self.focus.focused();
+        let frame_area = frame.area();
+
+        for (feature_id, feature) in &self.features {
+            // Render each surface owned by this feature.
+            for surface in self.registry.surfaces() {
+                if self.registry.surface_feature(surface) == Some(feature_id) {
+                    let ctx = RenderCtx {
+                        frame_area,
+                        focused_surface,
+                        theme_colors: &self.theme_colors,
+                    };
+                    feature.render(surface, frame, &ctx);
+                }
+            }
+        }
+    }
+
+    /// Process actions returned by features.
+    ///
+    /// Handles navigation, focus changes, modal open/close, status messages,
+    /// and dirty marking.
+    pub fn process_actions(&mut self, actions: Vec<TuiAction>) {
+        for action in actions {
+            match action {
+                TuiAction::Navigate(route) => {
+                    self.current_route = route;
+                }
+                TuiAction::RequestFocus(surface) => {
+                    self.focus.focus_set(surface);
+                }
+                TuiAction::OpenModal(modal_id) => {
+                    self.active_modal = Some(modal_id.as_str());
+                }
+                TuiAction::CloseModal => {
+                    self.active_modal = None;
+                }
+                TuiAction::MarkDirty | TuiAction::StatusMessage(_) => {
+                    // Host shell handles these externally (redraw trigger, toast display).
+                    // No internal state change needed in AppShell itself.
+                }
+            }
+        }
+    }
+
+    /// Get a reference to the feature registry.
     pub fn registry(&self) -> &FeatureRegistry {
         &self.registry
     }
 
-    /// Get a mutable reference to the terminal.
-    pub fn terminal_mut(&mut self) -> &mut Terminal<CrosstermBackend<Stdout>> {
-        &mut self.terminal
+    /// Get a reference to the focus ring.
+    pub fn focus(&self) -> &FocusRing {
+        &self.focus
+    }
+
+    /// Get a mutable reference to the focus ring (for tests).
+    pub fn focus_mut(&mut self) -> &mut FocusRing {
+        &mut self.focus
+    }
+
+    /// Get the current navigation route.
+    pub fn current_route(&self) -> RouteId {
+        self.current_route
+    }
+
+    /// Check whether the shell should exit.
+    pub fn should_exit(&self) -> bool {
+        self.should_exit
+    }
+
+    /// Request the shell to exit on the next loop iteration.
+    pub fn request_exit(&mut self) {
+        self.should_exit = true;
+    }
+
+    /// Get the active modal ID, if any.
+    pub fn active_modal(&self) -> Option<&'static str> {
+        self.active_modal
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
+    use crate::app::features::SurfaceId;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
-    // Minimal test feature for AppShell integration testing
-    struct TestFeature {
+    struct DummyFeature {
         id: &'static str,
-        events_received: Arc<Mutex<Vec<String>>>,
+        surface: SurfaceId,
+        route: RouteId,
+        update_count: AtomicUsize,
+        actions_on_update: Vec<TuiAction>,
     }
 
-    impl TestFeature {
-        fn new(id: &'static str) -> Self {
+    impl DummyFeature {
+        fn new(id: &'static str, surface: SurfaceId, route: RouteId) -> Self {
             Self {
                 id,
-                events_received: Arc::new(Mutex::new(Vec::new())),
+                surface,
+                route,
+                update_count: AtomicUsize::new(0),
+                actions_on_update: Vec::new(),
+            }
+        }
+
+        fn with_actions(
+            id: &'static str,
+            surface: SurfaceId,
+            route: RouteId,
+            actions: Vec<TuiAction>,
+        ) -> Self {
+            Self {
+                id,
+                surface,
+                route,
+                update_count: AtomicUsize::new(0),
+                actions_on_update: actions,
             }
         }
     }
 
-    impl TuiFeature for TestFeature {
+    impl TuiFeature for DummyFeature {
         fn id(&self) -> &'static str {
             self.id
         }
 
         fn register(&self, reg: &mut FeatureRegistry) {
-            reg.register_surface(SurfaceId::new(self.id), self.id);
+            reg.register_surface(self.surface, self.id);
+            reg.register_route(self.route, self.id);
         }
 
         fn update(&mut self, _event: &TuiEvent, _ctx: &mut UpdateCtx) -> Vec<TuiAction> {
-            Vec::new()
+            self.update_count.fetch_add(1, Ordering::SeqCst);
+            self.actions_on_update.clone()
         }
 
-        fn render(&self, _surface: SurfaceId, _frame: &mut ratatui::Frame, _ctx: &RenderCtx) {
-            // No-op for testing
-        }
+        fn render(&self, _surface: SurfaceId, _frame: &mut Frame, _ctx: &RenderCtx) {}
+    }
+
+    /// Helper to create a default theme Arc.
+    fn default_theme() -> Arc<Theme> {
+        Arc::new(Theme::default())
+    }
+
+    // ── Core lifecycle tests ──────────────────────────────────────────
+
+    #[test]
+    fn app_shell_new_is_empty() {
+        let shell = AppShell::new(default_theme());
+        assert_eq!(shell.registry().routes().count(), 0);
+        assert_eq!(shell.registry().surfaces().count(), 0);
+        assert!(shell.focus().is_empty());
+        assert_eq!(shell.current_route(), RouteId::new("home"));
+        assert!(!shell.should_exit());
+        assert!(shell.active_modal().is_none());
     }
 
     #[test]
-    fn appshell_registers_feature() {
-        // This test is minimal since creating a Terminal requires backend setup
-        // Full integration tests would be in tests/ directory
-        let feature = TestFeature::new("test");
-        assert_eq!(feature.id(), "test");
+    fn register_feature_populates_registry() {
+        let mut shell = AppShell::new(default_theme());
+        let feature = DummyFeature::new("chat", SurfaceId::new("chat_view"), RouteId::new("chat"));
+        shell.register_feature(Box::new(feature));
+
+        assert_eq!(shell.registry().surfaces().count(), 1);
+        assert_eq!(shell.registry().routes().count(), 1);
+        assert_eq!(
+            shell
+                .registry()
+                .surface_feature(SurfaceId::new("chat_view")),
+            Some("chat")
+        );
+        assert_eq!(
+            shell.registry().route_feature(RouteId::new("chat")),
+            Some("chat")
+        );
+        assert_eq!(shell.focus().len(), 1);
+        assert_eq!(shell.focus().focused(), Some(SurfaceId::new("chat_view")));
+    }
+
+    #[test]
+    fn handle_event_routes_to_focused_feature() {
+        let mut shell = AppShell::new(default_theme());
+
+        // Register two features with distinct marker actions.
+        let f1 = Box::new(DummyFeature::with_actions(
+            "a",
+            SurfaceId::new("sa"),
+            RouteId::new("ra"),
+            vec![TuiAction::StatusMessage("from_a".into())],
+        ));
+        let f2 = Box::new(DummyFeature::with_actions(
+            "b",
+            SurfaceId::new("sb"),
+            RouteId::new("rb"),
+            vec![TuiAction::StatusMessage("from_b".into())],
+        ));
+        shell.register_feature(f1);
+        shell.register_feature(f2);
+
+        // Focus feature "a".
+        shell.focus_mut().focus_set(SurfaceId::new("sa"));
+
+        // Send a key event — only the focused feature should receive it.
+        let key_event = TuiEvent::Key(crossterm::event::KeyEvent::new(
+            crossterm::event::KeyCode::Char('x'),
+            crossterm::event::KeyModifiers::NONE,
+        ));
+        let actions = shell.handle_event(key_event);
+
+        // Only feature "a" should have responded.
+        let messages: Vec<&str> = actions
+            .iter()
+            .filter_map(|a| match a {
+                TuiAction::StatusMessage(msg) => Some(msg.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(messages, vec!["from_a"]);
+    }
+
+    #[test]
+    fn navigate_action_changes_route() {
+        let mut shell = AppShell::new(default_theme());
+        assert_eq!(shell.current_route(), RouteId::new("home"));
+
+        shell.process_actions(vec![TuiAction::Navigate(RouteId::new("settings"))]);
+        assert_eq!(shell.current_route(), RouteId::new("settings"));
+    }
+
+    #[test]
+    fn request_focus_action_changes_focus() {
+        let mut shell = AppShell::new(default_theme());
+
+        // Register two features with surfaces.
+        let f1 = DummyFeature::new("a", SurfaceId::new("sa"), RouteId::new("ra"));
+        let f2 = DummyFeature::new("b", SurfaceId::new("sb"), RouteId::new("rb"));
+        shell.register_feature(Box::new(f1));
+        shell.register_feature(Box::new(f2));
+
+        // First surface should be auto-focused.
+        assert_eq!(shell.focus().focused(), Some(SurfaceId::new("sa")));
+
+        // Request focus to second surface.
+        shell.process_actions(vec![TuiAction::RequestFocus(SurfaceId::new("sb"))]);
+        assert_eq!(shell.focus().focused(), Some(SurfaceId::new("sb")));
+    }
+
+    #[test]
+    fn request_exit_sets_flag() {
+        let mut shell = AppShell::new(default_theme());
+        assert!(!shell.should_exit());
+        shell.request_exit();
+        assert!(shell.should_exit());
+    }
+
+    #[test]
+    fn open_close_modal_updates_state() {
+        let mut shell = AppShell::new(default_theme());
+        assert!(shell.active_modal().is_none());
+
+        shell.process_actions(vec![TuiAction::OpenModal(ModalId::new("help"))]);
+        assert_eq!(shell.active_modal(), Some("help"));
+
+        shell.process_actions(vec![TuiAction::CloseModal]);
+        assert!(shell.active_modal().is_none());
+    }
+
+    #[test]
+    fn broadcast_events_reach_all_features() {
+        let mut shell = AppShell::new(default_theme());
+
+        // Register two features with distinct marker actions.
+        let f1 = Box::new(DummyFeature::with_actions(
+            "a",
+            SurfaceId::new("sa"),
+            RouteId::new("ra"),
+            vec![TuiAction::StatusMessage("from_a".into())],
+        ));
+        let f2 = Box::new(DummyFeature::with_actions(
+            "b",
+            SurfaceId::new("sb"),
+            RouteId::new("rb"),
+            vec![TuiAction::StatusMessage("from_b".into())],
+        ));
+        shell.register_feature(f1);
+        shell.register_feature(f2);
+
+        // Tick is a broadcast event — both features should be called.
+        let actions = shell.handle_event(TuiEvent::Tick);
+
+        // Both features should have returned their marker actions.
+        let messages: Vec<&str> = actions
+            .iter()
+            .filter_map(|a| match a {
+                TuiAction::StatusMessage(msg) => Some(msg.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            messages.contains(&"from_a"),
+            "feature 'a' should have been called"
+        );
+        assert!(
+            messages.contains(&"from_b"),
+            "feature 'b' should have been called"
+        );
     }
 }
