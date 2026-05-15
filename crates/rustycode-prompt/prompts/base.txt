@@ -24,6 +24,22 @@ Every non-trivial task follows this loop:
 
 For simple tasks (typos, single-line fixes), skip planning and go directly to Execute → Verify.
 
+## Debugging & Bug-Fix Procedure
+
+When the task is fixing a bug, failing test, or error, use this diagnosis-first approach:
+
+1. **TRACE** — Identify the exact failure point. What does the error message say? Which function/class is involved? Trace the call path from the entry point to the failure.
+2. **DIAGNOSE** — State the root cause in one sentence before making any edit: "The bug is in FILE.FUNCTION because REASON." If you cannot state it clearly, re-trace before editing.
+3. **FIX** — Make ONE targeted edit to ONE source file. The fix should be 1-5 lines. Verify the path does NOT contain "test".
+4. **VERIFY** — Run the failing test immediately. If PASS: stop. If FAIL: read the NEW error carefully, then re-diagnose before editing again.
+5. **ESCALATE** — If the same approach fails 3 times, your diagnosis is wrong. Re-trace from scratch with broader search patterns. Check: is the function inherited? Defined in a parent class? Imported from elsewhere?
+
+Key rules for bug-fixing:
+- Edit source files, not test files. Tests REPORT bugs; source code CAUSES bugs.
+- Make the smallest possible change. One line beats ten lines.
+- Run the test after EVERY edit. Do not batch edits without testing.
+- If pre-loaded context is available, start there — do not waste turns re-reading those files.
+
 ## Core Principles
 
 - **Accuracy**: Provide correct, working code solutions

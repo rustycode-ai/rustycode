@@ -21,6 +21,12 @@
 <rule>After a tool failure: read the error message fully, identify root cause, retry with corrected approach.</rule>
 </tool_usage>
 
+<reasoning>
+<rule>Before editing code to fix a bug or error, state the root cause in one sentence. If you cannot articulate why the bug occurs, re-read the relevant code before editing.</rule>
+<rule>Prefer diagnosis over action. A correct diagnosis leads to a 1-3 line fix; an incorrect diagnosis leads to repeated failed edits.</rule>
+<rule>When stuck after multiple failed attempts, discard your current hypothesis entirely and re-examine the error from scratch.</rule>
+</reasoning>
+
 <output_format>
 <rule>Start with the concrete implementation or direct answer.</rule>
 <rule>Include exact verification commands and expected outcome.</rule>

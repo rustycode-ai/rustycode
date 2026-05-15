@@ -339,8 +339,8 @@ def run_tool(name, input_args, repo_dir, verbose=False, system_prompt="thinking_
         full_path = repo_dir / path
         if verbose:
             print(f"    WRITE {path} ({len(content)} bytes)")
-        # v7-only: Warn when writing test files
-        if system_prompt == "thinking_v7" and is_test_file(path) and not input_args.get("force"):
+        # Block edits to test files for all thinking_v7+ prompts
+        if is_test_file(path) and not input_args.get("force"):
             source_dirs = detect_source_dirs(repo_dir)
             source_hint = ", ".join(source_dirs[:5]) if source_dirs else "lib/, src/"
             return (
@@ -361,8 +361,8 @@ def run_tool(name, input_args, repo_dir, verbose=False, system_prompt="thinking_
         full_path = repo_dir / path
         if verbose:
             print(f"    EDIT {path}")
-        # v7-only: Warn when editing test files — model should edit SOURCE files
-        if system_prompt == "thinking_v7" and is_test_file(path):
+        # Block edits to test files for all thinking_v7+ prompts
+        if is_test_file(path):
             source_dirs = detect_source_dirs(repo_dir)
             source_hint = ", ".join(source_dirs[:5]) if source_dirs else "lib/, src/"
             return (
@@ -1910,33 +1910,38 @@ SYSTEM_PROMPTS = {
         "- Trace the call path: test calls function, function is in source file.\n"
         "- Find where behavior DIVERGES from what the test expects.\n"
         "- State in one sentence: the bug is in FILE.FUNCTION because REASON.\n"
+        "- Use MULTIPLE tool calls per turn: grep several patterns at once, read multiple files simultaneously.\n"
         "\n"
         "**Phase 2: DIAGNOSE (turn 2)**\n"
         "- Confirm your diagnosis by reading the specific function if not already loaded.\n"
         "- Identify the MINIMAL change needed: one line? one condition? one return value?\n"
         "- If unsure, grep for the symbol across all source files to find all definitions.\n"
+        "- Fire parallel greps for different symbols to map the full scope in one turn.\n"
         "\n"
-        "**Phase 3: FIX (turn 3-4)**\n"
-        "- Make ONE targeted edit to ONE source file.\n"
-        "- The edit should be 1-5 lines. Never rewrite entire functions.\n"
+        "**Phase 3: FIX (turn 3-5)**\n"
+        "- Edit ALL affected source files in the SAME turn when the fix spans multiple files.\n"
+        "- Fix ALL related errors in a file at once — don't edit the same file multiple turns.\n"
+        "- Each edit should be targeted: 1-10 lines per file. Never rewrite entire functions.\n"
         "- BEFORE editing: verify the path does NOT contain test.\n"
+        "- Make MULTIPLE Edit tool calls in one turn for multi-file fixes.\n"
         "\n"
         "**Phase 4: VERIFY (turn 5+)**\n"
-        "- Run the failing test IMMEDIATELY after editing.\n"
-        "- If PASS: STOP. Do not make additional changes.\n"
-        "- If FAIL: read the NEW error carefully. Re-trace from the error.\n"
+        "- DO NOT try to run tests yourself — the evaluation harness runs them automatically after your last turn.\n"
+        "- After editing, review your changes mentally: does the fix address the root cause?\n"
+        "- If you realize your fix is wrong: re-edit the source file in the next turn.\n"
         "- If same approach fails 3 times: your diagnosis is wrong. Return to Phase 1.\n"
         "\n"
         "## ABSOLUTE RULES\n"
         "\n"
-        "- NEVER edit test files. Tests REPORT bugs; source code CAUSES bugs.\n"
+        "- NEVER edit test files (any path containing 'test'). The harness blocks test-file edits. Attempting them wastes turns.\n"
         "- NEVER create new files. Only EDIT existing source files.\n"
         "- NEVER explore git history. You have the code -- read it.\n"
-        "- NEVER rewrite entire files. Use Edit for targeted changes of 1-5 lines.\n"
-        "- Run the test after EVERY edit. Do not batch edits without testing.\n"
-        "- The SMALLEST diff wins. Change 1-3 lines if possible.\n"
+        "- NEVER rewrite entire files. Use Edit for targeted changes.\n"
+        "- DO NOT run tests via Bash — the harness runs them for you. Use Bash only for grep/find/cat.\n"
+        "- Fix ALL occurrences of a pattern in one turn, not one per turn.\n"
         "- If pre-loaded files do not contain the bug, grep to find the REAL source.\n"
         "- Do NOT waste turns re-reading files that are already shown below.\n"
+        "- MAXIMIZE parallel tool calls: read 3-5 files at once, grep multiple patterns simultaneously.\n"
     ),
 }
 
@@ -2002,17 +2007,18 @@ def get_instance_type_guidance(instance_type):
 NUDGES = {
     2: (
         "NUDGE: Read the test_patch code NOW. It defines what correct behavior looks like. "
-        "Then grep for the core pattern to count how many source files need changes."
+        "Then grep for the core pattern to count how many source files need changes. "
+        "Fire MULTIPLE greps in parallel for different patterns."
     ),
     4: (
         "NUDGE: SCOPE CHECK — grep for the key symbol/pattern across ALL source files (exclude tests). "
         "COUNT the results. If 5+ source files contain the pattern, this is a BROAD change. "
-        "Write a TodoWrite checklist with EVERY file before editing anything."
+        "Edit ALL affected files in the SAME turn using multiple Edit calls."
     ),
     6: (
         "NUDGE: You should be editing source files by now. "
-        "If your TodoWrite checklist has 10+ files, use BatchEdit to apply the same change to multiple files at once. "
-        "BatchEdit is much faster than editing files one by one. "
+        "Edit ALL affected files at once — make multiple Edit calls in this turn. "
+        "Fix every occurrence of the pattern in one go, not one file per turn. "
         "If you haven't grepped yet, STOP and grep for the pattern first."
     ),
     8: (
@@ -2178,14 +2184,14 @@ NUDGES_BY_VERSION = {
             "Do NOT edit yet -- confirm your diagnosis first."
         ),
         4: (
-            "EDIT NOW: Make ONE targeted edit to ONE source file.\n"
-            "The fix should be 1-3 lines. Verify path has NO test in it.\n"
-            "After editing, run the failing test IMMEDIATELY."
+            "EDIT NOW: Make targeted edits to ALL affected source files.\n"
+            "Use MULTIPLE Edit calls in this turn for multi-file fixes.\n"
+            "Verify each path has NO 'test' in it. The fix should be 1-5 lines per file."
         ),
         6: (
-            "If test passed: STOP. Do nothing more.\n"
-            "If test failed: Re-read the NEW error. What specific line/assert failed?\n"
-            "The error tells you exactly what to fix -- do not guess, read it."
+            "REVIEW YOUR CHANGES: Re-read the files you edited.\n"
+            "Does the fix logically address the root cause?\n"
+            "If you see an issue, fix it now. If confident, STOP — the harness will test."
         ),
         10: (
             "RE-DIAGNOSE: If the test still fails after 3 edits, your diagnosis is wrong.\n"
@@ -2458,7 +2464,7 @@ Key: Fix the ROOT CAUSE, not just the symptom. If your first fix doesn't work, r
 
     print(f"\n{'='*60}")
     print(f"  {inst['instance_id']}")
-    print(f"  Model: {args.model}  Max turns: {max_turns}  Prompt: {args.system_prompt}")
+    print(f"  Model: {args.model}  Max turns: {max_turns}  Prompt: {args.system_prompt}  Thinking: {'ON' if args.thinking else 'OFF'}")
     print(f"{'='*60}")
 
     start = time.time()
@@ -2467,14 +2473,18 @@ Key: Fix the ROOT CAUSE, not just the symptom. If your first fix doesn't work, r
         print(f"\n--- Turn {turn + 1}/{max_turns} ---")
 
         try:
-            # Use streaming for Opus (required for requests > 10 min)
-            with client.messages.stream(
+            # Build API kwargs
+            api_kwargs = dict(
                 model=args.model,
                 max_tokens=args.max_tokens,
                 system=SYSTEM_PROMPTS[args.system_prompt],
                 tools=TOOLS,
                 messages=messages,
-            ) as stream:
+            )
+            if args.thinking:
+                api_kwargs["thinking"] = {"type": "enabled", "budget_tokens": args.thinking_budget}
+            # Use streaming for Opus (required for requests > 10 min)
+            with client.messages.stream(**api_kwargs) as stream:
                 response = stream.get_final_message()
         except anthropic.APIError as e:
             print(f"  API ERROR: {e}")
@@ -2613,6 +2623,8 @@ def main():
     parser.add_argument("--model", default="claude-opus-4-7", help="Model to use")
     parser.add_argument("--max-turns", type=int, default=40, help="Max agent turns")
     parser.add_argument("--max-tokens", type=int, default=32768, help="Max output tokens")
+    parser.add_argument("--thinking", action="store_true", default=False, help="Enable extended thinking (budget_tokens)")
+    parser.add_argument("--thinking-budget", type=int, default=10000, help="Thinking budget tokens (default: 10000)")
     parser.add_argument("--pretest", action="store_true", default=True, help="Pre-run FAIL_TO_PASS tests and include output in prompt (default: True)")
     parser.add_argument("--no-pretest", dest="pretest", action="store_false", help="Disable pretest")
     parser.add_argument("--hints", action="store_true", default=True, help="Include hints_text in prompt (default: True)")

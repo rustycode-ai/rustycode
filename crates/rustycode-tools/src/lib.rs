@@ -175,6 +175,7 @@ pub mod hints_loader {
 pub mod hooks;
 pub mod image;
 pub mod image_detect;
+pub mod import_analysis;
 pub mod json_repair;
 pub mod large_response;
 pub mod lifecycle {
