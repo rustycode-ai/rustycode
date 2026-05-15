@@ -24,34 +24,9 @@ impl TUI {
             if !self.is_any_overlay_open() {
                 self.overlays.showing_command_palette = true;
                 self.overlays.showing_skill_palette = false;
-                self.overlays.showing_plugin_manager = false;
                 self.overlays.showing_marketplace_browser = false;
                 self.overlays.command_palette.show();
                 self.overlays.command_palette.state_mut().clear_query();
-                self.sys.dirty = true;
-            }
-            return Ok(());
-        }
-
-        if key_code == KeyCode::Char('M')
-            && modifiers.contains(KeyModifiers::CONTROL)
-            && modifiers.contains(KeyModifiers::SHIFT)
-        {
-            if !self.is_any_overlay_open() {
-                self.overlays.showing_command_palette = false;
-                self.overlays.command_palette.hide();
-                self.overlays.showing_skill_palette = false;
-                self.ui.skill_palette.close();
-                self.overlays.showing_plugin_manager = true;
-                self.ui.plugin_manager_ui.show();
-                {
-                    let mut manager = self
-                        .sys
-                        .plugin_manager
-                        .write()
-                        .unwrap_or_else(|e| e.into_inner());
-                    let _ = manager.reload_from_disk();
-                }
                 self.sys.dirty = true;
             }
             return Ok(());
@@ -66,8 +41,6 @@ impl TUI {
                 self.overlays.command_palette.hide();
                 self.overlays.showing_skill_palette = false;
                 self.ui.skill_palette.close();
-                self.overlays.showing_plugin_manager = false;
-                self.ui.plugin_manager_ui.hide();
                 self.overlays.showing_marketplace_browser = true;
                 self.ui.marketplace_browser.open();
                 self.sys.dirty = true;
@@ -217,7 +190,6 @@ impl TUI {
                 if !self.is_any_overlay_open() || self.overlays.showing_skill_palette {
                     self.overlays.showing_command_palette = false;
                     self.overlays.command_palette.hide();
-                    self.overlays.showing_plugin_manager = false;
                     self.overlays.showing_marketplace_browser = false;
                     self.overlays.showing_skill_palette = !self.overlays.showing_skill_palette;
                     if self.overlays.showing_skill_palette {
@@ -681,7 +653,6 @@ impl TUI {
             || self.overlays.showing_provider_selector
             || self.overlays.showing_command_palette
             || self.overlays.showing_skill_palette
-            || self.overlays.showing_plugin_manager
             || self.overlays.showing_marketplace_browser
             || self.search.file_finder.is_visible()
             || self.search.search_state.visible
@@ -750,12 +721,6 @@ impl TUI {
         if self.overlays.showing_skill_palette {
             self.overlays.showing_skill_palette = false;
             self.ui.skill_palette.close();
-            self.sys.dirty = true;
-            return true;
-        }
-        if self.overlays.showing_plugin_manager {
-            self.overlays.showing_plugin_manager = false;
-            self.ui.plugin_manager_ui.hide();
             self.sys.dirty = true;
             return true;
         }

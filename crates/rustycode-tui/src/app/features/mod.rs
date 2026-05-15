@@ -156,6 +156,8 @@ pub struct RenderCtx<'a> {
 
 // ── Feature Trait ────────────────────────────────────────────────────────────
 
+use std::any::Any;
+
 /// Core trait for TUI feature modules.
 ///
 /// Each feature (chat, sidebar, tool panel, etc.) implements this trait
@@ -182,6 +184,13 @@ pub trait TuiFeature: Send + Sync + 'static {
 
     /// Render the feature onto the given surface within the provided frame.
     fn render(&self, surface: SurfaceId, frame: &mut Frame, ctx: &RenderCtx);
+
+    /// Downcast to `Any` for feature-specific operations (e.g., keymap dispatch).
+    ///
+    /// The default implementation returns `self` as `&mut dyn Any`.
+    /// Features that need keymap/command handling should override this
+    /// if they need downcasting support.
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 // ── Feature Registry ─────────────────────────────────────────────────────────
@@ -261,6 +270,62 @@ impl FeatureRegistry {
     pub fn commands(&self) -> impl Iterator<Item = &'static str> + '_ {
         self.commands.keys().copied()
     }
+
+    /// Look up which feature owns a keyboard shortcut by its string key.
+    ///
+    /// The key string format is produced by [`format_key_event`], e.g. "Ctrl+Shift+M".
+    pub fn keymap_feature(&self, key: &str) -> Option<(&'static str, &'static str)> {
+        self.keymaps.get(key).copied()
+    }
+}
+
+// ── Key formatting helper ────────────────────────────────────────────────────
+
+/// Format a [`crossterm::event::KeyEvent`] as a human-readable string for keymap lookup.
+///
+/// Format: `"Ctrl+Shift+M"`, `"Alt+Enter"`, `"Ctrl+S"`, etc.
+/// Modifiers are sorted: Ctrl, Alt, Shift. The key code is appended last.
+pub fn format_key_event(key: &crossterm::event::KeyEvent) -> String {
+    use crossterm::event::{KeyCode, KeyModifiers};
+
+    let mut parts: Vec<&str> = Vec::new();
+
+    if key.modifiers.contains(KeyModifiers::CONTROL) {
+        parts.push("Ctrl");
+    }
+    if key.modifiers.contains(KeyModifiers::ALT) {
+        parts.push("Alt");
+    }
+    if key.modifiers.contains(KeyModifiers::SHIFT) {
+        parts.push("Shift");
+    }
+
+    let key_name = match key.code {
+        KeyCode::Char(c) => c.to_uppercase().to_string(),
+        KeyCode::Enter => "Enter".to_string(),
+        KeyCode::Esc => "Esc".to_string(),
+        KeyCode::Backspace => "Backspace".to_string(),
+        KeyCode::Tab => "Tab".to_string(),
+        KeyCode::Up => "Up".to_string(),
+        KeyCode::Down => "Down".to_string(),
+        KeyCode::Left => "Left".to_string(),
+        KeyCode::Right => "Right".to_string(),
+        KeyCode::Home => "Home".to_string(),
+        KeyCode::End => "End".to_string(),
+        KeyCode::PageUp => "PageUp".to_string(),
+        KeyCode::PageDown => "PageDown".to_string(),
+        KeyCode::Delete => "Delete".to_string(),
+        KeyCode::Insert => "Insert".to_string(),
+        KeyCode::F(n) => format!("F{n}"),
+        KeyCode::Null => "Null".to_string(),
+        KeyCode::CapsLock => "CapsLock".to_string(),
+        KeyCode::ScrollLock => "ScrollLock".to_string(),
+        KeyCode::NumLock => "NumLock".to_string(),
+        _ => "?".to_string(),
+    };
+
+    parts.push(&key_name);
+    parts.join("+")
 }
 
 impl Default for FeatureRegistry {
@@ -435,6 +500,53 @@ mod tests {
         let mut reg = FeatureRegistry::new();
         reg.register_keymap("Ctrl+S".to_string(), "save_feature", "save");
         assert!(reg.keymaps.contains_key("Ctrl+S"));
+    }
+
+    #[test]
+    fn registry_keymap_feature_lookup() {
+        let mut reg = FeatureRegistry::new();
+        reg.register_keymap("Ctrl+P".to_string(), "plugin_feature", "toggle");
+        let result = reg.keymap_feature("Ctrl+P");
+        assert_eq!(result, Some(("plugin_feature", "toggle")));
+        assert_eq!(reg.keymap_feature("Ctrl+Z"), None);
+    }
+
+    // ── format_key_event tests ────────────────────────────────────────────
+
+    #[test]
+    fn format_key_event_ctrl_shift_char() {
+        let key = crossterm::event::KeyEvent::new(
+            crossterm::event::KeyCode::Char('m'),
+            crossterm::event::KeyModifiers::CONTROL | crossterm::event::KeyModifiers::SHIFT,
+        );
+        assert_eq!(format_key_event(&key), "Ctrl+Shift+M");
+    }
+
+    #[test]
+    fn format_key_event_plain_char() {
+        let key = crossterm::event::KeyEvent::new(
+            crossterm::event::KeyCode::Char('a'),
+            crossterm::event::KeyModifiers::NONE,
+        );
+        assert_eq!(format_key_event(&key), "A");
+    }
+
+    #[test]
+    fn format_key_event_ctrl_only() {
+        let key = crossterm::event::KeyEvent::new(
+            crossterm::event::KeyCode::Char('s'),
+            crossterm::event::KeyModifiers::CONTROL,
+        );
+        assert_eq!(format_key_event(&key), "Ctrl+S");
+    }
+
+    #[test]
+    fn format_key_event_special_key() {
+        let key = crossterm::event::KeyEvent::new(
+            crossterm::event::KeyCode::Enter,
+            crossterm::event::KeyModifiers::NONE,
+        );
+        assert_eq!(format_key_event(&key), "Enter");
     }
 
     #[test]

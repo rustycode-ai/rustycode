@@ -22,7 +22,6 @@ use crate::help::HelpState;
 use crate::memory::memory_auto::ThreadSafeAutoMemory;
 use crate::memory::memory_injection::InjectionConfig;
 use crate::plugin::PluginManager;
-use crate::plugin::PluginManagerUI;
 use crate::services::rate_limit_tracker::RateLimitTracker;
 use crate::theme::ThemeColors;
 use crate::ui::animator::Animator;
@@ -54,7 +53,6 @@ pub(crate) struct UIComponents {
     pub(crate) animator: Animator,
     pub(crate) marketplace_browser: MarketplaceBrowser,
     pub(crate) skill_palette: SkillPalette,
-    pub(crate) plugin_manager_ui: PluginManagerUI,
     pub(crate) help_state: HelpState,
     pub(crate) sidebar_area: std::cell::Cell<Rect>,
     pub(crate) view: crate::app::view_state::ViewState,
@@ -152,7 +150,6 @@ pub(crate) struct OverlayState {
     pub(crate) showing_provider_selector: bool,
     pub(crate) file_selector: FileSelector,
     pub(crate) showing_error: bool,
-    pub(crate) showing_plugin_manager: bool,
     pub(crate) showing_marketplace_browser: bool,
     pub(crate) last_esc_press: Option<std::time::Instant>,
     pub(crate) showing_skill_palette: bool,

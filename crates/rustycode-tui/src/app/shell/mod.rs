@@ -19,9 +19,10 @@ pub mod command_dispatch;
 pub mod focus;
 pub mod render_dispatch;
 
+use crate::app::features::plugin_manager::PluginManagerFeature;
 use crate::app::features::{
-    FeatureRegistry, ModalId, RenderCtx, RouteId, SurfaceId, TuiAction, TuiEvent, TuiFeature,
-    UpdateCtx,
+    format_key_event, FeatureRegistry, ModalId, RenderCtx, RouteId, SurfaceId, TuiAction, TuiEvent,
+    TuiFeature, UpdateCtx,
 };
 use crate::app::shell::focus::FocusRing;
 use crate::app::shell::render_dispatch::RenderDispatch;
@@ -92,16 +93,49 @@ impl AppShell {
     /// Input events (Key, FocusGained, FocusLost, Resize) are sent only to the
     /// focused feature. Service/Stream/Tick events are broadcast to all features.
     ///
+    /// For key events, registered keymaps are checked first. If a key matches a
+    /// registered keymap, the corresponding feature handles it (via command dispatch)
+    /// and the key is consumed — it is NOT forwarded to the focused feature.
+    ///
     /// Returns a list of actions for the host shell to process.
     pub fn handle_event(&mut self, event: TuiEvent) -> Vec<TuiAction> {
         let focused_surface = self.focus.focused();
         let theme_colors = &self.theme_colors;
 
         match &event {
-            TuiEvent::Key(_)
-            | TuiEvent::FocusGained
-            | TuiEvent::FocusLost
-            | TuiEvent::Resize { .. } => {
+            TuiEvent::Key(key_event) => {
+                // Check registered keymaps first — keymaps take priority over
+                // focused feature routing.
+                let key_str = format_key_event(key_event);
+                if let Some((feature_id, action_name)) = self.registry.keymap_feature(&key_str) {
+                    return self.dispatch_keymap(feature_id, action_name);
+                }
+
+                // No keymap match — route to focused feature.
+                let feature_id = focused_surface.and_then(|s| self.registry.surface_feature(s));
+                if let Some(fid) = feature_id {
+                    if let Some(feature) = self.features.get_mut(fid) {
+                        let mut nav_fn = |_: RouteId| {};
+                        let mut cmd_fn = |_: &str| {};
+                        let mut approve_fn = |_: String, _: bool| {};
+                        let mut ctx = UpdateCtx {
+                            has_focus: focused_surface.is_some(),
+                            focused_surface,
+                            is_streaming: false,
+                            pending_tools: 0,
+                            plan_mode_active: false,
+                            auto_continue_enabled: false,
+                            theme_colors,
+                            navigate: &mut nav_fn,
+                            dispatch_command: &mut cmd_fn,
+                            approve_tool: &mut approve_fn,
+                        };
+                        return feature.update(&event, &mut ctx);
+                    }
+                }
+                Vec::new()
+            }
+            TuiEvent::FocusGained | TuiEvent::FocusLost | TuiEvent::Resize { .. } => {
                 // Route input events only to the focused feature.
                 let feature_id = focused_surface.and_then(|s| self.registry.surface_feature(s));
                 if let Some(fid) = feature_id {
@@ -153,11 +187,40 @@ impl AppShell {
         }
     }
 
+    /// Dispatch a keymap match to the owning feature.
+    ///
+    /// For PluginManagerFeature, this calls `toggle_visibility()`.
+    /// For other features, this falls back to a no-op.
+    fn dispatch_keymap(
+        &mut self,
+        feature_id: &'static str,
+        action_name: &'static str,
+    ) -> Vec<TuiAction> {
+        // Plugin Manager has a well-known keymap action.
+        if feature_id == "plugin_manager" && action_name == "toggle_plugin_manager" {
+            if let Some(feature) = self.features.get_mut(feature_id) {
+                if let Some(pm) = feature.as_any_mut().downcast_mut::<PluginManagerFeature>() {
+                    return pm.toggle_visibility();
+                }
+            }
+        }
+
+        // Fallback: no handler found for this keymap action.
+        Vec::new()
+    }
+
     /// Render all features onto the given frame using RenderDispatch.
     ///
-    /// Uses RenderDispatch to orchestrate surface allocation and feature rendering.
-    /// This decouples feature rendering from direct feature iteration.
-    pub fn render_frame(&self, frame: &mut Frame) {
+    /// Uses RenderDispatch to orchestrate layout computation, surface allocation,
+    /// and feature rendering. Chrome visibility flags are forwarded so the
+    /// dispatcher can allocate correct areas (collapsed bars get zero height).
+    pub fn render_frame(
+        &self,
+        frame: &mut Frame,
+        status_bar_collapsed: bool,
+        footer_collapsed: bool,
+        sidebar_visible: bool,
+    ) {
         let focused_surface = self.focus.focused();
         let frame_area = frame.area();
 
@@ -169,6 +232,9 @@ impl AppShell {
             &self.theme_colors,
             frame_area,
             frame,
+            status_bar_collapsed,
+            footer_collapsed,
+            sidebar_visible,
         );
     }
 
@@ -247,9 +313,50 @@ impl AppShell {
         command_dispatch::CommandDispatch::route(&invocation, &self.registry)
     }
 
+    /// Route a command to a typed `CommandDestination`.
+    ///
+    /// Returns `Some(CommandDestination)` if the command is recognized
+    /// (feature-based, built-in, or legacy slash), or `None` if not found.
+    pub fn route_command_destination(
+        &self,
+        name: &str,
+    ) -> Option<command_dispatch::CommandDestination> {
+        let invocation = command_dispatch::CommandInvocation {
+            name: name.to_string(),
+            args: Vec::new(),
+            source: command_dispatch::CommandSource::SlashCommand,
+        };
+        command_dispatch::CommandDispatch::route_destination(&invocation, &self.registry)
+    }
+
+    /// Dispatch a keyboard shortcut through the unified command dispatch.
+    ///
+    /// Looks up the key string in the registry's keymaps and returns
+    /// the corresponding `CommandDestination` if found.
+    pub fn dispatch_key(&self, key_str: &str) -> Option<command_dispatch::CommandDestination> {
+        command_dispatch::CommandDispatch::dispatch_key_event(key_str, &self.registry)
+    }
+
     /// Check if a command is registered (feature-based or built-in).
     pub fn is_command_registered(&self, name: &str) -> bool {
         command_dispatch::CommandDispatch::is_registered(name, &self.registry)
+    }
+
+    /// Create a fully-wired AppShell with PluginManagerFeature for testing.
+    ///
+    /// This mirrors what `run_with_shell()` does, but is available without
+    /// needing the full terminal setup. Intended for integration tests that
+    /// need to verify the full event routing lifecycle.
+    #[cfg(test)]
+    pub fn new_test_with_plugin_manager(theme: Arc<Theme>) -> Self {
+        let mut shell = AppShell::new(theme);
+        let manager = Arc::new(std::sync::RwLock::new(
+            crate::plugin::PluginManager::default(),
+        ));
+        let plugin_feature =
+            crate::app::features::plugin_manager::PluginManagerFeature::new(manager);
+        shell.register_feature(Box::new(plugin_feature));
+        shell
     }
 }
 
@@ -310,6 +417,10 @@ mod tests {
         }
 
         fn render(&self, _surface: SurfaceId, _frame: &mut Frame, _ctx: &RenderCtx) {}
+
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
+        }
     }
 
     /// Helper to create a default theme Arc.
@@ -594,5 +705,255 @@ mod tests {
         let all_surfaces: Vec<SurfaceId> = shell.registry().surfaces().collect();
         assert!(all_surfaces.contains(&SurfaceId::new("plugin_manager")));
         assert_eq!(all_surfaces.len(), 1);
+    }
+
+    // ── Keymap dispatch tests ──────────────────────────────────────────
+
+    #[test]
+    fn keymap_dispatch_only_triggers_registered_keymaps() {
+        let mut shell = AppShell::new(default_theme());
+
+        // No features registered, so no keymaps exist.
+        // A key event should return no actions.
+        let key_event = TuiEvent::Key(crossterm::event::KeyEvent::new(
+            crossterm::event::KeyCode::Char('m'),
+            crossterm::event::KeyModifiers::CONTROL | crossterm::event::KeyModifiers::SHIFT,
+        ));
+        let actions = shell.handle_event(key_event);
+        assert!(actions.is_empty());
+    }
+
+    #[test]
+    fn command_dispatch_routes_plugin_commands() {
+        use crate::app::features::plugin_manager::PluginManagerFeature;
+        use std::sync::{Arc, RwLock};
+
+        let mut shell = AppShell::new(default_theme());
+
+        let manager = Arc::new(RwLock::new(crate::plugin::PluginManager::default()));
+        let feature = PluginManagerFeature::new(manager);
+        shell.register_feature(Box::new(feature));
+
+        // /plugin open should be routed to plugin_manager
+        assert!(shell.is_command_registered("/plugin open"));
+        assert!(shell.is_command_registered("/plugin close"));
+
+        let result = shell.route_command("/plugin open");
+        assert!(matches!(
+            result,
+            command_dispatch::RoutingResult::RoutedToFeature("plugin_manager")
+        ));
+    }
+
+    // ── Test-only construction helper ──────────────────────────────────
+
+    /// Create a fully-wired AppShell with PluginManagerFeature for testing.
+    ///
+    /// This helper mirrors what `run_with_shell()` does, but is available
+    /// in tests without needing the full terminal setup.
+    fn wired_shell_with_plugin_manager() -> AppShell {
+        use crate::app::features::plugin_manager::PluginManagerFeature;
+        use std::sync::{Arc, RwLock};
+
+        let mut shell = AppShell::new(default_theme());
+
+        let manager = Arc::new(RwLock::new(crate::plugin::PluginManager::default()));
+        let plugin_feature = PluginManagerFeature::new(manager);
+        shell.register_feature(Box::new(plugin_feature));
+
+        shell
+    }
+
+    // ── Full lifecycle tests ───────────────────────────────────────────
+
+    /// Helper to send a key event through the full AppShell pipeline and
+    /// process resulting actions, returning the shell for chaining.
+    fn send_key_and_process(
+        shell: &mut AppShell,
+        code: crossterm::event::KeyCode,
+        modifiers: crossterm::event::KeyModifiers,
+    ) -> Vec<TuiAction> {
+        let event = TuiEvent::Key(crossterm::event::KeyEvent::new(code, modifiers));
+        let actions = shell.handle_event(event);
+        shell.process_actions(actions.clone());
+        actions
+    }
+
+    #[test]
+    fn lifecycle_initial_state_is_clean() {
+        let shell = wired_shell_with_plugin_manager();
+
+        // Initially: no modal, registered keymap, registered surface.
+        assert!(shell.active_modal().is_none());
+        assert!(shell.registry().keymap_feature("Ctrl+Shift+M").is_some());
+        assert_eq!(
+            shell
+                .registry()
+                .surface_feature(SurfaceId::new("plugin_manager")),
+            Some("plugin_manager")
+        );
+        assert!(!shell.should_exit());
+    }
+
+    #[test]
+    fn lifecycle_ctrl_shift_m_opens_plugin_manager() {
+        let mut shell = wired_shell_with_plugin_manager();
+
+        // Press Ctrl+Shift+M — should open the plugin manager modal.
+        let actions = send_key_and_process(
+            &mut shell,
+            crossterm::event::KeyCode::Char('m'),
+            crossterm::event::KeyModifiers::CONTROL | crossterm::event::KeyModifiers::SHIFT,
+        );
+
+        // Should have returned OpenModal("plugin_manager").
+        assert_eq!(actions.len(), 1);
+        assert!(matches!(&actions[0], TuiAction::OpenModal(id) if id.as_str() == "plugin_manager"));
+
+        // Modal should now be active.
+        assert_eq!(shell.active_modal(), Some("plugin_manager"));
+    }
+
+    #[test]
+    fn lifecycle_esc_closes_plugin_manager() {
+        let mut shell = wired_shell_with_plugin_manager();
+
+        // Open the plugin manager first.
+        let _ = send_key_and_process(
+            &mut shell,
+            crossterm::event::KeyCode::Char('m'),
+            crossterm::event::KeyModifiers::CONTROL | crossterm::event::KeyModifiers::SHIFT,
+        );
+        assert_eq!(shell.active_modal(), Some("plugin_manager"));
+
+        // Focus the plugin manager surface so key events route to it.
+        shell
+            .focus_mut()
+            .focus_set(SurfaceId::new("plugin_manager"));
+
+        // Press Escape — should close the modal.
+        let actions = send_key_and_process(
+            &mut shell,
+            crossterm::event::KeyCode::Esc,
+            crossterm::event::KeyModifiers::NONE,
+        );
+
+        assert!(actions.iter().any(|a| matches!(a, TuiAction::CloseModal)));
+        assert!(shell.active_modal().is_none());
+    }
+
+    #[test]
+    fn lifecycle_full_roundtrip_open_navigate_close() {
+        let mut shell = wired_shell_with_plugin_manager();
+
+        // 1. Initial state: no modal.
+        assert!(shell.active_modal().is_none());
+
+        // 2. Ctrl+Shift+M opens the plugin manager.
+        let actions = send_key_and_process(
+            &mut shell,
+            crossterm::event::KeyCode::Char('m'),
+            crossterm::event::KeyModifiers::CONTROL | crossterm::event::KeyModifiers::SHIFT,
+        );
+        assert!(actions.iter().any(|a| matches!(a, TuiAction::OpenModal(_))));
+        assert_eq!(shell.active_modal(), Some("plugin_manager"));
+
+        // 3. Focus the plugin manager surface.
+        shell
+            .focus_mut()
+            .focus_set(SurfaceId::new("plugin_manager"));
+
+        // 4. Navigate with Down arrow — should produce MarkDirty.
+        let actions = send_key_and_process(
+            &mut shell,
+            crossterm::event::KeyCode::Down,
+            crossterm::event::KeyModifiers::NONE,
+        );
+        assert!(actions.iter().any(|a| matches!(a, TuiAction::MarkDirty)));
+
+        // 5. Navigate with Up arrow — should produce MarkDirty.
+        let actions = send_key_and_process(
+            &mut shell,
+            crossterm::event::KeyCode::Up,
+            crossterm::event::KeyModifiers::NONE,
+        );
+        assert!(actions.iter().any(|a| matches!(a, TuiAction::MarkDirty)));
+
+        // 6. Escape closes the modal.
+        let actions = send_key_and_process(
+            &mut shell,
+            crossterm::event::KeyCode::Esc,
+            crossterm::event::KeyModifiers::NONE,
+        );
+        assert!(actions.iter().any(|a| matches!(a, TuiAction::CloseModal)));
+        assert!(shell.active_modal().is_none());
+    }
+
+    #[test]
+    fn lifecycle_toggle_twice_returns_to_initial() {
+        let mut shell = wired_shell_with_plugin_manager();
+
+        // Toggle 1: open.
+        let _ = send_key_and_process(
+            &mut shell,
+            crossterm::event::KeyCode::Char('m'),
+            crossterm::event::KeyModifiers::CONTROL | crossterm::event::KeyModifiers::SHIFT,
+        );
+        assert_eq!(shell.active_modal(), Some("plugin_manager"));
+
+        // Toggle 2: close.
+        let _ = send_key_and_process(
+            &mut shell,
+            crossterm::event::KeyCode::Char('m'),
+            crossterm::event::KeyModifiers::CONTROL | crossterm::event::KeyModifiers::SHIFT,
+        );
+        assert!(shell.active_modal().is_none());
+
+        // Toggle 3: open again.
+        let _ = send_key_and_process(
+            &mut shell,
+            crossterm::event::KeyCode::Char('m'),
+            crossterm::event::KeyModifiers::CONTROL | crossterm::event::KeyModifiers::SHIFT,
+        );
+        assert_eq!(shell.active_modal(), Some("plugin_manager"));
+    }
+
+    #[test]
+    fn render_frame_works_with_plugin_manager() {
+        use ratatui::backend::TestBackend;
+
+        let mut shell = wired_shell_with_plugin_manager();
+
+        // Open the plugin manager.
+        let _ = send_key_and_process(
+            &mut shell,
+            crossterm::event::KeyCode::Char('m'),
+            crossterm::event::KeyModifiers::CONTROL | crossterm::event::KeyModifiers::SHIFT,
+        );
+
+        // Render a frame — should not panic even with the plugin manager visible.
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = ratatui::Terminal::new(backend).expect("terminal");
+        terminal
+            .draw(|frame| {
+                shell.render_frame(frame, false, false, false);
+            })
+            .expect("draw should succeed with plugin manager visible");
+    }
+
+    #[test]
+    fn render_frame_works_without_plugin_manager_visible() {
+        use ratatui::backend::TestBackend;
+
+        let shell = wired_shell_with_plugin_manager();
+
+        // Render a frame — plugin manager is not visible, but render should still work.
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = ratatui::Terminal::new(backend).expect("terminal");
+        terminal
+            .draw(|frame| {
+                shell.render_frame(frame, false, false, false);
+            })
+            .expect("draw should succeed with plugin manager hidden");
     }
 }

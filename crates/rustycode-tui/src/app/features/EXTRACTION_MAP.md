@@ -1,5 +1,7 @@
 # EXTRACTION_MAP.md — Handler → Feature Mapping
 
+> **Extraction Status: Plugin Manager → COMPLETED (Wave 1)**
+
 > **Purpose:** Complete mapping of every handler function to its feature domain,
 > fields mutated, fields read, and cross-feature coupling. This document drives
 > the TUI decomposition plan: each feature group becomes a `TuiFeature` impl.

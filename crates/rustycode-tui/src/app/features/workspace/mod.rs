@@ -190,6 +190,10 @@ impl TuiFeature for WorkspaceFeature {
             // - Display execution context / current task status
         }
     }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 #[cfg(test)]

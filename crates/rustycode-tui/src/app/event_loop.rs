@@ -23,7 +23,6 @@ use crate::memory::compaction::{CompactionConfig, ContextMonitor};
 use crate::memory::memory_auto::ThreadSafeAutoMemory;
 use crate::memory::memory_injection::InjectionConfig;
 use crate::plugin::PluginManager;
-use crate::plugin::PluginManagerUI;
 use crate::services::agent_mode::AiMode;
 use crate::services::config::load_config;
 use crate::services::config::TUIConfig;
@@ -306,7 +305,6 @@ impl TUI {
         // Initialize skill state manager
         let skill_manager = Arc::new(RwLock::new(SkillStateManager::new()));
         let plugin_manager = Arc::new(RwLock::new(PluginManager::default()));
-        let plugin_manager_ui = PluginManagerUI::new();
         // Load skills in background thread — I/O outside the lock, apply under short write lock
         let skill_manager_clone = skill_manager.clone();
         std::thread::spawn(move || {
@@ -382,7 +380,6 @@ impl TUI {
                 animator: Animator::new(4, reduced_motion),
                 marketplace_browser,
                 skill_palette,
-                plugin_manager_ui,
                 help_state: HelpState::new(),
                 sidebar_area: std::cell::Cell::new(Rect::default()),
                 view: crate::app::view_state::ViewState::new(),
@@ -496,7 +493,6 @@ impl TUI {
                 showing_provider_selector: false,
                 file_selector: FileSelector::new(Vec::new()),
                 showing_error: false,
-                showing_plugin_manager: false,
                 showing_marketplace_browser: false,
                 last_esc_press: None,
                 showing_skill_palette: false,
@@ -590,7 +586,6 @@ impl TUI {
         });
         let skill_palette = SkillPalette::new(available_skills.clone());
         let plugin_manager = Arc::new(RwLock::new(PluginManager::default()));
-        let plugin_manager_ui = PluginManagerUI::new();
 
         let input_handler = InputHandler::new();
 
@@ -609,7 +604,6 @@ impl TUI {
                 animator: Animator::new(4, false),
                 marketplace_browser,
                 skill_palette,
-                plugin_manager_ui,
                 help_state: HelpState::new(),
                 sidebar_area: std::cell::Cell::new(Rect::default()),
                 view: crate::app::view_state::ViewState::new(),
@@ -754,7 +748,6 @@ impl TUI {
                 showing_provider_selector: false,
                 file_selector: FileSelector::new(Vec::new()),
                 showing_error: false,
-                showing_plugin_manager: false,
                 showing_marketplace_browser: false,
                 last_esc_press: None,
                 showing_skill_palette: false,
@@ -2110,16 +2103,6 @@ impl TUI {
         // Overlay: skill palette
         if self.ui.skill_palette.is_visible() {
             self.ui.skill_palette.render(frame, size);
-        }
-
-        if self.overlays.showing_plugin_manager {
-            let mut manager = self
-                .sys
-                .plugin_manager
-                .write()
-                .unwrap_or_else(|e| e.into_inner());
-            let _ = manager.reload_from_disk();
-            self.ui.plugin_manager_ui.render(frame, size, &manager);
         }
 
         if self.overlays.showing_marketplace_browser {

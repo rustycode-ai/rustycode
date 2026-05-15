@@ -479,16 +479,6 @@ impl PolishedRenderer {
             tui.ui.skill_palette.render(frame, size);
         }
 
-        if tui.overlays.showing_plugin_manager {
-            let mut manager = tui
-                .sys
-                .plugin_manager
-                .write()
-                .unwrap_or_else(|e| e.into_inner());
-            let _ = manager.reload_from_disk();
-            tui.ui.plugin_manager_ui.render(frame, size, &manager);
-        }
-
         if tui.overlays.showing_marketplace_browser {
             tui.ui.marketplace_browser.render(frame, size);
         }

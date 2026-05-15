@@ -197,6 +197,10 @@ impl TuiFeature for SessionFeature {
             // - Render active tools list
         }
     }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 #[cfg(test)]

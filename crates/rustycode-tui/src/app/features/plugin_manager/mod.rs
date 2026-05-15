@@ -20,7 +20,8 @@
 //! Delegates to [`PluginManagerUI::render`] when visible.
 
 use crate::app::features::{
-    FeatureRegistry, RenderCtx, RouteId, SurfaceId, TuiAction, TuiEvent, TuiFeature, UpdateCtx,
+    FeatureRegistry, ModalId, RenderCtx, RouteId, SurfaceId, TuiAction, TuiEvent, TuiFeature,
+    UpdateCtx,
 };
 use crate::plugin::{PluginManager, PluginManagerUI};
 use crossterm::event::KeyEvent;
@@ -104,6 +105,18 @@ impl PluginManagerFeature {
 
     /// Route ID for navigating to the plugin manager.
     const ROUTE: RouteId = RouteId::new("plugins");
+
+    /// Modal ID for the plugin manager overlay.
+    const MODAL: ModalId = ModalId::new("plugin_manager");
+
+    /// Slash command to open the plugin manager.
+    const CMD_OPEN: &str = "/plugin open";
+
+    /// Slash command to close the plugin manager.
+    const CMD_CLOSE: &str = "/plugin close";
+
+    /// Keyboard shortcut to toggle the plugin manager (Ctrl+Shift+M).
+    const KEYMAP_TOGGLE: &str = "Ctrl+Shift+M";
 }
 
 impl TuiFeature for PluginManagerFeature {
@@ -114,6 +127,13 @@ impl TuiFeature for PluginManagerFeature {
     fn register(&self, reg: &mut FeatureRegistry) {
         reg.register_surface(Self::SURFACE, self.id());
         reg.register_route(Self::ROUTE, self.id());
+        reg.register_command(Self::CMD_OPEN, self.id());
+        reg.register_command(Self::CMD_CLOSE, self.id());
+        reg.register_keymap(
+            Self::KEYMAP_TOGGLE.to_string(),
+            self.id(),
+            "toggle_plugin_manager",
+        );
     }
 
     fn update(&mut self, event: &TuiEvent, _ctx: &mut UpdateCtx) -> Vec<TuiAction> {
@@ -145,6 +165,49 @@ impl TuiFeature for PluginManagerFeature {
         };
 
         ui.render(frame, ctx.frame_area, &manager);
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Public API: command handling
+// ---------------------------------------------------------------------------
+
+impl PluginManagerFeature {
+    /// Handle a slash command dispatched to this feature.
+    ///
+    /// Returns actions for the shell to process. Recognized commands:
+    /// - `"/plugin open"` — shows the plugin manager overlay
+    /// - `"/plugin close"` — hides the plugin manager overlay
+    pub fn handle_command(&mut self, command: &str) -> Vec<TuiAction> {
+        match command {
+            cmd if cmd == Self::CMD_OPEN => {
+                self.show();
+                vec![TuiAction::OpenModal(Self::MODAL)]
+            }
+            cmd if cmd == Self::CMD_CLOSE => {
+                self.hide();
+                vec![TuiAction::CloseModal]
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    /// Toggle plugin manager visibility.
+    ///
+    /// Called when the keymap shortcut is pressed. Returns `OpenModal` if shown,
+    /// `CloseModal` if hidden.
+    pub fn toggle_visibility(&mut self) -> Vec<TuiAction> {
+        if self.state.visible {
+            self.hide();
+            vec![TuiAction::CloseModal]
+        } else {
+            self.show();
+            vec![TuiAction::OpenModal(Self::MODAL)]
+        }
     }
 }
 
@@ -411,5 +474,152 @@ mod tests {
                 feature.render(SurfaceId::new("other_surface"), frame, &ctx);
             })
             .expect("draw");
+    }
+
+    // -- Command registration tests ----------------------------------------
+
+    #[test]
+    fn register_registers_slash_commands() {
+        let feature = make_feature();
+        let mut reg = FeatureRegistry::new();
+        feature.register(&mut reg);
+
+        assert_eq!(reg.command_feature("/plugin open"), Some("plugin_manager"));
+        assert_eq!(reg.command_feature("/plugin close"), Some("plugin_manager"));
+        assert_eq!(reg.command_feature("/plugin"), None);
+    }
+
+    #[test]
+    fn register_registers_keymap() {
+        let feature = make_feature();
+        let mut reg = FeatureRegistry::new();
+        feature.register(&mut reg);
+
+        let (feature_id, action) = reg
+            .keymap_feature("Ctrl+Shift+M")
+            .expect("keymap should be registered");
+        assert_eq!(feature_id, "plugin_manager");
+        assert_eq!(action, "toggle_plugin_manager");
+    }
+
+    #[test]
+    fn register_registers_commands_keymaps_surfaces_and_routes() {
+        let feature = make_feature();
+        let mut reg = FeatureRegistry::new();
+        feature.register(&mut reg);
+
+        // Verify everything is registered together
+        assert!(reg
+            .surface_feature(SurfaceId::new("plugin_manager"))
+            .is_some());
+        assert!(reg.route_feature(RouteId::new("plugins")).is_some());
+        assert!(reg.command_feature("/plugin open").is_some());
+        assert!(reg.command_feature("/plugin close").is_some());
+        assert!(reg.keymap_feature("Ctrl+Shift+M").is_some());
+    }
+
+    // -- handle_command() tests --------------------------------------------
+
+    #[test]
+    fn handle_command_open_shows_manager() {
+        let mut feature = make_feature();
+        assert!(!feature.is_visible());
+
+        let actions = feature.handle_command("/plugin open");
+        assert!(feature.is_visible());
+        assert_eq!(actions.len(), 1);
+        assert!(matches!(actions[0], TuiAction::OpenModal(_)));
+        if let TuiAction::OpenModal(id) = &actions[0] {
+            assert_eq!(id.as_str(), "plugin_manager");
+        }
+    }
+
+    #[test]
+    fn handle_command_close_hides_manager() {
+        let mut feature = make_feature();
+        feature.show();
+
+        let actions = feature.handle_command("/plugin close");
+        assert!(!feature.is_visible());
+        assert_eq!(actions.len(), 1);
+        assert!(matches!(actions[0], TuiAction::CloseModal));
+    }
+
+    #[test]
+    fn handle_command_unknown_returns_empty() {
+        let mut feature = make_feature();
+        let actions = feature.handle_command("/unknown");
+        assert!(actions.is_empty());
+        assert!(!feature.is_visible());
+    }
+
+    // -- toggle_visibility() tests -----------------------------------------
+
+    #[test]
+    fn toggle_visibility_opens_when_closed() {
+        let mut feature = make_feature();
+        assert!(!feature.is_visible());
+
+        let actions = feature.toggle_visibility();
+        assert!(feature.is_visible());
+        assert_eq!(actions.len(), 1);
+        assert!(matches!(actions[0], TuiAction::OpenModal(_)));
+    }
+
+    #[test]
+    fn toggle_visibility_closes_when_open() {
+        let mut feature = make_feature();
+        feature.show();
+
+        let actions = feature.toggle_visibility();
+        assert!(!feature.is_visible());
+        assert_eq!(actions.len(), 1);
+        assert!(matches!(actions[0], TuiAction::CloseModal));
+    }
+
+    #[test]
+    fn toggle_visibility_roundtrip() {
+        let mut feature = make_feature();
+        assert!(!feature.is_visible());
+
+        feature.toggle_visibility();
+        assert!(feature.is_visible());
+
+        feature.toggle_visibility();
+        assert!(!feature.is_visible());
+    }
+
+    // -- as_any_mut() downcast test ----------------------------------------
+
+    #[test]
+    fn as_any_mut_allows_downcast() {
+        let mut feature = make_feature();
+        let any_ref = feature.as_any_mut();
+        let downcast = any_ref.downcast_mut::<PluginManagerFeature>();
+        assert!(downcast.is_some());
+
+        let downcast = downcast.expect("downcast");
+        assert!(!downcast.is_visible());
+        downcast.show();
+        assert!(downcast.is_visible());
+    }
+
+    // -- format_key_event integration tests --------------------------------
+
+    #[test]
+    fn ctrl_shift_m_formats_correctly() {
+        use crate::app::features::format_key_event;
+        let key = KeyEvent::new(
+            KeyCode::Char('m'),
+            KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+        );
+        assert_eq!(format_key_event(&key), "Ctrl+Shift+M");
+    }
+
+    #[test]
+    fn plain_key_formats_without_modifiers() {
+        use crate::app::features::format_key_event;
+        let key = KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE);
+        assert_eq!(format_key_event(&key), "A");
     }
 }

@@ -668,25 +668,6 @@ impl TUI {
         false
     }
 
-    /// Handle plugin manager input.
-    pub(crate) fn handle_plugin_manager_input(&mut self, key: KeyEvent) -> bool {
-        if !self.overlays.showing_plugin_manager {
-            return false;
-        }
-
-        let handled = self
-            .ui
-            .plugin_manager_ui
-            .handle_key(key, &self.sys.plugin_manager);
-        if !self.ui.plugin_manager_ui.is_visible() {
-            self.overlays.showing_plugin_manager = false;
-        }
-        if handled {
-            self.sys.dirty = true;
-        }
-        handled
-    }
-
     /// Handle marketplace browser input.
     pub(crate) fn handle_marketplace_browser_input(&mut self, key: KeyEvent) -> bool {
         if !self.overlays.showing_marketplace_browser {

@@ -21,18 +21,7 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
             }
         }
         CommandEffect::ShowPluginManager => {
-            if !self.is_any_overlay_open() {
-                self.overlays.showing_plugin_manager = true;
-                self.ui.plugin_manager_ui.show();
-                {
-                    let mut manager = self
-                        .sys.plugin_manager
-                        .write()
-                        .unwrap_or_else(|e| e.into_inner());
-                    let _ = manager.reload_from_disk();
-                }
-                self.sys.dirty = true;
-            }
+            // Handled by the plugin_manager feature module
         }
         CommandEffect::None => {}
         CommandEffect::ModelSwitch { model_id } => {

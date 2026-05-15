@@ -96,7 +96,6 @@ impl TUI {
                 if is_cmd_palette_shortcut && !self.is_any_overlay_open() {
                     self.overlays.showing_command_palette = true;
                     self.overlays.showing_skill_palette = false;
-                    self.overlays.showing_plugin_manager = false;
                     self.overlays.showing_marketplace_browser = false;
                     self.overlays.command_palette.show();
                     self.overlays.command_palette.state_mut().clear_query();
@@ -380,11 +379,6 @@ impl TUI {
 
                 // Handle marketplace browser input
                 if self.handle_marketplace_browser_input(key) {
-                    return Ok(());
-                }
-
-                // Handle plugin manager input
-                if self.handle_plugin_manager_input(key) {
                     return Ok(());
                 }
 
