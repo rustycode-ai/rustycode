@@ -480,4 +480,157 @@ mod tests {
             "Whitespace-only chunks must be preserved"
         );
     }
+
+    // ── Characterization tests for StreamChunk variants ────────────────
+
+    #[test]
+    fn characterization_thinking_chunk_increments_counter() {
+        let mut tui = create_test_tui();
+        tui.session.streaming.is_streaming = true;
+        let initial_thinking = tui.session.streaming.thinking_chunks_received;
+
+        handle_stream_chunk(
+            &mut tui,
+            StreamChunk::Thinking("Let me reason...".to_string()),
+        );
+
+        assert_eq!(
+            tui.session.streaming.thinking_chunks_received,
+            initial_thinking + 1,
+            "Thinking chunk should increment thinking counter"
+        );
+        assert!(
+            tui.session.streaming.is_streaming,
+            "Streaming should remain active after thinking chunk"
+        );
+    }
+
+    #[test]
+    fn characterization_stopped_chunk_ends_streaming() {
+        let mut tui = create_test_tui();
+        tui.session.streaming.is_streaming = true;
+
+        handle_stream_chunk(
+            &mut tui,
+            StreamChunk::Stopped {
+                stop_reason: "content_filter".to_string(),
+            },
+        );
+
+        assert!(
+            !tui.session.streaming.is_streaming,
+            "Stopped chunk should end streaming"
+        );
+    }
+
+    #[test]
+    fn characterization_tool_complete_updates_panel_history() {
+        let mut tui = create_test_tui();
+        tui.session.streaming.is_streaming = true;
+
+        handle_stream_chunk(
+            &mut tui,
+            StreamChunk::ToolStart {
+                tool_name: "Write".to_string(),
+                tool_id: "tool-w1".to_string(),
+                input_json: r#"{"path":"/tmp/x"}"#.to_string(),
+            },
+        );
+
+        handle_stream_chunk(
+            &mut tui,
+            StreamChunk::ToolComplete {
+                tool_name: "Write".to_string(),
+                tool_id: "tool-w1".to_string(),
+                duration_ms: 50,
+                success: true,
+                output_size: 12,
+                output: Some("wrote 12 bytes".to_string()),
+            },
+        );
+
+        let entry = tui
+            .panels
+            .tool_panel
+            .tool_panel_history
+            .iter()
+            .find(|e| e.tool_id == "tool-w1");
+        assert!(
+            entry.is_some(),
+            "Tool should exist in panel history after complete"
+        );
+        let entry = entry.unwrap();
+        assert_eq!(entry.name, "Write");
+        assert!(
+            entry.result_summary.contains("wrote 12 bytes") || entry.result_summary.contains("12"),
+            "Result summary should reflect output: got '{}'",
+            entry.result_summary
+        );
+    }
+
+    #[test]
+    fn characterization_system_message_chunk_adds_to_messages() {
+        let mut tui = create_test_tui();
+        let initial_count = tui.session.messages.len();
+
+        handle_stream_chunk(
+            &mut tui,
+            StreamChunk::SystemMessage("Auto-approved: read_file".to_string()),
+        );
+
+        assert!(
+            tui.session.messages.len() > initial_count,
+            "SystemMessage chunk should add a message"
+        );
+        assert!(
+            tui.session
+                .messages
+                .iter()
+                .any(|m| m.content.contains("Auto-approved")),
+            "System message content should be present"
+        );
+    }
+
+    #[test]
+    fn characterization_token_usage_updates_budget() {
+        let mut tui = create_test_tui();
+        let initial_input = tui.model.token_budget.session_input_tokens;
+
+        handle_stream_chunk(
+            &mut tui,
+            StreamChunk::TokenUsage {
+                input_tokens: 100,
+                output_tokens: 50,
+                cache_read_tokens: 30,
+                cache_creation_tokens: 0,
+            },
+        );
+
+        assert!(
+            tui.model.token_budget.session_input_tokens >= initial_input + 100,
+            "Token usage should be accumulated: got {}",
+            tui.model.token_budget.session_input_tokens
+        );
+    }
+
+    #[test]
+    fn characterization_file_snapshot_records_undo_data() {
+        let mut tui = create_test_tui();
+
+        handle_stream_chunk(
+            &mut tui,
+            StreamChunk::FileSnapshot {
+                batch: vec![
+                    ("/tmp/a.txt".to_string(), "old content a".to_string()),
+                    ("/tmp/b.txt".to_string(), "old content b".to_string()),
+                ],
+            },
+        );
+
+        let snapshots = &tui.session.undo;
+        assert!(
+            !snapshots.file_stack.is_empty(),
+            "File snapshot should record undo data in file_stack"
+        );
+    }
 }

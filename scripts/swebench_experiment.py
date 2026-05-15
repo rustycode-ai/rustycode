@@ -262,7 +262,7 @@ def detect_source_dirs(repo_dir) -> list[str]:
     return source_dirs
 
 
-def run_tool(name, input_args, repo_dir, verbose=False):
+def run_tool(name, input_args, repo_dir, verbose=False, system_prompt="thinking_v7"):
     """Execute a tool call and return the result string."""
     if name == "Bash":
         cmd = input_args["command"]
@@ -332,8 +332,8 @@ def run_tool(name, input_args, repo_dir, verbose=False):
         full_path = repo_dir / path
         if verbose:
             print(f"    WRITE {path} ({len(content)} bytes)")
-        # v7: Warn when writing test files
-        if is_test_file(path) and not input_args.get("force"):
+        # v7-only: Warn when writing test files
+        if system_prompt == "thinking_v7" and is_test_file(path) and not input_args.get("force"):
             source_dirs = detect_source_dirs(repo_dir)
             source_hint = ", ".join(source_dirs[:5]) if source_dirs else "lib/, src/"
             return (
@@ -354,8 +354,8 @@ def run_tool(name, input_args, repo_dir, verbose=False):
         full_path = repo_dir / path
         if verbose:
             print(f"    EDIT {path}")
-        # v7: Warn when editing test files — model should edit SOURCE files
-        if is_test_file(path):
+        # v7-only: Warn when editing test files — model should edit SOURCE files
+        if system_prompt == "thinking_v7" and is_test_file(path):
             source_dirs = detect_source_dirs(repo_dir)
             source_hint = ", ".join(source_dirs[:5]) if source_dirs else "lib/, src/"
             return (
@@ -1387,6 +1387,107 @@ SYSTEM_PROMPTS = {
         "- FAIL_TO_PASS: all tests pass\n"
         "- Final grep: no source files referencing the pattern were missed\n"
     ),
+    "thinking_v8": (
+        "You are RustyCode, an AI coding assistant.\n"
+        "Output complete working code. No placeholders, no TODOs.\n"
+        "\n"
+        "## REASONING METHOD: TRACE → DIAGNOSE → FIX → VERIFY\n"
+        "\n"
+        "Every task follows four phases. Complete each before moving to the next.\n"
+        "Going backward to re-diagnose is expected and correct — it means you learned something.\n"
+        "\n"
+        "### PHASE 1: UNDERSTAND EXPECTED BEHAVIOR (turns 1-2)\n"
+        "\n"
+        "Goal: Form a precise statement of what the code SHOULD do.\n"
+        "\n"
+        "1. Read the failing test or error output. What does the test ASSERT?\n"
+        "2. State in one sentence: 'Expected: X. Actual: Y.'\n"
+        "3. Identify the core symbol: function name, class, or error message\n"
+        "4. If test code is provided, note what it imports and calls\n"
+        "\n"
+        "Checkpoint: Can you state the expected behavior in one sentence?\n"
+        "If not, re-read the test or error output before proceeding.\n"
+        "\n"
+        "### PHASE 2: CAUSAL TRACING (turns 2-5)\n"
+        "\n"
+        "Goal: Trace from the test assertion to the exact source code that must change.\n"
+        "This is the most important phase. Do not skip or rush it.\n"
+        "\n"
+        "**Trace backwards from the test:**\n"
+        "1. Test calls function F → F is defined in module M → M is in file X\n"
+        "2. F calls helper H → H is in file Y\n"
+        "3. F uses parameter P → P was set in config Z\n"
+        "4. Follow imports: 'from A import B' → find where A.B is actually defined\n"
+        "\n"
+        "**Form explicit hypotheses:**\n"
+        "For each candidate root cause, write:\n"
+        "- H1: [specific claim] — confirmed/denied by [evidence]\n"
+        "- H2: [alternative claim] — confirmed/denied by [evidence]\n"
+        "\n"
+        "**Gather evidence:**\n"
+        "1. Read files in the call chain\n"
+        "2. Grep for the core symbol: grep -rn 'SYMBOL' --include='*.py' . | grep -v test | grep -v __pycache__\n"
+        "3. COUNT how many source files contain the symbol\n"
+        "\n"
+        "**Scope assessment:**\n"
+        "- 1-3 files → NARROW: focused fix\n"
+        "- 4-9 files → MEDIUM: read each, edit carefully\n"
+        "- 10+ files → BROAD: identify the common transformation, apply systematically to all\n"
+        "\n"
+        "Checkpoint: Do you have a confirmed hypothesis? Do you know which source files need changes?\n"
+        "If not, read more source code before editing anything.\n"
+        "\n"
+        "### PHASE 3: IMPLEMENT FIX (turns 5-25)\n"
+        "\n"
+        "Goal: Edit source code to fix the root cause confirmed in Phase 2.\n"
+        "\n"
+        "1. Edit only source code — never test files\n"
+        "   - Test files tell you WHAT to fix. Source files are WHERE the fix goes.\n"
+        "   - If you catch yourself editing a test file, stop — you haven't traced far enough.\n"
+        "\n"
+        "2. For BROAD changes (10+ files):\n"
+        "   - Read 2-3 files to confirm the transformation pattern\n"
+        "   - Apply the SAME transformation to ALL affected files\n"
+        "   - Do NOT stop after 2-3 edits when grep found 15+ files\n"
+        "   - Check __init__.py re-exports if you renamed or moved something\n"
+        "\n"
+        "3. After each batch of edits:\n"
+        "   - Re-grep: are there files you missed?\n"
+        "   - Check imports: did you update all callers?\n"
+        "\n"
+        "4. Before each edit, verify your reasoning:\n"
+        "   - Did I trace from the test to THIS specific file? Or am I guessing?\n"
+        "   - If guessing: stop and grep for the symbol first.\n"
+        "\n"
+        "### PHASE 4: VERIFY WITH EVIDENCE (turns 25-35)\n"
+        "\n"
+        "Goal: Confirm the fix works. No assumptions — only test output counts.\n"
+        "\n"
+        "1. Run the failing test(s)\n"
+        "2. If PASS: re-grep to confirm you didn't miss any files\n"
+        "3. If FAIL:\n"
+        "   a. Read the ACTUAL error output — not the test code\n"
+        "   b. Re-trace: error mentions module A → where is A? → what does A do wrong?\n"
+        "   c. Update your hypothesis (return to Phase 2)\n"
+        "   d. Fix and re-run\n"
+        "\n"
+        "## COMMON FAILURE MODES\n"
+        "\n"
+        "- **Causal direction error**: Editing test files instead of tracing to source files\n"
+        "- **Scope underestimation**: Fixing 2-3 files when 15+ need changes\n"
+        "- **Surface fixing**: Changing error messages instead of root causes\n"
+        "- **Verification skipping**: Declaring done without running tests\n"
+        "- **Intuition editing**: Guessing where code lives instead of tracing imports\n"
+        "- **Re-reading tests**: Reading test code instead of test ERROR output\n"
+        "\n"
+        "## GREP STRATEGIES FOR DISCOVERY\n"
+        "\n"
+        "- Class name → grep for the module it's imported from\n"
+        "- Function name → grep for callers and importers\n"
+        "- Error message → grep for where it's raised\n"
+        "- Import path → grep for both 'from X import' and 'import X'\n"
+        "- After renaming → grep for old name to find missed references\n"
+    ),
 }
 
 
@@ -1493,6 +1594,52 @@ NUDGES = {
         "NUDGE: Final attempt. Make your simplest possible fix — one line change, one import fix, "
         "one parameter addition. What's the most obvious thing that could fix the test?"
     ),
+}
+
+NUDGES_V8 = {
+    2: (
+        "PHASE 1 CHECK: Can you state the expected behavior in one sentence? "
+        "If not, re-read the test/error output. What does the test ASSERT?"
+    ),
+    4: (
+        "PHASE 2 CHECK: Trace the call chain from the test assertion backwards. "
+        "Test calls F → F is in which file? Grep for the core symbol. "
+        "COUNT the results — how many source files need changes?"
+    ),
+    6: (
+        "SCOPE CHECK: Compare your grep count to your edit count. "
+        "If grep found 10+ files and you've edited 2, you're underestimating scope. "
+        "Form explicit hypotheses: H1, H2, H3 about what needs to change."
+    ),
+    8: (
+        "CAUSAL DIRECTION: Are you editing test files? STOP. "
+        "The test tells you WHAT is expected. Source code is WHERE the fix goes. "
+        "Trace from the test assertion to the source code that produces the wrong behavior."
+    ),
+    10: (
+        "EVIDENCE CHECK: If tests failed, re-read the ERROR OUTPUT (not the test code). "
+        "The error says module A failed → where is A defined → what does A do wrong → fix A."
+    ),
+    15: (
+        "BREADTH CHECK: Grep again with a broader pattern. "
+        "Did you miss files with slightly different imports or callers? "
+        "For broad changes: same transformation everywhere, don't customize per file."
+    ),
+    20: (
+        "PHASE 4 CHECK: Run the actual test. Read the error carefully. "
+        "If still failing, return to Phase 2 — your hypothesis may be wrong. "
+        "Re-trace from the error to the source."
+    ),
+    25: (
+        "Final attempt: What is the SIMPLEST possible fix? "
+        "One line change, one import fix, one parameter addition. "
+        "Re-read the original error from scratch."
+    ),
+}
+
+# Versioned nudge lookup
+NUDGES_BY_VERSION = {
+    "thinking_v8": NUDGES_V8,
 }
 
 
@@ -1790,7 +1937,7 @@ Key: Fix the ROOT CAUSE, not just the symptom. If your first fix doesn't work, r
                 print(f"  TOOL: {name}")
             tool_counts[name] = tool_counts.get(name, 0) + 1
 
-            result_text = run_tool(name, input_args, repo_dir, args.verbose)
+            result_text = run_tool(name, input_args, repo_dir, args.verbose, args.system_prompt)
             is_error = result_text.startswith("ERROR:")
 
             if is_error:
@@ -1812,14 +1959,15 @@ Key: Fix the ROOT CAUSE, not just the symptom. If your first fix doesn't work, r
 
         # Inject turn-based nudge if applicable
         next_turn = turn + 2  # 1-indexed next turn
-        if next_turn in NUDGES:
-            nudge_text = NUDGES[next_turn]
+        active_nudges = NUDGES_BY_VERSION.get(args.system_prompt, NUDGES)
+        if next_turn in active_nudges:
+            nudge_text = active_nudges[next_turn]
             messages.append({"role": "user", "content": [{"type": "text", "text": nudge_text}]})
             messages.append({"role": "assistant", "content": "Understood. I will adjust my approach."})
             if args.verbose:
                 print(f"  NUDGE @ turn {next_turn}: {nudge_text[:80]}...")
 
-        # v7: Post-turn test-file detection via git diff
+        # v7: Post-turn test-file detection and REVERSION via git diff
         if args.system_prompt == "thinking_v7" and edits_made > 0 and turn >= 3:
             try:
                 diff_result = subprocess.run(
@@ -1828,19 +1976,24 @@ Key: Fix the ROOT CAUSE, not just the symptom. If your first fix doesn't work, r
                 )
                 modified = diff_result.stdout.strip().splitlines()
                 test_mods = [f for f in modified if is_test_file(f)]
-                if test_mods and turn % 3 == 0:  # Check every 3 turns to avoid spam
+                if test_mods:
+                    # REVERT test file changes
+                    subprocess.run(
+                        ["git", "checkout", "--"] + test_mods,
+                        cwd=repo_dir, capture_output=True, timeout=10,
+                    )
                     source_dirs = detect_source_dirs(repo_dir)
                     source_hint = ", ".join(source_dirs[:5]) if source_dirs else "lib/, src/"
                     warning = (
-                        f"CRITICAL WARNING: You modified {len(test_mods)} TEST files: {', '.join(test_mods[:5])}\n"
-                        f"You MUST edit SOURCE files in {source_hint}/ instead.\n"
-                        f"Run: git checkout -- {' '.join(test_mods[:5])} to undo test changes.\n"
-                        f"Then grep for the pattern in source directories and edit THOSE files."
+                        f"CRITICAL: Your changes to {len(test_mods)} TEST file(s) have been REVERTED.\n"
+                        f"Reverted: {', '.join(test_mods[:5])}\n"
+                        f"You MUST edit SOURCE files in {source_hint}/ directories.\n"
+                        f"Use: grep -rn 'PATTERN' {' '.join(source_dirs[:3])} to find source files to edit."
                     )
                     messages.append({"role": "user", "content": [{"type": "text", "text": warning}]})
-                    messages.append({"role": "assistant", "content": "I will revert test file changes and focus on source files."})
+                    messages.append({"role": "assistant", "content": "Understood. I will grep in source directories and edit only source files."})
                     if args.verbose:
-                        print(f"  TEST-FILE WARNING: {len(test_mods)} test files modified!")
+                        print(f"  REVERTED {len(test_mods)} test file changes: {', '.join(test_mods[:3])}")
             except Exception:
                 pass
 
@@ -1890,7 +2043,7 @@ def main():
     parser.add_argument("--pretest", action="store_true", help="Pre-run FAIL_TO_PASS tests and include output in prompt")
     parser.add_argument("--hints", action="store_true", help="Include hints_text in prompt")
     parser.add_argument("--verbose", "-v", action="store_true", help="Show tool calls and output")
-    parser.add_argument("--system-prompt", choices=["minimal", "structured", "agentic", "enhanced", "thinking", "thinking_v2", "thinking_v3", "thinking_v4", "thinking_v5", "thinking_v6", "thinking_v7"], default="thinking_v7",
+    parser.add_argument("--system-prompt", choices=["minimal", "structured", "agentic", "enhanced", "thinking", "thinking_v2", "thinking_v3", "thinking_v4", "thinking_v5", "thinking_v6", "thinking_v7", "thinking_v8"], default="thinking_v8",
                         help="System prompt variant: minimal (identity only), structured (workflow+rules), agentic (full self-check), enhanced (full production prompt)")
     parser.add_argument("--work-dir", default="/tmp/swebench-experiment", help="Working directory")
     parser.add_argument("--output", help="Output predictions file")

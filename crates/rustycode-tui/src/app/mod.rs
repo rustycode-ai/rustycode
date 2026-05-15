@@ -107,6 +107,9 @@ pub mod streaming;
 #[cfg(test)]
 mod event_loop_tests;
 
+#[cfg(test)]
+mod service_polling_tests;
+
 // ── Re-exports ────────────────────────────────────────────────
 pub use event_loop::TUI;
 pub use keyboard_shortcuts::{KeyboardAction, KeyboardShortcutHandler};
