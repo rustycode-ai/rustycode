@@ -644,9 +644,90 @@ mod tests {
         }
     }
 
-    // NOTE: Tests for process_service_event and ServiceEventPayload are disabled.
-    // These depend on ServiceEventPayload which is not yet defined.
-    // TODO: Re-enable these tests once ServiceEventPayload is implemented in the protocol layer.
+    #[test]
+    fn process_service_event_approves_tool() {
+        let payload = ServiceEventPayload::ToolApproval {
+            tool_name: "bash".to_string(),
+            approved: true,
+        };
+        let effect = CommandDispatch::process_service_event("tool_approval", &payload);
+        assert!(effect.is_some());
+        if let Some(CommandEffect::ToolApproved { tool_id }) = effect {
+            assert_eq!(tool_id, "bash");
+        } else {
+            panic!("expected ToolApproved effect");
+        }
+    }
+
+    #[test]
+    fn process_service_event_rejects_tool() {
+        let payload = ServiceEventPayload::ToolApproval {
+            tool_name: "write_file".to_string(),
+            approved: false,
+        };
+        let effect = CommandDispatch::process_service_event("tool_approval", &payload);
+        assert!(effect.is_some());
+        if let Some(CommandEffect::ToolRejected { tool_id }) = effect {
+            assert_eq!(tool_id, "write_file");
+        } else {
+            panic!("expected ToolRejected effect");
+        }
+    }
+
+    #[test]
+    fn process_service_event_returns_none_for_unknown_type() {
+        let payload = ServiceEventPayload::Custom {
+            key: "foo".to_string(),
+            value: "bar".to_string(),
+        };
+        assert!(CommandDispatch::process_service_event("unknown_event", &payload).is_none());
+    }
+
+    #[test]
+    fn process_service_event_returns_none_for_mismatched_payload() {
+        let stream_payload = ServiceEventPayload::StreamChunk;
+        assert!(CommandDispatch::process_service_event("tool_approval", &stream_payload).is_none());
+    }
+
+    #[test]
+    fn service_event_payload_tool_approval_equality() {
+        let a = ServiceEventPayload::ToolApproval {
+            tool_name: "bash".to_string(),
+            approved: true,
+        };
+        let b = ServiceEventPayload::ToolApproval {
+            tool_name: "bash".to_string(),
+            approved: true,
+        };
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn service_event_payload_tool_approval_inequality() {
+        let approved = ServiceEventPayload::ToolApproval {
+            tool_name: "bash".to_string(),
+            approved: true,
+        };
+        let rejected = ServiceEventPayload::ToolApproval {
+            tool_name: "bash".to_string(),
+            approved: false,
+        };
+        assert_ne!(approved, rejected);
+    }
+
+    #[test]
+    fn service_event_payload_custom_construction() {
+        let payload = ServiceEventPayload::Custom {
+            key: "event_type".to_string(),
+            value: "data".to_string(),
+        };
+        assert!(matches!(payload, ServiceEventPayload::Custom { .. }));
+    }
+
+    #[test]
+    fn service_event_payload_stream_chunk_exists() {
+        let _payload = ServiceEventPayload::StreamChunk;
+    }
 
     #[test]
     fn all_slash_commands_are_routable() {

@@ -1784,6 +1784,71 @@ SYSTEM_PROMPTS = {
         "- Edit: make precise changes to source code\n"
         "- Grep: find where symbols are defined or referenced\n"
     ),
+    "thinking_v11": (
+        "You are an expert software engineer fixing a specific bug. Your ONLY job is to make "
+        "source code edits that cause the failing tests to pass.
+"
+        "
+"
+        "## STRUCTURED APPROACH (follow this exactly)
+"
+        "
+"
+        "**Turn 1-2: UNDERSTAND**
+"
+        "- Read the error output and problem statement. What function/class/behavior is wrong?
+"
+        "- Use Grep to find where the failing symbol is DEFINED: `grep -rn 'def FUNC' --include='*.py' . | grep -v test | grep -v __pycache__`
+"
+        "- Read the source file that defines it. Understand the current behavior.
+"
+        "
+"
+        "**Turn 3-4: EDIT**
+"
+        "- You MUST make your first edit by turn 4 at the latest.
+"
+        "- Make the MINIMAL change that fixes the behavior. One line > ten lines.
+"
+        "- Use Edit tool for precise changes. Do NOT rewrite entire functions.
+"
+        "- BEFORE editing: verify the file path does NOT contain 'test'. Editing test files = ZERO score.
+"
+        "
+"
+        "**Turn 5+: VERIFY AND FIX**
+"
+        "- Run the failing test immediately after editing.
+"
+        "- If it passes: STOP. Do not make additional changes.
+"
+        "- If it fails: read the NEW error carefully, then edit again.
+"
+        "- If same approach fails 3 times: you're editing the wrong file or wrong function. Re-trace.
+"
+        "
+"
+        "## ABSOLUTE RULES (violation = automatic failure)
+"
+        "
+"
+        "- NEVER edit test files (any path containing 'test'). The evaluator checks your diff — "
+        "if ANY test file appears in your diff, you score ZERO.
+"
+        "- NEVER create new files (test_fix.py, scratch.py, etc.). Only EDIT existing source files. "
+        "New files in your diff = ZERO score.
+"
+        "- NEVER explore git history (git log, git blame, git show). You have the code — read it.
+"
+        "- NEVER rewrite entire files. Use Edit for targeted changes of 1-5 lines.
+"
+        "- If you haven't edited by turn 5: STOP READING AND EDIT NOW with your best guess.
+"
+        "- Run the test after EVERY edit. Don't batch edits without testing.
+"
+        "- The SMALLEST diff wins. Change 1-3 lines if possible. Never touch more than 2 source files.
+"
+    ),
 }
 
 
@@ -1984,6 +2049,36 @@ NUDGES_BY_VERSION = {
         22: (
             "LAST ATTEMPT: What is the SIMPLEST possible fix? One line, one import, one parameter. "
             "Re-read the original error from scratch. Forget your current approach."
+        ),
+    },
+    "thinking_v11": {
+        2: (
+            "EDIT NOW: You should have found the source file. Make your first edit this turn. "
+            "Use Edit tool to change ONE source file. Verify path has NO 'test' in it."
+        ),
+        4: (
+            "FILE CHECK: Before editing, confirm the file is a SOURCE file (not test). "
+            "Paths like test_*.py, *_test.py, tests/ are FORBIDDEN. Your diff must contain ONLY source files."
+        ),
+        5: (
+            "CRITICAL: If you haven't edited yet, STOP EXPLORING. Edit a source file NOW. "
+            "Do NOT create new files. Do NOT edit test files. Only Edit existing source files."
+        ),
+        8: (
+            "TEST: Run the failing test. If it passes, you're DONE. "
+            "If it fails, read the error carefully and make ONE targeted fix."
+        ),
+        12: (
+            "SCOPE CHECK: Are you touching more than 2 source files? Stop. The fix should be in ONE place. "
+            "Re-read the error — it points to a specific function in a specific file."
+        ),
+        14: (
+            "RE-TRACE: If tests still fail, grep for ALL definitions of the symbol. "
+            "Check imports — the function may be in a parent class or utility module."
+        ),
+        22: (
+            "LAST ATTEMPT: SIMPLEST fix. One line, one import, one parameter. "
+            "Re-read the original error. Forget your current approach."
         ),
     },
 }
@@ -2399,7 +2494,7 @@ def main():
     parser.add_argument("--hints", action="store_true", default=True, help="Include hints_text in prompt (default: True)")
     parser.add_argument("--no-hints", dest="hints", action="store_false", help="Disable hints")
     parser.add_argument("--verbose", "-v", action="store_true", help="Show tool calls and output")
-    parser.add_argument("--system-prompt", choices=["minimal", "structured", "agentic", "enhanced", "thinking", "thinking_v2", "thinking_v3", "thinking_v4", "thinking_v5", "thinking_v6", "thinking_v7", "thinking_v8", "thinking_v8.2", "thinking_v9", "thinking_v10"], default="thinking_v10",
+    parser.add_argument("--system-prompt", choices=["minimal", "structured", "agentic", "enhanced", "thinking", "thinking_v2", "thinking_v3", "thinking_v4", "thinking_v5", "thinking_v6", "thinking_v7", "thinking_v8", "thinking_v8.2", "thinking_v9", "thinking_v10", "thinking_v11"], default="thinking_v11",
                         help="System prompt variant: minimal (identity only), structured (workflow+rules), agentic (full self-check), enhanced (full production prompt)")
     parser.add_argument("--work-dir", default="/tmp/swebench-experiment", help="Working directory")
     parser.add_argument("--output", help="Output predictions file")

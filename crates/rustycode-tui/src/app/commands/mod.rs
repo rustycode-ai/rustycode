@@ -95,6 +95,7 @@ pub struct CommandContext<'a> {
 }
 
 /// Result of executing a command
+#[derive(Debug)]
 pub enum CommandEffect {
     /// No immediate effect (async operation started)
     AsyncStarted(String),
