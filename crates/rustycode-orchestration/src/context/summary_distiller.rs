@@ -22,6 +22,15 @@ static ARRAY_START_RE: std::sync::LazyLock<Regex> =
 #[allow(clippy::unwrap_used)]
 static ITEM_RE: std::sync::LazyLock<Regex> =
     std::sync::LazyLock::new(|| Regex::new(r"^\s+-\s+(.+)$").unwrap());
+#[allow(clippy::unwrap_used)]
+static FRONTMATTER_EXTRACT_RE: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"^---\r?\n([\s\S]*?)\r?\n---").unwrap());
+#[allow(clippy::unwrap_used)]
+static TITLE_RE: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"^#\s+(\S+):\s*(.*)$").unwrap());
+#[allow(clippy::unwrap_used)]
+static FRONTMATTER_STRIP_RE: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"^---\r?\n[\s\S]*?\r?\n---\r?\n?").unwrap());
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -75,7 +84,7 @@ fn parse_frontmatter(raw: &str) -> ParsedFrontmatter {
     let mut result = ParsedFrontmatter::default();
 
     // Extract frontmatter block between --- markers
-    let fm_match = Regex::new(r"^---\r?\n([\s\S]*?)\r?\n---").unwrap();
+    let fm_match = &*FRONTMATTER_EXTRACT_RE;
     let fm_block = match fm_match.captures(raw) {
         Some(caps) => caps.get(1).map_or("", |m| m.as_str()),
         None => return result,
@@ -138,7 +147,7 @@ fn extract_title_and_one_liner(body: &str) -> (String, String) {
     let mut one_liner = String::new();
     let mut found_title = false;
 
-    let title_re = Regex::new(r"^#\s+(\S+):\s*(.*)$").unwrap();
+    let title_re = &*TITLE_RE;
 
     for line in body.lines() {
         if let Some(caps) = title_re.captures(line) {
@@ -170,7 +179,7 @@ fn extract_title_and_one_liner(body: &str) -> (String, String) {
 /// Get body content after frontmatter
 #[allow(clippy::unwrap_used)]
 fn get_body_after_frontmatter(raw: &str) -> String {
-    let fm_re = Regex::new(r"^---\r?\n[\s\S]*?\r?\n---\r?\n?").unwrap();
+    let fm_re = &*FRONTMATTER_STRIP_RE;
     fm_re.captures(raw).map_or_else(
         || raw.to_string(),
         |caps| {

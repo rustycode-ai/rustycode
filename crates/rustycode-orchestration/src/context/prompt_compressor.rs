@@ -79,6 +79,9 @@ static STRUCT_PATTERN_RE: std::sync::LazyLock<Regex> =
 #[allow(clippy::unwrap_used)]
 static TABLE_PADDING_RE: std::sync::LazyLock<Regex> =
     std::sync::LazyLock::new(|| Regex::new(r"\|[ \t]{2,}([^|\n]*?)[ \t]{2,}\|").unwrap());
+#[allow(clippy::unwrap_used)]
+static WHITESPACE_NORMALIZE_RE: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"(\n\s*){3,}\n").unwrap());
 
 /// Compression intensity levels
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -228,8 +231,7 @@ fn restore_code_blocks(text: &str, blocks: &[String]) -> String {
 
 #[allow(clippy::unwrap_used)]
 fn normalize_whitespace(content: &str) -> String {
-    // Collapse 3+ consecutive blank lines to 2
-    let re = Regex::new(r"(\n\s*){3,}\n").unwrap();
+    let re = &*WHITESPACE_NORMALIZE_RE;
     let result = re.replace_all(content, "\n\n");
     // Trim trailing whitespace on every line
     result

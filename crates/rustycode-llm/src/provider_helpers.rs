@@ -176,7 +176,7 @@ pub fn model_cost(model: &str) -> Option<(f64, f64)> {
 /// ```
 /// # use rustycode_llm::provider_helpers::context_window;
 /// let ctx = context_window("claude-sonnet-4-6").unwrap();
-/// assert_eq!(ctx, 200000);
+/// assert_eq!(ctx, 1_000_000);
 /// ```
 pub fn context_window(model: &str) -> Option<usize> {
     let registry = registry();

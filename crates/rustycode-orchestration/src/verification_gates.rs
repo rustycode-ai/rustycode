@@ -376,6 +376,7 @@ impl RuleFileVerificationGate {
             "ToolTimeout" => SignalCategory::ToolTimeout,
             "ContextLengthExceeded" => SignalCategory::ContextLengthExceeded,
             "Internal" => SignalCategory::Internal,
+            "Fatal" => SignalCategory::Fatal,
             _ => SignalCategory::Custom(category_str.to_string()),
         }
     }

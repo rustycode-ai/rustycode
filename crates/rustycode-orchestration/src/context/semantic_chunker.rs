@@ -88,13 +88,6 @@ pub struct RelevanceOptions {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-/// Regex pattern for code boundaries
-const CODE_BOUNDARY_RE: &str =
-    r"^(export\s+)?(async\s+)?(function|class|interface|type|const|enum)\s";
-
-/// Regex pattern for markdown headings
-const MARKDOWN_HEADING_RE: &str = r"^#{1,6}\s";
-
 /// Default minimum lines per chunk
 const DEFAULT_MIN_LINES: usize = 3;
 
@@ -275,8 +268,7 @@ pub fn split_into_chunks(content: &str, options: Option<&ChunkOptions>) -> Vec<C
 }
 
 fn find_code_boundaries(lines: &[String]) -> Vec<usize> {
-    #[allow(clippy::unwrap_used)]
-    let re = regex::Regex::new(CODE_BOUNDARY_RE).unwrap();
+    let re = &*CODE_BOUNDARY_REGEX;
     let mut boundaries: Vec<usize> = Vec::new();
 
     for (i, line) in lines.iter().enumerate() {
@@ -292,8 +284,7 @@ fn find_code_boundaries(lines: &[String]) -> Vec<usize> {
 }
 
 fn find_markdown_boundaries(lines: &[String]) -> Vec<usize> {
-    #[allow(clippy::unwrap_used)]
-    let re = regex::Regex::new(MARKDOWN_HEADING_RE).unwrap();
+    let re = &*MARKDOWN_HEADING_REGEX;
     lines
         .iter()
         .enumerate()
