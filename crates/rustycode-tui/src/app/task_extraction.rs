@@ -297,7 +297,7 @@ pub fn extract_todos_from_tool_result(tool_name: &str, output: &str) -> Vec<Stri
     let mut todos = Vec::new();
 
     match tool_name {
-        "Grep" | "search_files" | "ripgrep" => {
+        tn::GREP | "search_files" | "ripgrep" => {
             // Extract TODO/FIXME from grep results
             // Grep output format: "path/to/file.rs:42: // TODO: description"
             // We need to find the TODO:/FIXME: marker, not the first colon (which is in the file path)

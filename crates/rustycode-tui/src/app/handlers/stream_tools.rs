@@ -420,7 +420,7 @@ pub(super) fn handle_tool_complete_chunk(
                 }
             } else if matches!(
                 tool_name.as_str(),
-                "Write" | "Edit" | "MultiEdit" | "ApplyPatch" | "Bash"
+                tn::WRITE | tn::EDIT | tn::MULTI_EDIT | tn::APPLY_PATCH | tn::BASH
             ) {
                 budget.record_code();
             }

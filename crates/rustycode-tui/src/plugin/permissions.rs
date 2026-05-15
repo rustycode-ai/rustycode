@@ -1,5 +1,6 @@
 //! Plugin permission system
 
+use rustycode_protocol::tool_names as tn;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::str::FromStr;
@@ -60,8 +61,8 @@ impl FromStr for Permission {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "read" | "Read" | "read_file" => Ok(Permission::ReadFile),
-            "write" | "Write" | "write_file" => Ok(Permission::WriteFile),
+            "read" | tn::READ | "read_file" => Ok(Permission::ReadFile),
+            "write" | tn::WRITE | "write_file" => Ok(Permission::WriteFile),
             "execute_command" => Ok(Permission::ExecuteCommand),
             "network_request" => Ok(Permission::NetworkRequest),
             "notification" => Ok(Permission::Notification),

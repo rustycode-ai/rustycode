@@ -1,5 +1,6 @@
 //! Tracks repeated AI errors (failed tools, build failures, test failures) and
 
+use rustycode_protocol::tool_names as tn;
 use rustycode_protocol::CircularBuffer;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -212,8 +213,8 @@ impl MistakeTracker {
 
     fn get_alternative_example(&self, operation: &str, mistake_type: &MistakeType) -> String {
         match (operation, mistake_type) {
-            ("Bash", _) => "Instead of Bash, try using the specific tool (Read, Write, etc.) directly".to_string(),
-            ("Edit", _) => "Use apply_patch for multi-hunk changes, or read the file first to see its exact content".to_string(),
+            (tn::BASH, _) => "Instead of Bash, try using the specific tool (Read, Write, etc.) directly".to_string(),
+            (tn::EDIT, _) => "Use apply_patch for multi-hunk changes, or read the file first to see its exact content".to_string(),
             (_, MistakeType::FileNotFoundError) => "Use 'Glob' or 'ListDir' to find the correct file path first".to_string(),
             _ => "Let me try a different approach to solve this problem".to_string(),
         }

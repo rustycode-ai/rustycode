@@ -386,6 +386,64 @@ impl AppShell {
         command_dispatch::CommandDispatch::is_registered(name, &self.registry)
     }
 
+    /// Run the AppShell event loop.
+    ///
+    /// This owns the terminal loop but takes dependencies by reference so the host
+    /// (lib.rs) manages their lifecycle.
+    pub fn run(
+        &mut self,
+        terminal: &mut ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>,
+        services: &mut crate::app::service_integration::ServiceManager,
+        shutdown_rx: std::sync::mpsc::Receiver<()>,
+    ) -> anyhow::Result<()> {
+        use std::time::{Duration, Instant};
+
+        let mut last_tick = Instant::now();
+        let tick_rate = Duration::from_millis(50); // 20 FPS max for generic UI updates
+
+        while !self.should_exit {
+            // 1. Check shutdown signal
+            if shutdown_rx.try_recv().is_ok() {
+                self.request_exit();
+                break;
+            }
+
+            // 2. Poll services and route events
+            let (_event_count, actions) = self.poll_and_route(services);
+            self.process_actions(actions);
+
+            // 3. Process UI tick
+            if last_tick.elapsed() >= tick_rate {
+                let actions = self.handle_event(TuiEvent::Tick);
+                self.process_actions(actions);
+                last_tick = Instant::now();
+            }
+
+            // 4. Render frame
+            terminal.draw(|frame| {
+                self.render_frame(frame, false, false, false);
+            })?;
+
+            // 5. Poll input events (with a short timeout to maintain frame rate)
+            let timeout = tick_rate.saturating_sub(last_tick.elapsed());
+            if crossterm::event::poll(timeout)? {
+                match crossterm::event::read()? {
+                    crossterm::event::Event::Key(key) => {
+                        let actions = self.handle_event(TuiEvent::Key(key));
+                        self.process_actions(actions);
+                    }
+                    crossterm::event::Event::Resize(width, height) => {
+                        let actions = self.handle_event(TuiEvent::Resize { width, height });
+                        self.process_actions(actions);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Polls services and routes events to registered features.
     ///
     /// Replaces the previous `poll_services()` logic:

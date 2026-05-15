@@ -134,6 +134,11 @@ pub fn run(cwd: PathBuf, reconfigure: bool, resume: bool) -> Result<()> {
         return Ok(());
     }
 
+    // New shell entrypoint
+    if std::env::var("TUI_NEW_SHELL").is_ok() {
+        return run_with_shell(cwd, reconfigure, resume);
+    }
+
     // Apply shell_environment_policy.set from config before anything else
     // so that API keys and base URLs are available for provider initialization.
     match rustycode_config::Config::load(&cwd) {
@@ -198,13 +203,24 @@ pub fn run(cwd: PathBuf, reconfigure: bool, resume: bool) -> Result<()> {
 ///
 /// Still in development — the event loop here is a placeholder that
 /// constructs the shell and returns immediately.
-pub fn run_with_shell(_cwd: PathBuf, _reconfigure: bool, _resume: bool) -> Result<()> {
+pub fn run_with_shell(cwd: PathBuf, _reconfigure: bool, _resume: bool) -> Result<()> {
     use std::sync::{Arc, RwLock};
 
     use crate::app::features::plugin_manager::PluginManagerFeature;
     use crate::app::shell::AppShell;
     use crate::plugin::PluginManager;
     use crate::theme::Theme;
+
+    // Apply shell_environment_policy.set from config before anything else
+    match rustycode_config::Config::load(&cwd) {
+        Ok(cfg) => {
+            cfg.shell_environment_policy.apply_to_env();
+        }
+        Err(e) => {
+            eprintln!("[rtk] Warning: Failed to load config: {}", e);
+        }
+    }
+    std::env::set_var("RUSTYCODE_TUI", "1");
 
     let theme = Arc::new(Theme::default());
     let mut shell = AppShell::new(theme);
@@ -213,10 +229,53 @@ pub fn run_with_shell(_cwd: PathBuf, _reconfigure: bool, _resume: bool) -> Resul
     let plugin_feature = PluginManagerFeature::new(manager);
     shell.register_feature(Box::new(plugin_feature));
 
-    // TODO: Implement the full shell event loop (terminal setup, event polling,
-    // render loop). For now this proves the dual-path wiring compiles and
-    // the feature lifecycle works via tests.
     tracing::info!("AppShell initialized with PluginManagerFeature (dual-path)");
+
+    crate::app::event_loop::install_panic_hook();
+
+    let stdout = std::io::stdout();
+    let backend = ratatui::backend::CrosstermBackend::new(stdout);
+    let mut terminal = ratatui::Terminal::new(backend)?;
+
+    crossterm::execute!(
+        std::io::stdout(),
+        crossterm::terminal::EnterAlternateScreen,
+        crossterm::event::EnableBracketedPaste,
+        crossterm::event::EnableMouseCapture,
+    )?;
+    terminal.clear()?;
+    crossterm::terminal::enable_raw_mode()?;
+
+    struct TerminalCleanupGuard;
+    impl Drop for TerminalCleanupGuard {
+        fn drop(&mut self) {
+            let _ = crossterm::terminal::disable_raw_mode();
+            let _ = crossterm::execute!(
+                std::io::stdout(),
+                crossterm::terminal::LeaveAlternateScreen,
+                crossterm::event::DisableBracketedPaste,
+                crossterm::event::DisableMouseCapture,
+            );
+        }
+    }
+    let _guard = TerminalCleanupGuard;
+
+    let (shutdown_tx, shutdown_rx) = std::sync::mpsc::channel();
+    ctrlc::set_handler(move || {
+        let _ = shutdown_tx.send(());
+    })
+    .unwrap_or_else(|e| tracing::error!("Failed to set Ctrl+C handler: {}", e));
+
+    let config = crate::services::config::load_config();
+    let initial_mode = if config.behavior.yolo_mode {
+        crate::services::agent_mode::AiMode::Yolo
+    } else {
+        crate::services::agent_mode::AiMode::Ask
+    };
+
+    let mut services = crate::app::service_integration::ServiceManager::new(cwd, initial_mode);
+
+    shell.run(&mut terminal, &mut services, shutdown_rx)?;
 
     Ok(())
 }

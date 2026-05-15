@@ -1,3 +1,4 @@
+use rustycode_protocol::tool_names as tn;
 use rustycode_tools::ToolProfile;
 
 #[derive(Clone, Copy, Debug, PartialEq, Hash, Default)]
@@ -192,16 +193,16 @@ You can add comments and documentation, but avoid changing code logic.
         // Fallback: if tool has no tags yet, allow basic tools
         matches!(
             tool_name,
-            "Read"
-                | "ListDir"
-                | "Grep"
-                | "Glob"
-                | "Bash"
-                | "Edit"
-                | "Write"
+            tn::READ
+                | tn::LIST_DIR
+                | tn::GREP
+                | tn::GLOB
+                | tn::BASH
+                | tn::EDIT
+                | tn::WRITE
                 | "question"
-                | "WebSearch"
-                | "WebFetch"
+                | tn::WEB_SEARCH
+                | tn::WEB_FETCH
         )
     }
 

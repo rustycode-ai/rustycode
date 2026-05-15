@@ -88,7 +88,7 @@ impl Drop for TerminalCleanupGuard {
 }
 
 /// Install panic hook to ensure terminal cleanup on panic
-fn install_panic_hook() {
+pub fn install_panic_hook() {
     std::panic::set_hook(Box::new(|panic_info| {
         let _ = crossterm::terminal::disable_raw_mode();
         let _ = crossterm::execute!(

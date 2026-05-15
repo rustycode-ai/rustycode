@@ -1,6 +1,7 @@
 //! Token autocompaction for RustyCode TUI
 
 use crate::ui::message::{Message, MessageRole};
+use rustycode_protocol::tool_names as tn;
 use rustycode_providers::predefined;
 use std::time::Instant;
 
@@ -641,11 +642,11 @@ fn truncate_smart(s: &str, max_len: usize) -> String {
 /// Extract a file path from tool input JSON if present.
 fn extract_path_from_input(tool_name: &str, input: &serde_json::Value) -> Option<String> {
     match tool_name {
-        "Read" | "Write" | "Edit" => input
+        tn::READ | tn::WRITE | tn::EDIT => input
             .get("path")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string()),
-        "Bash" => input
+        tn::BASH => input
             .get("command")
             .and_then(|v| v.as_str())
             .and_then(|cmd| {
@@ -657,7 +658,7 @@ fn extract_path_from_input(tool_name: &str, input: &serde_json::Value) -> Option
                 }
                 None
             }),
-        "ListDir" => input
+        tn::LIST_DIR => input
             .get("path")
             .and_then(|v| v.as_str())
             .map(|s| format!("{}/", s)),

@@ -1,5 +1,6 @@
 //! Tool-specific error messages and recovery suggestions
 
+use rustycode_protocol::tool_names as tn;
 use std::collections::HashMap;
 
 /// Types of tool errors with specific recovery suggestions
@@ -162,13 +163,13 @@ impl ErrorTracker {
         }
 
         match tool_name {
-            "Bash" => Some(
+            tn::BASH => Some(
                 "Instead of using bash, try using a specific tool designed for this operation".to_string(),
             ),
-            "Edit" | "ApplyPatch" => Some(
+            tn::EDIT | tn::APPLY_PATCH => Some(
                 "For repeated edit failures, try using write_file to replace the entire file content".to_string(),
             ),
-            "Read" => Some(
+            tn::READ => Some(
                 "If read_file is failing, the file may not exist. Use glob to find it first".to_string(),
             ),
             _ => Some(format!(

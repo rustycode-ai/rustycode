@@ -14,6 +14,7 @@
 //! - No `&mut AppShell` or `&mut TUI` in any feature module.
 
 // ── Feature implementations ──────────────────────────────────────────────
+pub mod mcp_panel;
 pub mod plugin_manager;
 pub mod session;
 pub mod session_streaming;
