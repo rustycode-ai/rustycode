@@ -224,7 +224,9 @@ impl FileSelectorFeature {
                 e.into_inner()
             }
         };
-        finder.take_selected().map(|fi| fi.path.display().to_string())
+        finder
+            .take_selected()
+            .map(|fi| fi.path.display().to_string())
     }
 }
 
@@ -276,11 +278,14 @@ mod tests {
     // -- Helpers -----------------------------------------------------------
 
     fn make_feature() -> FileSelectorFeature {
-        FileSelectorFeature::new(std::env::temp_dir(), vec![
-            "src/main.rs".to_string(),
-            "src/lib.rs".to_string(),
-            "Cargo.toml".to_string(),
-        ])
+        FileSelectorFeature::new(
+            std::env::temp_dir(),
+            vec![
+                "src/main.rs".to_string(),
+                "src/lib.rs".to_string(),
+                "Cargo.toml".to_string(),
+            ],
+        )
     }
 
     fn test_theme_colors() -> ThemeColors {

@@ -143,11 +143,7 @@ impl TuiFeature for ThemeFeature {
         reg.register_route(Self::ROUTE, self.id());
         reg.register_command(Self::CMD_OPEN, self.id());
         reg.register_command(Self::CMD_OPEN_ALIAS, self.id());
-        reg.register_keymap(
-            Self::KEYMAP_NEXT.to_string(),
-            self.id(),
-            "cycle_next_theme",
-        );
+        reg.register_keymap(Self::KEYMAP_NEXT.to_string(), self.id(), "cycle_next_theme");
         reg.register_keymap(
             Self::KEYMAP_TOGGLE.to_string(),
             self.id(),

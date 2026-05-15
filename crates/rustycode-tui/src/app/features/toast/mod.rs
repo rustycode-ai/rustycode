@@ -125,7 +125,7 @@ impl TuiFeature for ToastFeature {
             }
             let area = ctx.frame_area;
             let colors = self.theme_colors.lock().ok();
-            let theme_ref = colors.as_ref().map(|c| &*c as &ThemeColors);
+            let theme_ref = colors.as_ref().map(|c| c as &ThemeColors);
             mgr.render(frame, area, theme_ref);
         }
     }
@@ -160,6 +160,26 @@ mod tests {
         ToastFeature::new(colors)
     }
 
+    fn make_update_ctx<'a>(
+        theme_colors: &'a ThemeColors,
+        navigate: &'a mut dyn FnMut(RouteId),
+        dispatch_command: &'a mut dyn FnMut(&str),
+        approve_tool: &'a mut dyn FnMut(String, bool),
+    ) -> UpdateCtx<'a> {
+        UpdateCtx {
+            has_focus: false,
+            focused_surface: None,
+            is_streaming: false,
+            pending_tools: 0,
+            plan_mode_active: false,
+            auto_continue_enabled: false,
+            theme_colors,
+            navigate,
+            dispatch_command,
+            approve_tool,
+        }
+    }
+
     #[test]
     fn new_creates_empty_state() {
         let f = make_feature();
@@ -188,7 +208,7 @@ mod tests {
     fn dismiss_toast_removes_it() {
         let f = make_feature();
         let id = {
-            let mgr = f.toasts.lock().unwrap();
+            let mut mgr = f.toasts.lock().unwrap();
             mgr.add(Toast::new(ToastLevel::Info, "bye"))
         };
         assert!(f.dismiss_toast(id));
@@ -214,7 +234,7 @@ mod tests {
     fn show_error_stores_in_error_manager() {
         let f = make_feature();
         f.show_error(ErrorSeverity::Error, "something broke");
-        let mgr = f.errors.lock().unwrap();
+        let mut mgr = f.errors.lock().unwrap();
         assert!(mgr.is_showing());
     }
 
@@ -223,8 +243,8 @@ mod tests {
         let f = make_feature();
         let mut reg = FeatureRegistry::new();
         f.register(&mut reg);
-        assert_eq!(reg.surface_feature(&ToastFeature::SURFACE), Some("toast"));
-        assert_eq!(reg.route_feature(&ToastFeature::ROUTE), Some("toast"));
+        assert_eq!(reg.surface_feature(ToastFeature::SURFACE), Some("toast"));
+        assert_eq!(reg.route_feature(ToastFeature::ROUTE), Some("toast"));
     }
 
     #[test]
@@ -240,7 +260,12 @@ mod tests {
     fn update_tick_advances_timers() {
         let mut f = make_feature();
         f.show_toast(ToastLevel::Info, "short-lived");
-        let actions = f.update(&TuiEvent::Tick, &mut UpdateCtx::default());
+        let tc = test_theme_colors();
+        let mut nav = |_route: RouteId| {};
+        let mut cmd = |_c: &str| {};
+        let mut tool = |_id: String, _ok: bool| {};
+        let mut ctx = make_update_ctx(&tc, &mut nav, &mut cmd, &mut tool);
+        let actions = f.update(&TuiEvent::Tick, &mut ctx);
         assert!(actions.is_empty());
         assert!(f.has_active_toasts());
     }
@@ -248,7 +273,12 @@ mod tests {
     #[test]
     fn update_ignores_non_tick() {
         let mut f = make_feature();
-        let actions = f.update(&TuiEvent::FocusGained, &mut UpdateCtx::default());
+        let tc = test_theme_colors();
+        let mut nav = |_route: RouteId| {};
+        let mut cmd = |_c: &str| {};
+        let mut tool = |_id: String, _ok: bool| {};
+        let mut ctx = make_update_ctx(&tc, &mut nav, &mut cmd, &mut tool);
+        let actions = f.update(&TuiEvent::FocusGained, &mut ctx);
         assert!(actions.is_empty());
     }
 
@@ -263,7 +293,7 @@ mod tests {
     fn handle_command_add_error() {
         let mut f = make_feature();
         f.handle_command("/error something failed");
-        let mgr = f.errors.lock().unwrap();
+        let mut mgr = f.errors.lock().unwrap();
         assert!(mgr.is_showing());
     }
 

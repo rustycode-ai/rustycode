@@ -198,16 +198,15 @@ impl CommandPaletteFeature {
 impl CommandPaletteFeature {
     /// Handle a keyboard event when the command palette is visible.
     fn handle_key_event(&mut self, key: KeyEvent) -> Vec<TuiAction> {
-        // Ctrl+K opens palette when hidden
+        if key.code == KeyCode::Char('k')
+            && key.modifiers.contains(KeyModifiers::CONTROL)
+            && !key.modifiers.contains(KeyModifiers::SHIFT)
+            && !key.modifiers.contains(KeyModifiers::ALT)
+        {
+            return self.toggle_visibility();
+        }
+
         if !self.state.visible {
-            if key.code == KeyCode::Char('k')
-                && key.modifiers.contains(KeyModifiers::CONTROL)
-                && !key.modifiers.contains(KeyModifiers::SHIFT)
-                && !key.modifiers.contains(KeyModifiers::ALT)
-            {
-                self.show();
-                return vec![TuiAction::OpenModal(Self::MODAL)];
-            }
             return Vec::new();
         }
 
@@ -384,9 +383,7 @@ mod tests {
         assert!(reg
             .surface_feature(SurfaceId::new("command_palette"))
             .is_some());
-        assert!(reg
-            .route_feature(RouteId::new("command_palette"))
-            .is_some());
+        assert!(reg.route_feature(RouteId::new("command_palette")).is_some());
         assert!(reg.command_feature("/palette").is_some());
         assert!(reg.command_feature("/palette close").is_some());
         assert!(reg.keymap_feature("Ctrl+K").is_some());
@@ -510,7 +507,7 @@ mod tests {
         let mut ctx = make_update_ctx(&theme, &mut nav, &mut dispatch, &mut approve);
 
         // When visible, Ctrl+K is handled by CommandPalette (which toggles off)
-        let actions = feature.update(&TuiEvent::Key(ctrl_k()), &mut ctx);
+        let _actions = feature.update(&TuiEvent::Key(ctrl_k()), &mut ctx);
         // CommandPalette.handle_key on Ctrl+K should toggle off
         assert!(!feature.is_visible());
     }

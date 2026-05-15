@@ -35,7 +35,7 @@ use ratatui::Frame;
 /// Handles key events for opening/closing help and delegates rendering
 /// to the existing `render_help` function.
 pub struct HelpFeature {
-    state: HelpState,
+    state: std::sync::Mutex<HelpState>,
 }
 
 /// Backward-compatible alias.
@@ -45,23 +45,24 @@ impl HelpFeature {
     /// Create a new `HelpFeature`. The help overlay starts hidden.
     pub fn new() -> Self {
         Self {
-            state: HelpState::new(),
+            state: std::sync::Mutex::new(HelpState::new()),
         }
     }
 
-    /// Show the help overlay.
     pub fn show(&mut self) {
-        self.state.show();
+        if let Ok(mut state) = self.state.lock() {
+            state.show();
+        }
     }
 
-    /// Hide the help overlay.
     pub fn hide(&mut self) {
-        self.state.hide();
+        if let Ok(mut state) = self.state.lock() {
+            state.hide();
+        }
     }
 
-    /// Check if the help overlay is visible.
     pub fn is_visible(&self) -> bool {
-        self.state.visible
+        self.state.lock().map(|s| s.visible).unwrap_or(false)
     }
 
     /// Surface ID used by this feature.
@@ -102,11 +103,7 @@ impl TuiFeature for HelpFeature {
         reg.register_route(Self::ROUTE, self.id());
         reg.register_command(Self::CMD_OPEN, self.id());
         reg.register_command(Self::CMD_CLOSE, self.id());
-        reg.register_keymap(
-            Self::KEYMAP_QUESTION.to_string(),
-            self.id(),
-            "toggle_help",
-        );
+        reg.register_keymap(Self::KEYMAP_QUESTION.to_string(), self.id(), "toggle_help");
         reg.register_keymap(Self::KEYMAP_F1.to_string(), self.id(), "toggle_help");
     }
 
@@ -118,18 +115,19 @@ impl TuiFeature for HelpFeature {
     }
 
     fn render(&self, surface: SurfaceId, frame: &mut Frame, ctx: &RenderCtx) {
-        if surface != Self::SURFACE || !self.state.visible {
+        if surface != Self::SURFACE {
             return;
         }
 
-        // Delegate to the existing help rendering function.
-        // We need a mutable reference for scroll clamping.
-        let state_ptr = &self.state as *const HelpState as *mut HelpState;
-        // SAFETY: render is called with &self, and the existing render_help
-        // only mutates scroll_offset (a derived value). This is the same
-        // pattern used by the existing codebase.
-        let state_mut = unsafe { &mut *state_ptr };
-        crate::help::render_help(frame, ctx.frame_area, state_mut);
+        let Ok(mut state) = self.state.lock() else {
+            return;
+        };
+
+        if !state.visible {
+            return;
+        }
+
+        crate::help::render_help(frame, ctx.frame_area, &mut state);
     }
 
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
@@ -166,7 +164,8 @@ impl HelpFeature {
     /// Called when the keymap shortcut (`?` or `F1`) is pressed.
     /// Returns `OpenModal` if shown, `CloseModal` if hidden.
     pub fn toggle_visibility(&mut self) -> Vec<TuiAction> {
-        if self.state.visible {
+        let visible = self.state.lock().map(|s| s.visible).unwrap_or(false);
+        if visible {
             self.hide();
             vec![TuiAction::CloseModal]
         } else {
@@ -183,8 +182,13 @@ impl HelpFeature {
 impl HelpFeature {
     /// Handle a keyboard event.
     fn handle_key_event(&mut self, key: KeyEvent) -> Vec<TuiAction> {
+        let Ok(mut state) = self.state.lock() else {
+            return Vec::new();
+        };
+
         // `?` or F1 opens help when hidden
-        if !self.state.visible {
+        if !state.visible {
+            drop(state);
             let is_help_trigger = (key.code == KeyCode::Char('?')
                 && key.modifiers == KeyModifiers::NONE)
                 || key.code == KeyCode::F(1);
@@ -199,19 +203,21 @@ impl HelpFeature {
         // Help is visible — handle navigation
         match key.code {
             KeyCode::Esc => {
+                drop(state);
                 self.hide();
                 vec![TuiAction::CloseModal]
             }
             KeyCode::Up => {
-                self.state.scroll_offset = self.state.scroll_offset.saturating_sub(1);
+                state.scroll_offset = state.scroll_offset.saturating_sub(1);
                 vec![TuiAction::MarkDirty]
             }
             KeyCode::Down => {
-                self.state.scroll_offset = self.state.scroll_offset.saturating_add(1);
+                state.scroll_offset = state.scroll_offset.saturating_add(1);
                 vec![TuiAction::MarkDirty]
             }
             KeyCode::Char('?') | KeyCode::F(1) => {
                 // Toggle off when already visible
+                drop(state);
                 self.hide();
                 vec![TuiAction::CloseModal]
             }
@@ -305,9 +311,10 @@ mod tests {
     fn new_creates_hidden_state() {
         let feature = make_feature();
         assert_eq!(feature.id(), "help");
-        assert!(!feature.state.visible);
-        assert!(feature.state.search_query.is_empty());
-        assert_eq!(feature.state.scroll_offset, 0);
+        let state = feature.state.lock().unwrap();
+        assert!(!state.visible);
+        assert!(state.search_query.is_empty());
+        assert_eq!(state.scroll_offset, 0);
     }
 
     #[test]
@@ -324,10 +331,7 @@ mod tests {
         let mut reg = FeatureRegistry::new();
         feature.register(&mut reg);
 
-        assert_eq!(
-            reg.surface_feature(SurfaceId::new("help")),
-            Some("help")
-        );
+        assert_eq!(reg.surface_feature(SurfaceId::new("help")), Some("help"));
         assert_eq!(reg.route_feature(RouteId::new("help")), Some("help"));
     }
 
@@ -474,11 +478,11 @@ mod tests {
 
         let actions = feature.update(&TuiEvent::Key(down_key()), &mut ctx);
         assert!(matches!(actions[0], TuiAction::MarkDirty));
-        assert_eq!(feature.state.scroll_offset, 1);
+        assert_eq!(feature.state.lock().unwrap().scroll_offset, 1);
 
         let actions = feature.update(&TuiEvent::Key(up_key()), &mut ctx);
         assert!(matches!(actions[0], TuiAction::MarkDirty));
-        assert_eq!(feature.state.scroll_offset, 0);
+        assert_eq!(feature.state.lock().unwrap().scroll_offset, 0);
     }
 
     #[test]

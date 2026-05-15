@@ -14,11 +14,19 @@
 //! - No `&mut AppShell` or `&mut TUI` in any feature module.
 
 // ── Feature implementations ──────────────────────────────────────────────
+pub mod command_palette;
+pub mod file_selector;
+pub mod help;
 pub mod mcp_panel;
 pub mod plugin_manager;
+pub mod search;
 pub mod session;
 pub mod session_streaming;
+pub mod team;
+pub mod theme;
+pub mod toast;
 pub mod tool_panel;
+pub mod worker_panel;
 pub mod workspace;
 
 use crate::app::async_::StreamChunk;

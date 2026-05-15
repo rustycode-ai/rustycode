@@ -19,14 +19,15 @@
 //! ## Rendering
 //! Delegates to [`WorkerPanel`] rendering when visible.
 
-use crate::agents::{Worker, WorkerEvent};
 use crate::app::features::{
     FeatureRegistry, ModalId, RenderCtx, RouteId, SurfaceId, TuiAction, TuiEvent, TuiFeature,
     UpdateCtx,
 };
 use crate::ui::worker_panel::WorkerPanel;
 use crossterm::event::KeyEvent;
+use ratatui::prelude::Widget;
 use ratatui::Frame;
+use rustycode_orchestration::worker_registry::{Worker, WorkerEvent};
 use std::sync::Mutex;
 
 // ---------------------------------------------------------------------------
@@ -159,7 +160,9 @@ impl TuiFeature for WorkerPanelFeature {
             }
         };
 
-        panel.render(frame, ctx.frame_area);
+        let panel_clone = panel.clone();
+        drop(panel);
+        frame.render_widget(panel_clone, ctx.frame_area);
     }
 
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
@@ -232,12 +235,7 @@ impl WorkerPanelFeature {
                 modifiers: KeyModifiers::NONE,
                 ..
             } => {
-                let worker_count = self
-                    .state
-                    .worker_list
-                    .lock()
-                    .map(|w| w.len())
-                    .unwrap_or(0);
+                let worker_count = self.state.worker_list.lock().map(|w| w.len()).unwrap_or(0);
                 self.state.selected_worker =
                     (self.state.selected_worker + 1).min(worker_count.saturating_sub(1));
                 vec![TuiAction::MarkDirty]
@@ -325,17 +323,19 @@ mod tests {
     }
 
     fn sample_worker(name: &str) -> Worker {
+        use rustycode_orchestration::worker_registry::WorkerStatus;
         Worker {
-            id: name.to_string(),
-            role: "coder".to_string(),
-            task: format!("task for {name}"),
-            status: "running".to_string(),
-            progress: 0.5,
-            events: vec![WorkerEvent {
-                timestamp: "2026-01-01T00:00:00Z".to_string(),
-                event_type: "start".to_string(),
-                message: format!("{name} started"),
-            }],
+            worker_id: name.to_string(),
+            status: WorkerStatus::Running,
+            cwd: "/tmp".to_string(),
+            task_id: Some(format!("task-{name}")),
+            task_description: Some(format!("task for {name}")),
+            trust_gate_cleared: true,
+            last_error: None,
+            result_summary: None,
+            created_at: 0,
+            updated_at: 0,
+            events: vec![],
         }
     }
 
@@ -603,8 +603,18 @@ mod tests {
     fn down_key_clamps_to_worker_count() {
         let mut feature = make_feature();
         feature.show();
-        feature.state.worker_list.lock().unwrap().push(sample_worker("w1"));
-        feature.state.worker_list.lock().unwrap().push(sample_worker("w2"));
+        feature
+            .state
+            .worker_list
+            .lock()
+            .unwrap()
+            .push(sample_worker("w1"));
+        feature
+            .state
+            .worker_list
+            .lock()
+            .unwrap()
+            .push(sample_worker("w2"));
 
         let theme = test_theme_colors();
         let mut nav = |_route: RouteId| {};
@@ -651,6 +661,6 @@ mod tests {
         }
         let list = feature.state.worker_list.lock().unwrap();
         assert_eq!(list.len(), 2);
-        assert_eq!(list[0].id, "w1");
+        assert_eq!(list[0].worker_id, "w1");
     }
 }

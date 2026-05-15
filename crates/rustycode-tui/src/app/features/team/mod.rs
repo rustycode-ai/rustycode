@@ -27,6 +27,7 @@ use crate::app::features::{
 use crate::app::team_mode_handler::TeamModeHandler;
 use crate::ui::team_panel::TeamPanel;
 use crossterm::event::KeyEvent;
+use ratatui::prelude::Widget;
 use ratatui::Frame;
 use std::sync::Mutex;
 
@@ -143,11 +144,7 @@ impl TuiFeature for TeamFeature {
         reg.register_route(Self::ROUTE, self.id());
         reg.register_command(Self::CMD_OPEN, self.id());
         reg.register_command(Self::CMD_CLOSE, self.id());
-        reg.register_keymap(
-            Self::KEYMAP_TOGGLE.to_string(),
-            self.id(),
-            "toggle_team",
-        );
+        reg.register_keymap(Self::KEYMAP_TOGGLE.to_string(), self.id(), "toggle_team");
     }
 
     fn update(&mut self, event: &TuiEvent, _ctx: &mut UpdateCtx) -> Vec<TuiAction> {
@@ -170,8 +167,10 @@ impl TuiFeature for TeamFeature {
             }
         };
 
-        // Delegate rendering to the TeamPanel widget
-        panel.render(frame, ctx.frame_area);
+        // Delegate rendering to the TeamPanel widget (clone for Widget::render which takes self)
+        let panel_clone = panel.clone();
+        drop(panel);
+        frame.render_widget(panel_clone, ctx.frame_area);
     }
 
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
@@ -255,7 +254,7 @@ impl TeamFeature {
                 modifiers: KeyModifiers::NONE,
                 ..
             } => {
-                let agent_count = panel.active_agent_name().map_or(5, |_| 5);
+                let agent_count: usize = panel.active_agent_name().map_or(5, |_| 5);
                 self.state.selected_agent =
                     (self.state.selected_agent + 1).min(agent_count.saturating_sub(1));
                 vec![TuiAction::MarkDirty]
@@ -368,14 +367,8 @@ mod tests {
         let mut reg = FeatureRegistry::new();
         feature.register(&mut reg);
 
-        assert_eq!(
-            reg.surface_feature(SurfaceId::new("team")),
-            Some("team")
-        );
-        assert_eq!(
-            reg.route_feature(RouteId::new("team")),
-            Some("team")
-        );
+        assert_eq!(reg.surface_feature(SurfaceId::new("team")), Some("team"));
+        assert_eq!(reg.route_feature(RouteId::new("team")), Some("team"));
     }
 
     #[test]
