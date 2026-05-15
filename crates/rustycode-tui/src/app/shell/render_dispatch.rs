@@ -457,9 +457,8 @@ mod tests {
         assert!(!layout.is_too_small);
         assert_eq!(layout.header, Rect::new(0, 0, 80, 1));
         assert_eq!(layout.status_bar, Rect::new(0, 1, 80, 1));
-        assert_eq!(layout.input, Rect::new(0, 21, 80, 3));
+        assert_eq!(layout.input, Rect::new(0, 20, 80, 3));
         assert_eq!(layout.footer, Rect::new(0, 23, 80, 1));
-        // message area fills remaining: y=2, height=19 (24 - 1 - 1 - 3 - 1 = 18... let me compute)
         // header(1) + status(1) + input(3) + footer(1) = 6 fixed
         // message_area = 24 - 6 = 18, y starts at 2
         assert_eq!(layout.message_area, Rect::new(0, 2, 80, 18));

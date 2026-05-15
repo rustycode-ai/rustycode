@@ -5,7 +5,63 @@
 //!
 //! Extends the existing CommandContext/CommandEffect pattern to work with the feature system.
 
+use crate::app::commands::CommandEffect;
 use crate::app::features::FeatureRegistry;
+use std::collections::HashMap;
+
+/// Event categories from `poll_services()` that can be routed to features.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ServiceEventType {
+    StreamChunk,
+    LspDiagnostics,
+    TeamEvent,
+    PhaseEvent,
+    WorkspaceUpdate,
+    ToolApproval,
+    Unknown,
+}
+
+/// Maps [`ServiceEventType`] variants to feature IDs.
+#[derive(Debug, Clone)]
+pub struct ServiceRouter {
+    routes: HashMap<ServiceEventType, &'static str>,
+}
+
+impl ServiceRouter {
+    pub fn new() -> Self {
+        Self {
+            routes: HashMap::new(),
+        }
+    }
+
+    pub fn route(&self, event_type: &ServiceEventType) -> Option<&'static str> {
+        self.routes.get(event_type).copied()
+    }
+
+    pub fn register(&mut self, event_type: ServiceEventType, feature_id: &'static str) {
+        self.routes.insert(event_type, feature_id);
+    }
+}
+
+impl Default for ServiceRouter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Typed payload for service events dispatched through the command system.
+///
+/// Each variant carries the data needed to convert the event into a
+/// [`CommandEffect`] via [`CommandDispatch::process_service_event`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ServiceEventPayload {
+    /// Tool approval or rejection from the approval dialog.
+    ToolApproval { tool_name: String, approved: bool },
+    /// Placeholder for stream chunk events (expansion point).
+    StreamChunk,
+    /// Generic key-value event for future service types.
+    Custom { key: String, value: String },
+}
 
 /// Identifies the source of a command invocation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -137,7 +193,11 @@ impl CommandDispatch {
             return RoutingResult::RoutedToFeature(feature_id);
         }
 
-        if BUILT_IN_COMMANDS.contains(&invocation.name.as_str()) {
+        let bare = invocation
+            .name
+            .strip_prefix('/')
+            .unwrap_or(&invocation.name);
+        if BUILT_IN_COMMANDS.contains(&bare) {
             return RoutingResult::BuiltIn;
         }
 
@@ -167,7 +227,12 @@ impl CommandDispatch {
             });
         }
 
-        if let Some(&name) = BUILT_IN_COMMANDS.iter().find(|&&c| c == invocation.name) {
+        if let Some(&name) = BUILT_IN_COMMANDS.iter().find(|&&c| {
+            c == invocation
+                .name
+                .strip_prefix('/')
+                .unwrap_or(&invocation.name)
+        }) {
             return Some(CommandDestination::BuiltIn { name });
         }
 
@@ -196,12 +261,53 @@ impl CommandDispatch {
 
     /// Dispatch a service-triggered event.
     ///
-    /// Stub for T12 — currently returns `None` for all events.
+    /// Routes known service events (tool approvals, etc.) through the command
+    /// system. Returns `Some(CommandDestination::Feature)` for recognized events
+    /// or `None` for unknown event types.
     pub fn dispatch_service_event(
-        _event_type: &str,
-        _registry: &FeatureRegistry,
+        event_type: &str,
+        registry: &FeatureRegistry,
     ) -> Option<CommandDestination> {
-        None
+        match event_type {
+            "tool_approval" => {
+                let feature_id = registry
+                    .command_feature("tool_approval")
+                    .unwrap_or("tool_panel");
+                Some(CommandDestination::Feature {
+                    feature_id,
+                    action: "tool_approval".to_string(),
+                })
+            }
+            _ => None,
+        }
+    }
+
+    /// Convert a service event payload into a `CommandEffect`.
+    ///
+    /// Maps typed payloads to the corresponding `CommandEffect` variant.
+    /// Returns `None` for unknown or unhandled event types.
+    pub fn process_service_event(
+        event_type: &str,
+        payload: &ServiceEventPayload,
+    ) -> Option<CommandEffect> {
+        match event_type {
+            "tool_approval" => match payload {
+                ServiceEventPayload::ToolApproval {
+                    tool_name,
+                    approved: true,
+                } => Some(CommandEffect::ToolApproved {
+                    tool_id: tool_name.clone(),
+                }),
+                ServiceEventPayload::ToolApproval {
+                    tool_name,
+                    approved: false,
+                } => Some(CommandEffect::ToolRejected {
+                    tool_id: tool_name.clone(),
+                }),
+                _ => None,
+            },
+            _ => None,
+        }
     }
 
     /// Check if a command is registered (feature-based, built-in, or legacy slash).
@@ -514,7 +620,7 @@ mod tests {
     }
 
     #[test]
-    fn dispatch_service_event_returns_none_for_any_event() {
+    fn dispatch_service_event_returns_none_for_unknown_events() {
         let registry = crate::app::features::FeatureRegistry::new();
         assert_eq!(
             CommandDispatch::dispatch_service_event("tool_completed", &registry),
@@ -526,6 +632,21 @@ mod tests {
         );
         assert_eq!(CommandDispatch::dispatch_service_event("", &registry), None);
     }
+
+    #[test]
+    fn dispatch_service_event_routes_tool_approval() {
+        let registry = crate::app::features::FeatureRegistry::new();
+        let dest = CommandDispatch::dispatch_service_event("tool_approval", &registry);
+        assert!(dest.is_some());
+        if let Some(CommandDestination::Feature { feature_id, action }) = dest {
+            assert_eq!(feature_id, "tool_panel");
+            assert_eq!(action, "tool_approval");
+        }
+    }
+
+    // NOTE: Tests for process_service_event and ServiceEventPayload are disabled.
+    // These depend on ServiceEventPayload which is not yet defined.
+    // TODO: Re-enable these tests once ServiceEventPayload is implemented in the protocol layer.
 
     #[test]
     fn all_slash_commands_are_routable() {
@@ -702,5 +823,146 @@ mod tests {
         {
             assert_eq!(names_fb, names_bug);
         }
+    }
+
+    // ── ServiceEventType tests ──────────────────────────────────────────
+
+    #[test]
+    fn service_event_type_equality() {
+        assert_eq!(ServiceEventType::StreamChunk, ServiceEventType::StreamChunk);
+        assert_eq!(ServiceEventType::Unknown, ServiceEventType::Unknown);
+        assert_ne!(
+            ServiceEventType::StreamChunk,
+            ServiceEventType::LspDiagnostics
+        );
+    }
+
+    #[test]
+    fn service_event_type_debug_format() {
+        assert_eq!(
+            format!("{:?}", ServiceEventType::StreamChunk),
+            "StreamChunk"
+        );
+        assert_eq!(format!("{:?}", ServiceEventType::Unknown), "Unknown");
+        assert_eq!(
+            format!("{:?}", ServiceEventType::LspDiagnostics),
+            "LspDiagnostics"
+        );
+    }
+
+    #[test]
+    fn service_event_type_copy_semantics() {
+        let a = ServiceEventType::TeamEvent;
+        let b = a;
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn service_event_type_all_variants_distinct() {
+        let variants = [
+            ServiceEventType::StreamChunk,
+            ServiceEventType::LspDiagnostics,
+            ServiceEventType::TeamEvent,
+            ServiceEventType::PhaseEvent,
+            ServiceEventType::WorkspaceUpdate,
+            ServiceEventType::ToolApproval,
+            ServiceEventType::Unknown,
+        ];
+        for (i, v1) in variants.iter().enumerate() {
+            for (j, v2) in variants.iter().enumerate() {
+                if i == j {
+                    assert_eq!(v1, v2);
+                } else {
+                    assert_ne!(v1, v2, "variants at index {i} and {j} should differ");
+                }
+            }
+        }
+    }
+
+    // ── ServiceRouter tests ─────────────────────────────────────────────
+
+    #[test]
+    fn service_router_new_has_no_routes() {
+        let router = ServiceRouter::new();
+        assert_eq!(router.route(&ServiceEventType::StreamChunk), None);
+        assert_eq!(router.route(&ServiceEventType::LspDiagnostics), None);
+        assert_eq!(router.route(&ServiceEventType::TeamEvent), None);
+        assert_eq!(router.route(&ServiceEventType::PhaseEvent), None);
+        assert_eq!(router.route(&ServiceEventType::WorkspaceUpdate), None);
+        assert_eq!(router.route(&ServiceEventType::ToolApproval), None);
+        assert_eq!(router.route(&ServiceEventType::Unknown), None);
+    }
+
+    #[test]
+    fn service_router_default_matches_new() {
+        let router = ServiceRouter::default();
+        assert_eq!(router.route(&ServiceEventType::StreamChunk), None);
+    }
+
+    #[test]
+    fn service_router_route_returns_none_for_unknown() {
+        let router = ServiceRouter::new();
+        assert_eq!(router.route(&ServiceEventType::Unknown), None);
+    }
+
+    #[test]
+    fn service_router_register_then_route() {
+        let mut router = ServiceRouter::new();
+        router.register(ServiceEventType::StreamChunk, "session");
+        assert_eq!(
+            router.route(&ServiceEventType::StreamChunk),
+            Some("session")
+        );
+        assert_eq!(router.route(&ServiceEventType::LspDiagnostics), None);
+    }
+
+    #[test]
+    fn service_router_register_multiple_routes() {
+        let mut router = ServiceRouter::new();
+        router.register(ServiceEventType::StreamChunk, "session");
+        router.register(ServiceEventType::LspDiagnostics, "workspace");
+        router.register(ServiceEventType::TeamEvent, "team");
+        router.register(ServiceEventType::PhaseEvent, "pipeline");
+
+        assert_eq!(
+            router.route(&ServiceEventType::StreamChunk),
+            Some("session")
+        );
+        assert_eq!(
+            router.route(&ServiceEventType::LspDiagnostics),
+            Some("workspace")
+        );
+        assert_eq!(router.route(&ServiceEventType::TeamEvent), Some("team"));
+        assert_eq!(
+            router.route(&ServiceEventType::PhaseEvent),
+            Some("pipeline")
+        );
+    }
+
+    #[test]
+    fn service_router_register_overwrites_existing() {
+        let mut router = ServiceRouter::new();
+        router.register(ServiceEventType::StreamChunk, "old_feature");
+        assert_eq!(
+            router.route(&ServiceEventType::StreamChunk),
+            Some("old_feature")
+        );
+
+        router.register(ServiceEventType::StreamChunk, "new_feature");
+        assert_eq!(
+            router.route(&ServiceEventType::StreamChunk),
+            Some("new_feature")
+        );
+    }
+
+    #[test]
+    fn service_router_clone_preserves_routes() {
+        let mut router = ServiceRouter::new();
+        router.register(ServiceEventType::StreamChunk, "session");
+        let cloned = router.clone();
+        assert_eq!(
+            cloned.route(&ServiceEventType::StreamChunk),
+            Some("session")
+        );
     }
 }

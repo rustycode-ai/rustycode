@@ -16,9 +16,11 @@
 //! - Event routing: input events → focused feature only; service/stream/tick → all features.
 
 pub mod command_dispatch;
+pub mod drain;
 pub mod focus;
 pub mod render_dispatch;
 
+use crate::app::commands::CommandEffect;
 use crate::app::features::plugin_manager::PluginManagerFeature;
 use crate::app::features::{
     format_key_event, FeatureRegistry, ModalId, RenderCtx, RouteId, SurfaceId, TuiAction, TuiEvent,
@@ -238,6 +240,48 @@ impl AppShell {
         );
     }
 
+    /// Apply a `CommandEffect` by dispatching it to the appropriate feature.
+    ///
+    /// For tool approval effects, looks up the feature registered for
+    /// `"tool_approval"` (falling back to `"tool_panel"`) and calls its
+    /// `update()` with the approval callback wired to the given closure.
+    pub fn apply_command_effect<F>(&mut self, effect: &CommandEffect, approve_fn: F)
+    where
+        F: Fn(String, bool),
+    {
+        match effect {
+            CommandEffect::ToolApproved { tool_id } | CommandEffect::ToolRejected { tool_id } => {
+                let feature_id = self
+                    .registry()
+                    .command_feature("tool_approval")
+                    .unwrap_or("tool_panel");
+                if let Some(feature) = self.features.get_mut(feature_id) {
+                    let mut approve_fn_mut = |name: String, ok: bool| {
+                        approve_fn(name, ok);
+                    };
+                    let mut nav_fn = |_: RouteId| {};
+                    let mut cmd_fn = |_: &str| {};
+                    let mut ctx = UpdateCtx {
+                        has_focus: false,
+                        focused_surface: self.focus.focused(),
+                        is_streaming: false,
+                        pending_tools: 0,
+                        plan_mode_active: false,
+                        auto_continue_enabled: false,
+                        theme_colors: &self.theme_colors,
+                        navigate: &mut nav_fn,
+                        dispatch_command: &mut cmd_fn,
+                        approve_tool: &mut approve_fn_mut,
+                    };
+                    let event = TuiEvent::Service(rustycode_protocol::EventMsg::Done);
+                    feature.update(&event, &mut ctx);
+                    let _ = tool_id;
+                }
+            }
+            _ => {}
+        }
+    }
+
     /// Process actions returned by features.
     ///
     /// Handles navigation, focus changes, modal open/close, status messages,
@@ -340,6 +384,14 @@ impl AppShell {
     /// Check if a command is registered (feature-based or built-in).
     pub fn is_command_registered(&self, name: &str) -> bool {
         command_dispatch::CommandDispatch::is_registered(name, &self.registry)
+    }
+
+    /// Polls services and routes events to registered features.
+    ///
+    /// Stub for T12 — returns 0 until features are extracted and routing
+    /// is wired to `poll_services()` output (Wave 3).
+    pub fn poll_and_route(&mut self) -> usize {
+        0
     }
 
     /// Create a fully-wired AppShell with PluginManagerFeature for testing.
@@ -955,5 +1007,17 @@ mod tests {
                 shell.render_frame(frame, false, false, false);
             })
             .expect("draw should succeed with plugin manager hidden");
+    }
+
+    #[test]
+    fn poll_and_route_stub_returns_zero() {
+        let mut shell = AppShell::new(default_theme());
+        assert_eq!(shell.poll_and_route(), 0);
+    }
+
+    #[test]
+    fn poll_and_route_stub_returns_zero_with_features() {
+        let mut shell = wired_shell_with_plugin_manager();
+        assert_eq!(shell.poll_and_route(), 0);
     }
 }

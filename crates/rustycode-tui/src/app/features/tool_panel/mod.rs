@@ -97,9 +97,8 @@ impl ToolPanelState {
         };
         self.pending_approvals.push(approval);
         self.approval_panel_visible = true;
-        if self.selected_approval >= self.pending_approvals.len() {
-            self.selected_approval = self.pending_approvals.len().saturating_sub(1);
-        }
+        // Move focus to the newly added item
+        self.selected_approval = self.pending_approvals.len().saturating_sub(1);
     }
 
     /// Approve the currently selected tool
