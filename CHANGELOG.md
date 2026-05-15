@@ -2,11 +2,62 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.4] - 2026-05-15
+
+### Features
+
+- **bench**: Improve SWE-bench agent with early stop, TUI agent refinements
+- **tui**: Add feature flag system for progressive capability rollout
+- **scripts**: Add model catalog update script
+- Created comprehensive EXTRACTION_MAP.md mapping all 29 handler fu…
+- **tui**: Establish SessionStreamingFeature for Task 12 drain integration pattern
+- **tui**: Add SessionFeature and ToolPanelFeature for Task 12
+- **tui**: Add WorkspaceFeature for Task 12 integration
+- **tui**: Complete drain loop with StreamChunk conversion to TuiEvent
+- **tui**: Integrate drain loop into AppShell::poll_and_route()
+- **tui**: Export HelpFeature from features module
+- **bench**: Add source snippet pre-loading to SWE-bench experiment
+- **runtime**: Add source context zone and nudge engine to compaction
+- **bench**: Improve SWE-bench experiment with debugging prompts and import analysis
+
+### Bug Fixes
+
+- **tui**: Use display-width padding for scroll indicators
+- **tui**: Batch of TUI bug fixes from Rounds 1-16
+- **tui**: R17 bug fixes — session reset, approval queue, agent cleanup, file finder
+- **tui**: Streaming system prompt refinement, height calculation, service polling
+- **tui**: Use correct model ID in compaction context monitor test
+- **tui**: Clippy fixes and refinements across feature modules
+- **tui**: Replace unwrap with poison-recovery in search feature mutex locks
+- **tui**: Harden 20+ panic/crash/race bugs across TUI runtime
+- **tui**: Harden concurrency, clipboard, and error handling bugs
+- **tui**: Honest timeout — join thread on budget exceeded, return actual result
+
+### Refactor
+
+- **llm**: Unify provider error handling, update registry and intent classification
+- **providers**: Extract model catalog into shared module
+- **tui**: Add AppShell shell alongside existing TUI — step 0.4
+- **tui**: Extract Plugin Manager state into feature module — step 1.1
+- **tui**: Add Plugin Manager integration tests to AppShell — step 1.2
+- **tui**: Feature-based plugin manager, shell dispatch, legacy cleanup
+- **tui**: Replace hardcoded tool name strings with constants
+
+### Chores
+
+- Unify all crate versions to 0.5.3
+- Add SWE-bench experiment scripts, evaluation tools, and benchmark docs
+- **tui**: Cargo fmt fixup
+
 ## [0.5.3] - 2026-05-14
 
 ### Refactor
 
 - **tui**: Extract system_prompt module, refactor streaming response handling
+
+### Chores
+
+- Bump version to 0.5.3
 
 ## [0.5.2] - 2026-05-14
 
