@@ -140,22 +140,48 @@ pub(super) fn handle_approval_request_chunk(
     );
 }
 
-pub(super) fn handle_approval_approved_chunk(tui: &mut TUI, _tool_id: String) {
-    if let Some(mut request) = tui.panels.tool_approval.pop_next() {
+pub(super) fn handle_approval_approved_chunk(tui: &mut TUI, tool_id: String) {
+    if let Some(pos) = tui
+        .panels
+        .tool_approval
+        .pending_requests
+        .iter()
+        .position(|r| r.tool_id == tool_id)
+    {
+        let mut request = tui
+            .panels
+            .tool_approval
+            .pending_requests
+            .remove(pos)
+            .expect("position just found");
         request.approve();
         tui.panels
             .tool_approval
             .manager
             .record_approval(request.tool_name.clone(), request.state);
         tui.add_system_message(format!("✓ Approved: {}", request.tool_name));
+        tui.panels.tool_approval.awaiting = !tui.panels.tool_approval.pending_requests.is_empty();
     }
     tui.sys.dirty = true;
 }
 
-pub(super) fn handle_approval_rejected_chunk(tui: &mut TUI, _tool_id: String) {
-    if let Some(mut request) = tui.panels.tool_approval.pop_next() {
+pub(super) fn handle_approval_rejected_chunk(tui: &mut TUI, tool_id: String) {
+    if let Some(pos) = tui
+        .panels
+        .tool_approval
+        .pending_requests
+        .iter()
+        .position(|r| r.tool_id == tool_id)
+    {
+        let mut request = tui
+            .panels
+            .tool_approval
+            .pending_requests
+            .remove(pos)
+            .expect("position just found");
         request.reject();
         tui.add_system_message(format!("✗ Rejected: {}", request.tool_name));
+        tui.panels.tool_approval.awaiting = !tui.panels.tool_approval.pending_requests.is_empty();
     }
     tui.sys.dirty = true;
 }

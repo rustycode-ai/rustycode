@@ -225,6 +225,7 @@ impl SessionMode {
 
         self.session_history.insert(0, entry);
         self.selected_session = 0;
+        self.selected_message = 0;
         *self.current_session.write().await = new_session;
 
         Ok(id)

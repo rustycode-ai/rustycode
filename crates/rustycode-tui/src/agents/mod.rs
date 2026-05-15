@@ -417,13 +417,13 @@ impl AgentManager {
         let to_remove = terminal_count - max_agents;
         let mut removed = 0;
 
-        // Collect IDs of terminal agents sorted by elapsed time (oldest first)
+        // Collect IDs of terminal agents sorted by completion time (oldest first)
         let mut terminal_ids: Vec<_> = agents
             .iter()
             .filter(|(_, a)| a.status == AgentStatus::Completed || a.status == AgentStatus::Failed)
-            .map(|(id, a)| (*id, a.elapsed_secs))
+            .map(|(id, a)| (*id, a.completed_at.unwrap_or(Instant::now())))
             .collect();
-        terminal_ids.sort_by_key(|(_, elapsed)| std::cmp::Reverse(*elapsed));
+        terminal_ids.sort_by_key(|(_, completed_at)| *completed_at);
 
         for (id, _) in terminal_ids {
             if removed >= to_remove {

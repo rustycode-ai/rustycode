@@ -347,12 +347,12 @@ impl FileFinderState {
         self.visible = false;
         self.query.clear();
         self.selected_index = 0;
-        self.selection_confirmed = false;
         self.update_filtered();
     }
 
     pub fn toggle(&mut self) {
         if self.visible {
+            self.selection_confirmed = false;
             self.hide();
         } else {
             self.show();
@@ -460,6 +460,7 @@ impl FileFinderRenderer {
     }
 
     pub fn hide(&mut self) {
+        self.state.selection_confirmed = false;
         self.state.hide();
     }
 
@@ -472,6 +473,7 @@ impl FileFinderRenderer {
         match (key.code, key.modifiers) {
             // Close finder on Escape
             (KeyCode::Esc, KeyModifiers::NONE) => {
+                self.state.selection_confirmed = false;
                 self.hide();
                 true
             }
@@ -491,7 +493,7 @@ impl FileFinderRenderer {
             (KeyCode::Enter, KeyModifiers::NONE) => {
                 if self.state.selected_file().is_some() {
                     self.state.selection_confirmed = true;
-                    self.hide();
+                    self.state.hide();
                 }
                 true
             }
@@ -833,5 +835,50 @@ mod tests {
         // Escape hides finder
         finder.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
         assert!(!finder.is_visible());
+    }
+
+    #[test]
+    fn test_enter_selection_returns_file_via_take_selected() {
+        let temp_dir = std::env::temp_dir();
+        let mut finder = FileFinder::new(temp_dir.clone());
+        finder.show();
+        if finder.state().filtered_count() == 0 {
+            return;
+        }
+
+        finder.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        assert!(!finder.is_visible());
+
+        let selected = finder.take_selected();
+        assert!(selected.is_some());
+
+        assert!(finder.take_selected().is_none());
+    }
+
+    #[test]
+    fn test_escape_cancels_selection() {
+        let temp_dir = std::env::temp_dir();
+        let mut finder = FileFinder::new(temp_dir);
+        finder.show();
+        finder.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+        finder.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+        assert!(!finder.is_visible());
+        assert!(finder.take_selected().is_none());
+    }
+
+    #[test]
+    fn test_toggle_cancels_selection() {
+        let temp_dir = std::env::temp_dir();
+        let mut finder = FileFinder::new(temp_dir);
+        finder.show();
+        if finder.state().filtered_count() == 0 {
+            return;
+        }
+        finder.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        assert!(finder.take_selected().is_some());
+
+        finder.show();
+        finder.state_mut().toggle();
+        assert!(finder.take_selected().is_none());
     }
 }
