@@ -782,6 +782,85 @@ def run_tests(repo_dir, test_names, venv_python="python3"):
     return all_passed, "\n".join(results)
 
 
+
+def build_source_snippets(test_patch, repo_dir, max_files=5, max_lines=150):
+    """Pre-load actual source file contents for the most relevant files."""
+    import re as _re
+    symbols = set()
+    imports = set()
+    for line in test_patch.splitlines():
+        if line.startswith(("---", "+++", "@@", "-")):
+            continue
+        stripped = line.lstrip("+").strip()
+        m = _re.match(r'(?:from\s+(\S+)\s+import\s+(.+?)$|import\s+(.+?)(?:\s+as|\s*,|$))', stripped)
+        if m:
+            mod = (m.group(1) or m.group(3) or "").strip().rstrip(",")
+            if mod and not mod.startswith("."):
+                imports.add(mod)
+            if m.group(2):
+                for sym in m.group(2).split(","):
+                    sym = sym.strip().split(" as ")[0].strip()
+                    if sym and sym != "*":
+                        symbols.add(sym)
+    for line in test_patch.splitlines():
+        if line.startswith(("---", "+++", "@@", "-")):
+            continue
+        for m2 in _re.finditer(r'(?<![a-zA-Z])([a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*){2,})', line.lstrip("+")):
+            ref = m2.group(1)
+            prefix = ref.split(".")[0]
+            if prefix not in ("sys", "os", "re", "json", "math", "copy", "self", "true", "false", "none"):
+                symbols.add(ref.split(".")[-1])
+    file_scores = {}
+    for sym in symbols:
+        if len(sym) < 3:
+            continue
+        result = subprocess.run(
+            ["grep", "-rn", "\\bdef {}\\b|\\bclass {}\\b".format(sym, sym), "--include=*.py", "-l", str(repo_dir)],
+            capture_output=True, text=True, timeout=15)
+        for match in result.stdout.strip().splitlines():
+            rel = os.path.relpath(match.strip(), str(repo_dir))
+            if "/test" in rel or "/__pycache__" in rel or "/." in rel:
+                continue
+            file_scores[rel] = file_scores.get(rel, 0) + 1
+    for mod in sorted(imports)[:10]:
+        parts = mod.split(".")
+        patterns = ["/".join(parts) + ".py"]
+        if len(parts) > 1:
+            patterns.append("/".join(parts[:-1]) + "/__init__.py")
+        for pattern in patterns:
+            result = subprocess.run(
+                ["find", str(repo_dir), "-path", "*/" + pattern, "-not", "-path", "*/.*",
+                 "-not", "-path", "*/__pycache__/*", "-not", "-path", "*/test*"],
+                capture_output=True, text=True, timeout=10)
+            for match in result.stdout.strip().splitlines()[:2]:
+                rel = os.path.relpath(match, str(repo_dir))
+                file_scores[rel] = file_scores.get(rel, 0) + 2
+    top_files = sorted(file_scores.items(), key=lambda x: -x[1])[:max_files]
+    if not top_files:
+        return ""
+    sections = []
+    for rel_path, score in top_files:
+        full_path = repo_dir / rel_path
+        if not full_path.exists():
+            continue
+        try:
+            flines = full_path.read_text(errors="replace").splitlines()
+            if len(flines) > max_lines:
+                snippet = "\n".join(flines[:max_lines])
+                snippet += "\n... ({} total lines, showing first {})".format(len(flines), max_lines)
+            else:
+                snippet = "\n".join(flines)
+            sections.append("### {} ({} lines)\n```python\n{}\n```".format(rel_path, len(flines), snippet))
+        except Exception:
+            continue
+    if not sections:
+        return ""
+    header = "## Pre-loaded Source Files (top {} by relevance)\n\n".format(len(sections))
+    header += "These files are ALREADY loaded -- do NOT waste turns re-reading them. "
+    header += "Start by tracing the code path from the test through these files.\n"
+    return header + "\n\n".join(sections)
+
+
 # ── Agent Loop ────────────────────────────────────────────────────────
 
 # ── System Prompt Variants ─────────────────────────────────────────────
@@ -1786,68 +1865,78 @@ SYSTEM_PROMPTS = {
     ),
     "thinking_v11": (
         "You are an expert software engineer fixing a specific bug. Your ONLY job is to make "
-        "source code edits that cause the failing tests to pass.
-"
-        "
-"
-        "## STRUCTURED APPROACH (follow this exactly)
-"
-        "
-"
-        "**Turn 1-2: UNDERSTAND**
-"
-        "- Read the error output and problem statement. What function/class/behavior is wrong?
-"
-        "- Use Grep to find where the failing symbol is DEFINED: `grep -rn 'def FUNC' --include='*.py' . | grep -v test | grep -v __pycache__`
-"
-        "- Read the source file that defines it. Understand the current behavior.
-"
-        "
-"
-        "**Turn 3-4: EDIT**
-"
-        "- You MUST make your first edit by turn 4 at the latest.
-"
-        "- Make the MINIMAL change that fixes the behavior. One line > ten lines.
-"
-        "- Use Edit tool for precise changes. Do NOT rewrite entire functions.
-"
-        "- BEFORE editing: verify the file path does NOT contain 'test'. Editing test files = ZERO score.
-"
-        "
-"
-        "**Turn 5+: VERIFY AND FIX**
-"
-        "- Run the failing test immediately after editing.
-"
-        "- If it passes: STOP. Do not make additional changes.
-"
-        "- If it fails: read the NEW error carefully, then edit again.
-"
-        "- If same approach fails 3 times: you're editing the wrong file or wrong function. Re-trace.
-"
-        "
-"
-        "## ABSOLUTE RULES (violation = automatic failure)
-"
-        "
-"
-        "- NEVER edit test files (any path containing 'test'). The evaluator checks your diff — "
-        "if ANY test file appears in your diff, you score ZERO.
-"
+        "source code edits that cause the failing tests to pass.\n"
+        "\n"
+        "## STRUCTURED APPROACH (follow this exactly)\n"
+        "\n"
+        "**Turn 1-2: UNDERSTAND**\n"
+        "- Read the error output and problem statement. What function/class/behavior is wrong?\n"
+        "- Use Grep to find where the failing symbol is DEFINED: grep -rn 'def FUNC' --include='*.py' . | grep -v test | grep -v __pycache__\n"
+        "- Read the source file that defines it. Understand the current behavior.\n"
+        "\n"
+        "**Turn 3-4: EDIT**\n"
+        "- You MUST make your first edit by turn 4 at the latest.\n"
+        "- Make the MINIMAL change that fixes the behavior. One line > ten lines.\n"
+        "- Use Edit tool for precise changes. Do NOT rewrite entire functions.\n"
+        "- BEFORE editing: verify the file path does NOT contain 'test'. Editing test files = ZERO score.\n"
+        "\n"
+        "**Turn 5+: VERIFY AND FIX**\n"
+        "- Run the failing test immediately after editing.\n"
+        "- If it passes: STOP. Do not make additional changes.\n"
+        "- If it fails: read the NEW error carefully, then edit again.\n"
+        "- If same approach fails 3 times: you're editing the wrong file or wrong function. Re-trace.\n"
+        "\n"
+        "## ABSOLUTE RULES (violation = automatic failure)\n"
+        "\n"
+        "- NEVER edit test files (any path containing 'test'). The evaluator checks your diff -- "
+        "if ANY test file appears in your diff, you score ZERO.\n"
         "- NEVER create new files (test_fix.py, scratch.py, etc.). Only EDIT existing source files. "
-        "New files in your diff = ZERO score.
-"
-        "- NEVER explore git history (git log, git blame, git show). You have the code — read it.
-"
-        "- NEVER rewrite entire files. Use Edit for targeted changes of 1-5 lines.
-"
-        "- If you haven't edited by turn 5: STOP READING AND EDIT NOW with your best guess.
-"
-        "- Run the test after EVERY edit. Don't batch edits without testing.
-"
-        "- The SMALLEST diff wins. Change 1-3 lines if possible. Never touch more than 2 source files.
-"
+        "New files in your diff = ZERO score.\n"
+        "- NEVER explore git history (git log, git blame, git show). You have the code -- read it.\n"
+        "- NEVER rewrite entire files. Use Edit for targeted changes of 1-5 lines.\n"
+        "- If you haven't edited by turn 5: STOP READING AND EDIT NOW with your best guess.\n"
+        "- Run the test after EVERY edit. Don't batch edits without testing.\n"
+        "- The SMALLEST diff wins. Change 1-3 lines if possible. Never touch more than 2 source files.\n"
+    ),
+    "thinking_v12": (
+        "You are an expert software engineer fixing a specific bug. Your ONLY job is to make "
+        "source code edits that cause the failing tests to pass.\n"
+        "\n"
+        "## METHODOLOGY: TRACE > DIAGNOSE > FIX > VERIFY\n"
+        "\n"
+        "**Phase 1: TRACE (turn 1)**\n"
+        "The test code and relevant source files are pre-loaded below.\n"
+        "- Identify the EXACT test assertion that fails. What does it call?\n"
+        "- Trace the call path: test calls function, function is in source file.\n"
+        "- Find where behavior DIVERGES from what the test expects.\n"
+        "- State in one sentence: the bug is in FILE.FUNCTION because REASON.\n"
+        "\n"
+        "**Phase 2: DIAGNOSE (turn 2)**\n"
+        "- Confirm your diagnosis by reading the specific function if not already loaded.\n"
+        "- Identify the MINIMAL change needed: one line? one condition? one return value?\n"
+        "- If unsure, grep for the symbol across all source files to find all definitions.\n"
+        "\n"
+        "**Phase 3: FIX (turn 3-4)**\n"
+        "- Make ONE targeted edit to ONE source file.\n"
+        "- The edit should be 1-5 lines. Never rewrite entire functions.\n"
+        "- BEFORE editing: verify the path does NOT contain test.\n"
+        "\n"
+        "**Phase 4: VERIFY (turn 5+)**\n"
+        "- Run the failing test IMMEDIATELY after editing.\n"
+        "- If PASS: STOP. Do not make additional changes.\n"
+        "- If FAIL: read the NEW error carefully. Re-trace from the error.\n"
+        "- If same approach fails 3 times: your diagnosis is wrong. Return to Phase 1.\n"
+        "\n"
+        "## ABSOLUTE RULES\n"
+        "\n"
+        "- NEVER edit test files. Tests REPORT bugs; source code CAUSES bugs.\n"
+        "- NEVER create new files. Only EDIT existing source files.\n"
+        "- NEVER explore git history. You have the code -- read it.\n"
+        "- NEVER rewrite entire files. Use Edit for targeted changes of 1-5 lines.\n"
+        "- Run the test after EVERY edit. Do not batch edits without testing.\n"
+        "- The SMALLEST diff wins. Change 1-3 lines if possible.\n"
+        "- If pre-loaded files do not contain the bug, grep to find the REAL source.\n"
+        "- Do NOT waste turns re-reading files that are already shown below.\n"
     ),
 }
 
@@ -2081,6 +2170,39 @@ NUDGES_BY_VERSION = {
             "Re-read the original error. Forget your current approach."
         ),
     },
+    "thinking_v12": {
+        2: (
+            "DIAGNOSIS CHECK: Can you state the root cause in ONE sentence?\n"
+            "Format: the bug is in FILE.FUNCTION because REASON.\n"
+            "If you cannot state it clearly, re-trace from the test assertion.\n"
+            "Do NOT edit yet -- confirm your diagnosis first."
+        ),
+        4: (
+            "EDIT NOW: Make ONE targeted edit to ONE source file.\n"
+            "The fix should be 1-3 lines. Verify path has NO test in it.\n"
+            "After editing, run the failing test IMMEDIATELY."
+        ),
+        6: (
+            "If test passed: STOP. Do nothing more.\n"
+            "If test failed: Re-read the NEW error. What specific line/assert failed?\n"
+            "The error tells you exactly what to fix -- do not guess, read it."
+        ),
+        10: (
+            "RE-DIAGNOSE: If the test still fails after 3 edits, your diagnosis is wrong.\n"
+            "Return to Phase 1: grep for the symbol with BROADER patterns.\n"
+            "Check: is the function inherited? Defined in a parent class? Imported from elsewhere?"
+        ),
+        16: (
+            "ALTERNATIVE APPROACH: Try the opposite of what you have been doing.\n"
+            "If you added a check, try removing one. If you changed a return, change the condition.\n"
+            "Re-read the test error from scratch -- what does it ACTUALLY assert?"
+        ),
+        24: (
+            "LAST ATTEMPT: What is the ABSOLUTE SIMPLEST fix?\n"
+            "One line change. One import. One parameter.\n"
+            "Forget everything you have tried. Read the error fresh."
+        ),
+    },
 }
 
 
@@ -2280,8 +2402,10 @@ def run_agent(inst, repo_dir, args, venv_python="python3"):
 
     # Build import map from test_patch for immediate file discovery
     import_map = ""
+    source_snippets = ""
     if test_patch:
         import_map = build_import_map(test_patch, repo_dir)
+        source_snippets = build_source_snippets(test_patch, repo_dir)
 
     # Detect source directories and add to prompt (v7)
     source_dirs_section = ""
@@ -2305,7 +2429,7 @@ def run_agent(inst, repo_dir, args, venv_python="python3"):
 ```
 {file_tree}
 ```
-{source_dirs_section}{import_map}{type_guidance}
+{source_dirs_section}{import_map}{source_snippets}{type_guidance}
 ## Issue
 
 {inst['problem_statement']}
@@ -2494,7 +2618,7 @@ def main():
     parser.add_argument("--hints", action="store_true", default=True, help="Include hints_text in prompt (default: True)")
     parser.add_argument("--no-hints", dest="hints", action="store_false", help="Disable hints")
     parser.add_argument("--verbose", "-v", action="store_true", help="Show tool calls and output")
-    parser.add_argument("--system-prompt", choices=["minimal", "structured", "agentic", "enhanced", "thinking", "thinking_v2", "thinking_v3", "thinking_v4", "thinking_v5", "thinking_v6", "thinking_v7", "thinking_v8", "thinking_v8.2", "thinking_v9", "thinking_v10", "thinking_v11"], default="thinking_v11",
+    parser.add_argument("--system-prompt", choices=["minimal", "structured", "agentic", "enhanced", "thinking", "thinking_v2", "thinking_v3", "thinking_v4", "thinking_v5", "thinking_v6", "thinking_v7", "thinking_v8", "thinking_v8.2", "thinking_v9", "thinking_v10", "thinking_v11", "thinking_v12"], default="thinking_v12",
                         help="System prompt variant: minimal (identity only), structured (workflow+rules), agentic (full self-check), enhanced (full production prompt)")
     parser.add_argument("--work-dir", default="/tmp/swebench-experiment", help="Working directory")
     parser.add_argument("--output", help="Output predictions file")
