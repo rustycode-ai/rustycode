@@ -95,6 +95,9 @@ pub mod auto_tool_parser;
 // ── State management ──────────────────────────────────────────
 pub mod state;
 
+// ── Feature decomposition (new architecture) ─────────────────────────
+pub mod features;
+
 // ── Async & event loop (core runtime) ─────────────────────────
 pub mod async_;
 pub mod event_loop;

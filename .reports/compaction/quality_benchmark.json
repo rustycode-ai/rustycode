@@ -1,0 +1,668 @@
+{
+  "timestamp": "2026-05-14T20:39:15",
+  "model": "glm-4.7",
+  "conversation_messages": 10,
+  "conversation_tokens": 800,
+  "key_facts": 17,
+  "results": {
+    "piggyback": {
+      "tool_called": true,
+      "summary_chars": 2285,
+      "text_chars": 0,
+      "input_tokens": 841,
+      "output_tokens": 288,
+      "latency": 9.52,
+      "quality": {
+        "score": 81.5,
+        "preserved_weight": 22,
+        "total_weight": 27,
+        "facts": {
+          "framework": true,
+          "streaming": true,
+          "ctrlc_bug": true,
+          "ctrlc_fix": false,
+          "shell_inject": true,
+          "sanitize": true,
+          "config_path": true,
+          "config_migrate": true,
+          "race_cond": true,
+          "cancel_token": false,
+          "anthropic": true,
+          "provider_file": true,
+          "permission": true,
+          "security_file": true,
+          "sandbox": true,
+          "next_steps": false,
+          "project_dir": true
+        },
+        "by_category": {
+          "bug": {
+            "preserved": 4,
+            "total": 4,
+            "facts": [
+              [
+                "ctrlc_bug",
+                true
+              ],
+              [
+                "race_cond",
+                true
+              ]
+            ]
+          },
+          "feature": {
+            "preserved": 4,
+            "total": 4,
+            "facts": [
+              [
+                "streaming",
+                true
+              ],
+              [
+                "anthropic",
+                true
+              ],
+              [
+                "permission",
+                true
+              ],
+              [
+                "sandbox",
+                true
+              ]
+            ]
+          },
+          "file": {
+            "preserved": 6,
+            "total": 6,
+            "facts": [
+              [
+                "config_path",
+                true
+              ],
+              [
+                "provider_file",
+                true
+              ],
+              [
+                "security_file",
+                true
+              ]
+            ]
+          },
+          "fix": {
+            "preserved": 0,
+            "total": 4,
+            "facts": [
+              [
+                "ctrlc_fix",
+                false
+              ],
+              [
+                "cancel_token",
+                false
+              ]
+            ]
+          },
+          "planning": {
+            "preserved": 0,
+            "total": 1,
+            "facts": [
+              [
+                "next_steps",
+                false
+              ]
+            ]
+          },
+          "scope": {
+            "preserved": 1,
+            "total": 1,
+            "facts": [
+              [
+                "project_dir",
+                true
+              ]
+            ]
+          },
+          "security": {
+            "preserved": 4,
+            "total": 4,
+            "facts": [
+              [
+                "shell_inject",
+                true
+              ],
+              [
+                "sanitize",
+                true
+              ]
+            ]
+          },
+          "task": {
+            "preserved": 1,
+            "total": 1,
+            "facts": [
+              [
+                "config_migrate",
+                true
+              ]
+            ]
+          },
+          "tech": {
+            "preserved": 2,
+            "total": 2,
+            "facts": [
+              [
+                "framework",
+                true
+              ]
+            ]
+          }
+        },
+        "missing": [
+          "ctrlc_fix",
+          "cancel_token",
+          "next_steps"
+        ]
+      }
+    },
+    "server": {
+      "summary_chars": 3931,
+      "input_tokens": 926,
+      "output_tokens": 501,
+      "latency": 32.65,
+      "quality": {
+        "score": 85.2,
+        "preserved_weight": 23,
+        "total_weight": 27,
+        "facts": {
+          "framework": true,
+          "streaming": true,
+          "ctrlc_bug": true,
+          "ctrlc_fix": false,
+          "shell_inject": true,
+          "sanitize": true,
+          "config_path": true,
+          "config_migrate": true,
+          "race_cond": true,
+          "cancel_token": true,
+          "anthropic": true,
+          "provider_file": true,
+          "permission": true,
+          "security_file": true,
+          "sandbox": true,
+          "next_steps": false,
+          "project_dir": false
+        },
+        "by_category": {
+          "bug": {
+            "preserved": 4,
+            "total": 4,
+            "facts": [
+              [
+                "ctrlc_bug",
+                true
+              ],
+              [
+                "race_cond",
+                true
+              ]
+            ]
+          },
+          "feature": {
+            "preserved": 4,
+            "total": 4,
+            "facts": [
+              [
+                "streaming",
+                true
+              ],
+              [
+                "anthropic",
+                true
+              ],
+              [
+                "permission",
+                true
+              ],
+              [
+                "sandbox",
+                true
+              ]
+            ]
+          },
+          "file": {
+            "preserved": 6,
+            "total": 6,
+            "facts": [
+              [
+                "config_path",
+                true
+              ],
+              [
+                "provider_file",
+                true
+              ],
+              [
+                "security_file",
+                true
+              ]
+            ]
+          },
+          "fix": {
+            "preserved": 2,
+            "total": 4,
+            "facts": [
+              [
+                "ctrlc_fix",
+                false
+              ],
+              [
+                "cancel_token",
+                true
+              ]
+            ]
+          },
+          "planning": {
+            "preserved": 0,
+            "total": 1,
+            "facts": [
+              [
+                "next_steps",
+                false
+              ]
+            ]
+          },
+          "scope": {
+            "preserved": 0,
+            "total": 1,
+            "facts": [
+              [
+                "project_dir",
+                false
+              ]
+            ]
+          },
+          "security": {
+            "preserved": 4,
+            "total": 4,
+            "facts": [
+              [
+                "shell_inject",
+                true
+              ],
+              [
+                "sanitize",
+                true
+              ]
+            ]
+          },
+          "task": {
+            "preserved": 1,
+            "total": 1,
+            "facts": [
+              [
+                "config_migrate",
+                true
+              ]
+            ]
+          },
+          "tech": {
+            "preserved": 2,
+            "total": 2,
+            "facts": [
+              [
+                "framework",
+                true
+              ]
+            ]
+          }
+        },
+        "missing": [
+          "ctrlc_fix",
+          "next_steps",
+          "project_dir"
+        ]
+      }
+    },
+    "client_2turn": {
+      "tail_turns": 2,
+      "messages_kept": 4,
+      "messages_removed": 6,
+      "input_tokens": 800,
+      "tokens_after": 371,
+      "tokens_removed": 429,
+      "latency": 0.0003,
+      "quality": {
+        "score": 48.1,
+        "preserved_weight": 13,
+        "total_weight": 27,
+        "facts": {
+          "framework": false,
+          "streaming": true,
+          "ctrlc_bug": false,
+          "ctrlc_fix": false,
+          "shell_inject": false,
+          "sanitize": false,
+          "config_path": false,
+          "config_migrate": false,
+          "race_cond": true,
+          "cancel_token": true,
+          "anthropic": true,
+          "provider_file": true,
+          "permission": true,
+          "security_file": true,
+          "sandbox": true,
+          "next_steps": false,
+          "project_dir": true
+        },
+        "by_category": {
+          "bug": {
+            "preserved": 2,
+            "total": 4,
+            "facts": [
+              [
+                "ctrlc_bug",
+                false
+              ],
+              [
+                "race_cond",
+                true
+              ]
+            ]
+          },
+          "feature": {
+            "preserved": 4,
+            "total": 4,
+            "facts": [
+              [
+                "streaming",
+                true
+              ],
+              [
+                "anthropic",
+                true
+              ],
+              [
+                "permission",
+                true
+              ],
+              [
+                "sandbox",
+                true
+              ]
+            ]
+          },
+          "file": {
+            "preserved": 4,
+            "total": 6,
+            "facts": [
+              [
+                "config_path",
+                false
+              ],
+              [
+                "provider_file",
+                true
+              ],
+              [
+                "security_file",
+                true
+              ]
+            ]
+          },
+          "fix": {
+            "preserved": 2,
+            "total": 4,
+            "facts": [
+              [
+                "ctrlc_fix",
+                false
+              ],
+              [
+                "cancel_token",
+                true
+              ]
+            ]
+          },
+          "planning": {
+            "preserved": 0,
+            "total": 1,
+            "facts": [
+              [
+                "next_steps",
+                false
+              ]
+            ]
+          },
+          "scope": {
+            "preserved": 1,
+            "total": 1,
+            "facts": [
+              [
+                "project_dir",
+                true
+              ]
+            ]
+          },
+          "security": {
+            "preserved": 0,
+            "total": 4,
+            "facts": [
+              [
+                "shell_inject",
+                false
+              ],
+              [
+                "sanitize",
+                false
+              ]
+            ]
+          },
+          "task": {
+            "preserved": 0,
+            "total": 1,
+            "facts": [
+              [
+                "config_migrate",
+                false
+              ]
+            ]
+          },
+          "tech": {
+            "preserved": 0,
+            "total": 2,
+            "facts": [
+              [
+                "framework",
+                false
+              ]
+            ]
+          }
+        },
+        "missing": [
+          "framework",
+          "ctrlc_bug",
+          "ctrlc_fix",
+          "shell_inject",
+          "sanitize",
+          "config_path",
+          "config_migrate",
+          "next_steps"
+        ]
+      }
+    },
+    "client_1turn": {
+      "tail_turns": 1,
+      "messages_kept": 2,
+      "messages_removed": 8,
+      "input_tokens": 800,
+      "tokens_after": 185,
+      "tokens_removed": 615,
+      "latency": 0.0001,
+      "quality": {
+        "score": 18.5,
+        "preserved_weight": 5,
+        "total_weight": 27,
+        "facts": {
+          "framework": false,
+          "streaming": false,
+          "ctrlc_bug": false,
+          "ctrlc_fix": false,
+          "shell_inject": false,
+          "sanitize": false,
+          "config_path": false,
+          "config_migrate": false,
+          "race_cond": false,
+          "cancel_token": false,
+          "anthropic": false,
+          "provider_file": false,
+          "permission": true,
+          "security_file": true,
+          "sandbox": true,
+          "next_steps": false,
+          "project_dir": true
+        },
+        "by_category": {
+          "bug": {
+            "preserved": 0,
+            "total": 4,
+            "facts": [
+              [
+                "ctrlc_bug",
+                false
+              ],
+              [
+                "race_cond",
+                false
+              ]
+            ]
+          },
+          "feature": {
+            "preserved": 2,
+            "total": 4,
+            "facts": [
+              [
+                "streaming",
+                false
+              ],
+              [
+                "anthropic",
+                false
+              ],
+              [
+                "permission",
+                true
+              ],
+              [
+                "sandbox",
+                true
+              ]
+            ]
+          },
+          "file": {
+            "preserved": 2,
+            "total": 6,
+            "facts": [
+              [
+                "config_path",
+                false
+              ],
+              [
+                "provider_file",
+                false
+              ],
+              [
+                "security_file",
+                true
+              ]
+            ]
+          },
+          "fix": {
+            "preserved": 0,
+            "total": 4,
+            "facts": [
+              [
+                "ctrlc_fix",
+                false
+              ],
+              [
+                "cancel_token",
+                false
+              ]
+            ]
+          },
+          "planning": {
+            "preserved": 0,
+            "total": 1,
+            "facts": [
+              [
+                "next_steps",
+                false
+              ]
+            ]
+          },
+          "scope": {
+            "preserved": 1,
+            "total": 1,
+            "facts": [
+              [
+                "project_dir",
+                true
+              ]
+            ]
+          },
+          "security": {
+            "preserved": 0,
+            "total": 4,
+            "facts": [
+              [
+                "shell_inject",
+                false
+              ],
+              [
+                "sanitize",
+                false
+              ]
+            ]
+          },
+          "task": {
+            "preserved": 0,
+            "total": 1,
+            "facts": [
+              [
+                "config_migrate",
+                false
+              ]
+            ]
+          },
+          "tech": {
+            "preserved": 0,
+            "total": 2,
+            "facts": [
+              [
+                "framework",
+                false
+              ]
+            ]
+          }
+        },
+        "missing": [
+          "framework",
+          "streaming",
+          "ctrlc_bug",
+          "ctrlc_fix",
+          "shell_inject",
+          "sanitize",
+          "config_path",
+          "config_migrate",
+          "race_cond",
+          "cancel_token",
+          "anthropic",
+          "provider_file",
+          "next_steps"
+        ]
+      }
+    }
+  }
+}
