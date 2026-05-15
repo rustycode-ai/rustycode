@@ -535,8 +535,11 @@ mod tests {
     }
 
     #[test]
-    fn thinking_chunk_accumulates() {
+    fn thinking_chunk_sets_streaming_and_goes_to_thinking_field() {
         let mut tui = TUI::default();
+        // Need an assistant message for thinking to attach to
+        tui.push_empty_assistant_message();
+
         handle_stream_chunk(&mut tui, StreamChunk::Thinking("I need to ".to_string()));
         handle_stream_chunk(&mut tui, StreamChunk::Thinking("consider...".to_string()));
 
@@ -544,9 +547,18 @@ mod tests {
             tui.session.streaming.is_streaming,
             "Thinking chunks should set is_streaming = true"
         );
-        assert!(
-            !tui.session.streaming.current_stream_content.is_empty(),
-            "Thinking chunks should contribute to stream content"
+        assert_eq!(
+            tui.session.streaming.thinking_chunks_received, 2,
+            "Should have received 2 thinking chunks"
+        );
+        // Thinking goes to the assistant message's .thinking field, not current_stream_content
+        let last_msg = tui
+            .last_assistant_message()
+            .expect("should have assistant message");
+        assert_eq!(
+            last_msg.thinking.as_deref(),
+            Some("I need to consider..."),
+            "Thinking should be accumulated in the assistant message's thinking field"
         );
     }
 
@@ -598,10 +610,11 @@ mod tests {
             StreamChunk::SystemMessage("Status update".to_string()),
         );
 
+        // Characterization: SystemMessage chunk DOES add to messages via add_system_message
         assert_eq!(
             tui.session.messages.len(),
-            initial_count,
-            "SystemMessage chunk is logged but may not add to messages"
+            initial_count + 1,
+            "SystemMessage chunk should add a system message"
         );
         assert!(tui.sys.dirty, "SystemMessage should mark dirty");
     }
