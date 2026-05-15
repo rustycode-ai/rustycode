@@ -565,6 +565,7 @@ impl TUI {
                 // and it will be clamped during next render if necessary.
                 self.dismiss_any_overlay();
                 self.sys.dirty = true;
+                self.sys.layout_dirty = true;
                 tracing::debug!("Terminal resized to {}x{}", width, height);
             }
             Ok(_other) => {}

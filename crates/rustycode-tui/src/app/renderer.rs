@@ -5,7 +5,7 @@ use crate::app::render::shared::centered_rect;
 use crate::theme::parse_color;
 use crate::ui::footer::Footer;
 use crate::ui::header::{Header, HeaderStatus};
-use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
+use ratatui::layout::{Alignment, Constraint, Layout, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, Clear, Paragraph, Wrap};
 use ratatui::Frame;
@@ -211,6 +211,55 @@ struct RendererLayout {
 }
 
 impl RendererLayout {
+    /// Build layout, returning cached chunks when inputs haven't changed.
+    fn build_cached(
+        size: Rect,
+        status_bar_collapsed: bool,
+        footer_collapsed: bool,
+        config: &RendererConfig,
+        cached_chunks: &mut Option<Rc<[Rect]>>,
+        cached_key: &mut Option<(u16, u16, bool, bool)>,
+    ) -> Self {
+        let key = (
+            size.width,
+            size.height,
+            status_bar_collapsed,
+            footer_collapsed,
+        );
+        let is_too_small = size.width < config.min_width || size.height < config.min_height;
+
+        let chunks = if *cached_key == Some(key) {
+            // Cache hit — reuse chunks without recomputation.
+            cached_chunks.as_ref().unwrap().clone()
+        } else {
+            let status_bar_height = if status_bar_collapsed { 0 } else { 1 };
+            let footer_height = if footer_collapsed { 0 } else { 1 };
+
+            let fixed = 1u16 + status_bar_height + 3 + footer_height;
+            let msg_h = size.height.saturating_sub(fixed);
+            let input_y = 1 + status_bar_height + msg_h;
+            let footer_y = input_y + 3;
+            let chunks: Rc<[Rect]> = Rc::from([
+                Rect::new(0, 0, size.width, 1),
+                Rect::new(0, 1, size.width, status_bar_height),
+                Rect::new(0, 1 + status_bar_height, size.width, msg_h),
+                Rect::new(0, input_y, size.width, 3),
+                Rect::new(0, footer_y, size.width, footer_height),
+            ]);
+
+            *cached_chunks = Some(chunks.clone());
+            *cached_key = Some(key);
+            chunks
+        };
+
+        Self {
+            size,
+            chunks,
+            is_too_small,
+        }
+    }
+
+    /// Build layout without caching (used in tests).
     fn build(
         size: Rect,
         status_bar_collapsed: bool,
@@ -221,16 +270,17 @@ impl RendererLayout {
         let status_bar_height = if status_bar_collapsed { 0 } else { 1 };
         let footer_height = if footer_collapsed { 0 } else { 1 };
 
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(1),
-                Constraint::Length(status_bar_height),
-                Constraint::Min(0),
-                Constraint::Length(3),
-                Constraint::Length(footer_height),
-            ])
-            .split(size);
+        let fixed = 1u16 + status_bar_height + 3 + footer_height;
+        let msg_h = size.height.saturating_sub(fixed);
+        let input_y = 1 + status_bar_height + msg_h;
+        let footer_y = input_y + 3;
+        let chunks: Rc<[Rect]> = Rc::from([
+            Rect::new(0, 0, size.width, 1),
+            Rect::new(0, 1, size.width, status_bar_height),
+            Rect::new(0, 1 + status_bar_height, size.width, msg_h),
+            Rect::new(0, input_y, size.width, 3),
+            Rect::new(0, footer_y, size.width, footer_height),
+        ]);
 
         Self {
             size,
@@ -272,11 +322,13 @@ impl PolishedRenderer {
 
     pub fn render(&self, tui: &mut TUI, frame: &mut Frame) {
         let render_start = std::time::Instant::now();
-        let layout = RendererLayout::build(
+        let layout = RendererLayout::build_cached(
             self.state.area,
             tui.ui.status_bar_collapsed,
             tui.ui.footer_collapsed,
             &self.config,
+            &mut tui.sys.cached_chunks,
+            &mut tui.sys.cached_layout_key,
         );
         let size = layout.size;
 
@@ -326,12 +378,17 @@ impl PolishedRenderer {
         if tui.session.session_sidebar.is_visible() && message_area.width > 100 {
             let sidebar_width = (message_area.width / 3).clamp(24, 34);
             if message_area.width > sidebar_width {
-                let split = Layout::default()
-                    .direction(Direction::Horizontal)
-                    .constraints([Constraint::Min(0), Constraint::Length(sidebar_width)])
-                    .split(message_area);
-                message_area = split[0];
-                sidebar_area = Some(split[1]);
+                let msg_w = message_area.width - sidebar_width;
+                let msg_rect =
+                    Rect::new(message_area.x, message_area.y, msg_w, message_area.height);
+                let sb_rect = Rect::new(
+                    message_area.x + msg_w,
+                    message_area.y,
+                    sidebar_width,
+                    message_area.height,
+                );
+                message_area = msg_rect;
+                sidebar_area = Some(sb_rect);
             }
         }
         tui.ui.sidebar_area.set(sidebar_area.unwrap_or_default());

@@ -406,6 +406,7 @@ impl TUI {
                     self.add_system_message("📐 UI sections restored".to_string());
                 }
                 self.sys.dirty = true;
+                self.sys.layout_dirty = true;
                 return Ok(());
             }
             // Ctrl+X: Open input in external editor
@@ -427,11 +428,13 @@ impl TUI {
                                 );
                             }
                             self.sys.dirty = true;
+                            self.sys.layout_dirty = true;
                             self.sys.needs_full_redraw = true;
                         }
                         Err(e) => {
                             self.add_system_message(format!("⚠️ Editor error: {}", e));
                             self.sys.dirty = true;
+                            self.sys.layout_dirty = true;
                             self.sys.needs_full_redraw = true;
                         }
                     }

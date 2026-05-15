@@ -481,6 +481,7 @@ impl TUI {
             sys: crate::app::state_model::SystemState {
                 running: true,
                 dirty: true,
+                layout_dirty: true,
                 needs_full_redraw: false,
                 compaction: crate::app::compaction_state::CompactionState::new(
                     context_monitor,
@@ -491,6 +492,8 @@ impl TUI {
                 plugin_manager,
                 input_mode: InputMode::SingleLine,
                 renderer_mode,
+                cached_chunks: None,
+                cached_layout_key: None,
             },
             overlays: crate::app::state_model::OverlayState {
                 command_palette,
@@ -736,6 +739,7 @@ impl TUI {
             sys: crate::app::state_model::SystemState {
                 running: true,
                 dirty: true,
+                layout_dirty: true,
                 needs_full_redraw: false,
                 compaction: crate::app::compaction_state::CompactionState::new(
                     context_monitor,
@@ -746,6 +750,8 @@ impl TUI {
                 plugin_manager,
                 input_mode: InputMode::SingleLine,
                 renderer_mode,
+                cached_chunks: None,
+                cached_layout_key: None,
             },
             overlays: crate::app::state_model::OverlayState {
                 command_palette,
@@ -1492,9 +1498,8 @@ impl TUI {
             let mut input_handled = false;
 
             let input_poll_elapsed = if elapsed < FRAME_BUDGET_60FPS {
-                // Phase 4: Render (only if dirty)
-                // dirty is set to true when new content arrives, so no need to check is_streaming
-                let should_render = self.sys.dirty || frame_count < 3;
+                // Phase 4: Render (only if dirty or layout changed)
+                let should_render = self.sys.dirty || self.sys.layout_dirty || frame_count < 3;
 
                 if should_render {
                     let render_start = Instant::now();
@@ -1509,6 +1514,7 @@ impl TUI {
                         .context("failed to draw TUI frame")?;
                     frame_count += 1;
                     self.sys.dirty = false;
+                    self.sys.layout_dirty = false;
                     render_elapsed = render_start.elapsed();
                     rendered = true;
                 }

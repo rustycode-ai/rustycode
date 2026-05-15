@@ -131,6 +131,7 @@ pub(crate) struct InteractionSessionState {
 pub(crate) struct SystemState {
     pub(crate) running: bool,
     pub(crate) dirty: bool,
+    pub(crate) layout_dirty: bool,
     pub(crate) needs_full_redraw: bool,
     pub(crate) compaction: CompactionState,
     pub(crate) auto_memory: Option<std::sync::Arc<ThreadSafeAutoMemory>>,
@@ -138,6 +139,10 @@ pub(crate) struct SystemState {
     pub(crate) plugin_manager: std::sync::Arc<std::sync::RwLock<PluginManager>>,
     pub(crate) input_mode: InputMode,
     pub(crate) renderer_mode: crate::app::renderer::RendererMode,
+    /// Cached layout chunks — recomputed only when layout_dirty is true.
+    pub(crate) cached_chunks: Option<std::rc::Rc<[ratatui::layout::Rect]>>,
+    /// Inputs that produced cached_chunks: (width, height, status_collapsed, footer_collapsed).
+    pub(crate) cached_layout_key: Option<(u16, u16, bool, bool)>,
 }
 
 /// Overlay State sub-struct
