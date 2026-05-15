@@ -123,8 +123,8 @@ impl PerplexityProvider {
             },
             recommended_models: vec![
                 ModelInfo {
-                    model_id: "llama-3.1-sonar-small-128k-online".to_string(),
-                    display_name: "Sonar Small (Online)".to_string(),
+                    model_id: "sonar".to_string(),
+                    display_name: "Sonar".to_string(),
                     description: "Fast model with real-time web search".to_string(),
                     context_window: 128_000,
                     supports_tools: true,
@@ -132,13 +132,22 @@ impl PerplexityProvider {
                     cost_tier: 1,
                 },
                 ModelInfo {
-                    model_id: "llama-3.1-sonar-large-128k-online".to_string(),
-                    display_name: "Sonar Large (Online)".to_string(),
-                    description: "Balanced model with web search".to_string(),
-                    context_window: 128_000,
+                    model_id: "sonar-pro".to_string(),
+                    display_name: "Sonar Pro".to_string(),
+                    description: "Advanced search with 200K context".to_string(),
+                    context_window: 200_000,
                     supports_tools: true,
                     use_cases: vec!["General tasks".to_string(), "Research".to_string()],
                     cost_tier: 2,
+                },
+                ModelInfo {
+                    model_id: "sonar-reasoning-pro".to_string(),
+                    display_name: "Sonar Reasoning Pro".to_string(),
+                    description: "Reasoning model with web search".to_string(),
+                    context_window: 200_000,
+                    supports_tools: true,
+                    use_cases: vec!["Complex reasoning".to_string(), "Deep research".to_string()],
+                    cost_tier: 3,
                 },
             ],
             model_behavior_profiles: HashMap::new(),
@@ -161,10 +170,10 @@ impl LLMProvider for PerplexityProvider {
 
     async fn list_models(&self) -> Result<Vec<String>, ProviderError> {
         Ok(vec![
-            "llama-3.1-sonar-huge-128k-online".to_string(),
-            "llama-3.1-sonar-large-128k-online".to_string(),
-            "llama-3.1-sonar-small-128k-online".to_string(),
-            "mixtral-8x7b-instruct".to_string(),
+            "sonar".to_string(),
+            "sonar-pro".to_string(),
+            "sonar-reasoning-pro".to_string(),
+            "sonar-deep-research".to_string(),
         ])
     }
 

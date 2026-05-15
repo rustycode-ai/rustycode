@@ -163,15 +163,29 @@ impl OpenRouterProvider {
                 parallel_calling: true,
                 streaming_support: true,
             },
-            recommended_models: vec![ModelInfo {
-                model_id: "google/gemma-2-9b:free".to_string(),
-                display_name: "Gemma 2 9B (Free)".to_string(),
-                description: "Free model with good quality and speed".to_string(),
-                context_window: 8192,
-                supports_tools: false,
-                use_cases: vec!["General tasks".to_string()],
-                cost_tier: 0,
-            }],
+            recommended_models: vec![
+                ModelInfo {
+                    model_id: "google/gemini-2.5-flash:free".to_string(),
+                    display_name: "Gemini 2.5 Flash (Free)".to_string(),
+                    description: "Free tier Gemini 2.5 Flash".to_string(),
+                    context_window: 1_048_576,
+                    supports_tools: true,
+                    use_cases: vec!["General tasks".to_string()],
+                    cost_tier: 0,
+                },
+                ModelInfo {
+                    model_id: "anthropic/claude-sonnet-4-6".to_string(),
+                    display_name: "Claude Sonnet 4.6".to_string(),
+                    description: "Best coding model via OpenRouter".to_string(),
+                    context_window: 1_000_000,
+                    supports_tools: true,
+                    use_cases: vec![
+                        "Code generation".to_string(),
+                        "Complex reasoning".to_string(),
+                    ],
+                    cost_tier: 4,
+                },
+            ],
             model_behavior_profiles: std::collections::HashMap::new(),
         }
     }
@@ -194,8 +208,8 @@ impl LLMProvider for OpenRouterProvider {
 
     async fn list_models(&self) -> Result<Vec<String>, ProviderError> {
         const FALLBACK: &[&str] = &[
-            "google/gemma-2-9b:free",
-            "openai/gpt-4o",
+            "google/gemini-2.5-flash:free",
+            "openai/gpt-4.1",
             "anthropic/claude-sonnet-4-6",
             "google/gemini-2.5-flash",
         ];

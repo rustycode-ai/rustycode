@@ -128,12 +128,10 @@ impl CopilotProvider {
             },
             recommended_models: vec![
                 ModelInfo {
-                    model_id: "gpt-4.1-copilot".to_string(),
-                    display_name: "GPT-4.1 Copilot".to_string(),
-                    description:
-                        "Latest GPT-4 model with improved reasoning and coding capabilities"
-                            .to_string(),
-                    context_window: 128000,
+                    model_id: "gpt-5.4-copilot".to_string(),
+                    display_name: "GPT-5.4 Copilot".to_string(),
+                    description: "High-performance GPT-5.4 with 1M context via Copilot".to_string(),
+                    context_window: 1_000_000,
                     supports_tools: true,
                     use_cases: vec![
                         "Complex coding tasks".to_string(),
@@ -143,38 +141,27 @@ impl CopilotProvider {
                     cost_tier: 5,
                 },
                 ModelInfo {
-                    model_id: "gpt-4o-copilot".to_string(),
-                    display_name: "GPT-4o Copilot".to_string(),
-                    description: "Multimodal model with strong performance across tasks"
-                        .to_string(),
-                    context_window: 128000,
+                    model_id: "gpt-5.5-copilot".to_string(),
+                    display_name: "GPT-5.5 Copilot".to_string(),
+                    description: "Most capable OpenAI model via Copilot".to_string(),
+                    context_window: 1_000_000,
+                    supports_tools: true,
+                    use_cases: vec![
+                        "Complex reasoning".to_string(),
+                        "Advanced coding".to_string(),
+                    ],
+                    cost_tier: 5,
+                },
+                ModelInfo {
+                    model_id: "claude-sonnet-4-6-copilot".to_string(),
+                    display_name: "Claude Sonnet 4.6 Copilot".to_string(),
+                    description: "Anthropic Claude Sonnet 4.6 via Copilot".to_string(),
+                    context_window: 200_000,
                     supports_tools: true,
                     use_cases: vec![
                         "General coding".to_string(),
                         "Code explanation".to_string(),
                         "Debugging".to_string(),
-                    ],
-                    cost_tier: 4,
-                },
-                ModelInfo {
-                    model_id: "gpt-4o-mini-copilot".to_string(),
-                    display_name: "GPT-4o Mini Copilot".to_string(),
-                    description: "Fast and cost-effective for simple tasks".to_string(),
-                    context_window: 128000,
-                    supports_tools: true,
-                    use_cases: vec!["Quick code fixes".to_string(), "Simple queries".to_string()],
-                    cost_tier: 2,
-                },
-                ModelInfo {
-                    model_id: "o3-mini-copilot".to_string(),
-                    display_name: "o3 Mini Copilot".to_string(),
-                    description: "Reasoning-optimized model for complex problem-solving"
-                        .to_string(),
-                    context_window: 200000,
-                    supports_tools: true,
-                    use_cases: vec![
-                        "Complex algorithms".to_string(),
-                        "Math-heavy tasks".to_string(),
                     ],
                     cost_tier: 4,
                 },

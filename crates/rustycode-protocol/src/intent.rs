@@ -79,39 +79,91 @@ impl IntentCategory {
         match self {
             IntentCategory::Implementation => {
                 "The user wants code written or a feature built. Use tools (write_file, bash) \
-                 to create or modify files. Prefer writing code over explaining it in text."
+                 to create or modify files. Prefer writing code over explaining it in text.\n\
+                 \n\
+                 Before writing, decode what the user actually needs: their request is \
+                 surface-level. Check: does the codebase already have an API for this? \
+                 What would success look like? What is the minimum change that achieves it?\n\
+                 \n\
+                 For changes touching multiple files: grep for the pattern across the codebase \
+                 first to understand scope. Edit source files, not test files. Apply the same \
+                 pattern consistently across all affected files."
             }
             IntentCategory::Investigation => {
                 "The user wants to investigate or debug something. Use read-only tools \
                  (read_file, grep, bash for inspection). Report findings clearly. \
-                 Do not modify files unless explicitly asked."
+                 Do not modify files unless explicitly asked.\n\
+                 \n\
+                 Before investigating, decode what the user actually needs: the stated \
+                 problem may be a symptom of a different root cause. Trace the actual \
+                 failure path — follow imports, check call chains, read the error output. \
+                 The error message may name module A but the real problem is in module B.\n\
+                 \n\
+                 When tracing: grep broadly first, then read specific files. Estimate \
+                 scope early — does this affect one function or the entire module? \
+                 Report which files are affected and how they connect."
             }
             IntentCategory::Explanation => {
                 "The user is asking for an explanation or answer. Focus on clear, \
-                 concise responses. Do not modify any files unless explicitly asked."
+                 concise responses. Do not modify any files unless explicitly asked.\n\
+                 \n\
+                 Before explaining, decode what they really want to know: are they \
+                 asking about a concept, a specific code path, or debugging guidance? \
+                 Point to relevant code locations when helpful."
             }
             IntentCategory::Refactoring => {
                 "The user wants code restructured without changing behavior. \
                  Use tools to read and rewrite files. Preserve all existing \
-                 functionality and tests."
+                 functionality and tests.\n\
+                 \n\
+                 Before refactoring, estimate scope: how many files reference what's changing? \
+                 Grep the ENTIRE codebase first. Count references. If >5 files, plan a \
+                 systematic pass: edit all source files, then verify imports resolve.\n\
+                 \n\
+                 Edit SOURCE files (not test files) unless tests need updating too. \
+                 After each batch of edits, grep again for any missed references. \
+                 Run tests after all edits to confirm no behavior changed."
             }
             IntentCategory::Planning => {
                 "The user wants an architectural plan or design. Analyze the codebase \
                  using read-only tools, then produce a structured plan. \
-                 Do not modify files unless explicitly asked."
+                 Do not modify files unless explicitly asked.\n\
+                 \n\
+                 Before planning, find existing patterns that solve similar problems. \
+                 Check: does the codebase already have a plugin/config/registration pattern? \
+                 Propose the approach that follows existing conventions."
             }
             IntentCategory::Testing => {
                 "The user wants tests written or run. Use tools to read existing code, \
-                 write test files, and run the test suite. Verify tests pass."
+                 write test files, and run the test suite. Verify tests pass.\n\
+                 \n\
+                 Before writing tests, understand what behavior to verify. Read the \
+                 implementation first. Write tests that exercise edge cases, not just \
+                 the happy path. Follow the project's existing test patterns."
             }
             IntentCategory::Analytical => {
                 "The user wants analytical work (performance tuning, audit). Use \
                  analysis tools, profile code if needed, and report findings \
-                 with data/metrics."
+                 with data/metrics.\n\
+                 \n\
+                 Before analyzing, understand the baseline: what's the current behavior? \
+                 Measure before and after. Report specific numbers, not vague assessments."
             }
             IntentCategory::Diagnostic => {
-                "The user wants to fix a bug. Focus on identifying the root cause \
-                 before attempting a fix. Verify the fix with tests."
+                "The user wants to fix a bug. Before fixing, decode the real intent:\n\
+                 1. What does the error/test actually check? (the test IS the specification)\n\
+                 2. What function/module does it exercise? Trace imports, don't guess.\n\
+                 3. Why does it fail? Identify root cause: wrong logic, missing param, wrong module.\n\
+                 4. Estimate scope: is this a 1-file fix or a multi-file refactor?\n\
+                 5. What exact change fixes it? Name the file and line before editing.\n\
+                 \n\
+                 For multi-file changes: grep the ENTIRE codebase for the pattern first.\n\
+                 Edit SOURCE files, not test files. After fixing one file, grep for remaining references.\n\
+                 \n\
+                 Common traps: error names module A but bug is in B; issue says 'fix X' \
+                 but test checks Y; multiple similar files exist — grep the EXACT import; \
+                 editing test files when source files need the fix. \
+                 Fix the ROOT CAUSE, not the symptom. Verify with tests."
             }
         }
     }
@@ -459,6 +511,8 @@ mod tests {
             IntentCategory::Refactoring,
             IntentCategory::Planning,
             IntentCategory::Testing,
+            IntentCategory::Analytical,
+            IntentCategory::Diagnostic,
         ];
         for intent in intents {
             assert!(

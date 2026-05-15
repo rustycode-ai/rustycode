@@ -196,51 +196,51 @@ pub mod predefined {
     pub fn anthropic_models() -> Vec<ModelInfo> {
         vec![
             ModelInfo {
-                id: "claude-3-5-sonnet".to_string(),
-                name: "Claude 3.5 Sonnet".to_string(),
+                id: "claude-sonnet-4-6".to_string(),
+                name: "Claude Sonnet 4.6".to_string(),
                 provider_id: "anthropic".to_string(),
-                description: "Most capable model for complex tasks".to_string(),
-                context_window: 200_000,
+                description: "Best coding model with 1M context and adaptive thinking".to_string(),
+                context_window: 1_000_000,
                 supports_tools: true,
                 supports_vision: true,
-                max_tokens: 8192,
+                max_tokens: 64000,
                 input_cost_per_1k: 0.003,
                 output_cost_per_1k: 0.015,
                 use_cases: vec![
-                    "Complex reasoning".to_string(),
                     "Code generation".to_string(),
+                    "Complex reasoning".to_string(),
                     "Analysis".to_string(),
                 ],
                 cost_tier: 4,
             },
             ModelInfo {
-                id: "claude-3-opus".to_string(),
-                name: "Claude 3 Opus".to_string(),
+                id: "claude-opus-4-7".to_string(),
+                name: "Claude Opus 4.7".to_string(),
                 provider_id: "anthropic".to_string(),
-                description: "Highest capability model".to_string(),
-                context_window: 200_000,
+                description: "Current flagship with 1M context and adaptive thinking".to_string(),
+                context_window: 1_000_000,
                 supports_tools: true,
                 supports_vision: true,
-                max_tokens: 4096,
-                input_cost_per_1k: 0.015,
-                output_cost_per_1k: 0.075,
+                max_tokens: 128000,
+                input_cost_per_1k: 0.005,
+                output_cost_per_1k: 0.025,
                 use_cases: vec![
                     "Most complex tasks".to_string(),
-                    "Creative writing".to_string(),
+                    "Deep analysis".to_string(),
                 ],
                 cost_tier: 5,
             },
             ModelInfo {
-                id: "claude-3-haiku".to_string(),
-                name: "Claude 3 Haiku".to_string(),
+                id: "claude-haiku-4-5-20251001".to_string(),
+                name: "Claude Haiku 4.5".to_string(),
                 provider_id: "anthropic".to_string(),
-                description: "Fastest model for simple tasks".to_string(),
+                description: "Fast and cheap with best speed/cost ratio".to_string(),
                 context_window: 200_000,
                 supports_tools: true,
                 supports_vision: true,
-                max_tokens: 4096,
-                input_cost_per_1k: 0.00025,
-                output_cost_per_1k: 0.00125,
+                max_tokens: 64000,
+                input_cost_per_1k: 0.001,
+                output_cost_per_1k: 0.005,
                 use_cases: vec!["Simple tasks".to_string(), "Fast response".to_string()],
                 cost_tier: 2,
             },
@@ -252,49 +252,75 @@ pub mod predefined {
     pub fn openai_models() -> Vec<ModelInfo> {
         vec![
             ModelInfo {
-                id: "gpt-4o".to_string(),
-                name: "GPT-4o".to_string(),
+                id: "gpt-5.5".to_string(),
+                name: "GPT-5.5".to_string(),
                 provider_id: "openai".to_string(),
-                description: "Most capable multimodal model".to_string(),
-                context_window: 128_000,
+                description: "Most capable OpenAI model with 1M context".to_string(),
+                context_window: 1_000_000,
                 supports_tools: true,
                 supports_vision: true,
-                max_tokens: 4096,
+                max_tokens: 32768,
                 input_cost_per_1k: 0.005,
-                output_cost_per_1k: 0.015,
-                use_cases: vec![
-                    "Multimodal tasks".to_string(),
-                    "Code generation".to_string(),
-                ],
-                cost_tier: 4,
+                output_cost_per_1k: 0.03,
+                use_cases: vec!["Complex tasks".to_string(), "Code generation".to_string()],
+                cost_tier: 5,
             },
             ModelInfo {
-                id: "gpt-4-turbo".to_string(),
-                name: "GPT-4 Turbo".to_string(),
+                id: "gpt-5.4".to_string(),
+                name: "GPT-5.4".to_string(),
                 provider_id: "openai".to_string(),
-                description: "High-performance model".to_string(),
-                context_window: 128_000,
+                description: "High-performance model with 1M context".to_string(),
+                context_window: 1_000_000,
                 supports_tools: true,
                 supports_vision: true,
-                max_tokens: 4096,
-                input_cost_per_1k: 0.01,
-                output_cost_per_1k: 0.03,
-                use_cases: vec!["Complex reasoning".to_string(), "Analysis".to_string()],
+                max_tokens: 32768,
+                input_cost_per_1k: 0.0025,
+                output_cost_per_1k: 0.015,
+                use_cases: vec!["Code generation".to_string(), "Complex tasks".to_string()],
                 cost_tier: 4,
             },
             ModelInfo {
-                id: "gpt-3.5-turbo".to_string(),
-                name: "GPT-3.5 Turbo".to_string(),
+                id: "gpt-5.4-mini".to_string(),
+                name: "GPT-5.4 mini".to_string(),
                 provider_id: "openai".to_string(),
-                description: "Fast and cost-effective".to_string(),
-                context_window: 16_385,
+                description: "Cost-effective with 400K context".to_string(),
+                context_window: 400_000,
                 supports_tools: true,
-                supports_vision: false,
-                max_tokens: 4096,
-                input_cost_per_1k: 0.0005,
-                output_cost_per_1k: 0.0015,
-                use_cases: vec!["Simple tasks".to_string(), "Chat".to_string()],
+                supports_vision: true,
+                max_tokens: 32768,
+                input_cost_per_1k: 0.00075,
+                output_cost_per_1k: 0.0045,
+                use_cases: vec!["General tasks".to_string(), "Chat".to_string()],
                 cost_tier: 2,
+            },
+            ModelInfo {
+                id: "gpt-4.1".to_string(),
+                name: "GPT-4.1".to_string(),
+                provider_id: "openai".to_string(),
+                description: "Instruction-following with 1M context (closing 2026-06-01)"
+                    .to_string(),
+                context_window: 1_047_576,
+                supports_tools: true,
+                supports_vision: true,
+                max_tokens: 32768,
+                input_cost_per_1k: 0.002,
+                output_cost_per_1k: 0.008,
+                use_cases: vec!["Code generation".to_string(), "Complex tasks".to_string()],
+                cost_tier: 4,
+            },
+            ModelInfo {
+                id: "o4-mini".to_string(),
+                name: "o4-mini".to_string(),
+                provider_id: "openai".to_string(),
+                description: "Reasoning model with vision and agentic tool use".to_string(),
+                context_window: 200_000,
+                supports_tools: true,
+                supports_vision: true,
+                max_tokens: 100000,
+                input_cost_per_1k: 0.0011,
+                output_cost_per_1k: 0.0044,
+                use_cases: vec!["Reasoning".to_string(), "Agentic tasks".to_string()],
+                cost_tier: 3,
             },
         ]
     }
@@ -304,46 +330,32 @@ pub mod predefined {
     pub fn openrouter_models() -> Vec<ModelInfo> {
         vec![
             ModelInfo {
-                id: "anthropic/claude-3.5-sonnet".to_string(),
-                name: "Claude 3.5 Sonnet (via OpenRouter)".to_string(),
+                id: "anthropic/claude-sonnet-4-6".to_string(),
+                name: "Claude Sonnet 4.6 (via OpenRouter)".to_string(),
                 provider_id: "openrouter".to_string(),
-                description: "Claude via OpenRouter aggregation".to_string(),
-                context_window: 200_000,
+                description: "Best coding model via OpenRouter".to_string(),
+                context_window: 1_000_000,
                 supports_tools: true,
                 supports_vision: true,
-                max_tokens: 8192,
+                max_tokens: 64000,
                 input_cost_per_1k: 0.003,
                 output_cost_per_1k: 0.015,
-                use_cases: vec!["Complex tasks".to_string()],
+                use_cases: vec!["Complex tasks".to_string(), "Coding".to_string()],
                 cost_tier: 4,
             },
             ModelInfo {
-                id: "google/gemma-2-9b:free".to_string(),
-                name: "Gemma 2 9B (Free)".to_string(),
+                id: "google/gemini-2.5-flash:free".to_string(),
+                name: "Gemini 2.5 Flash (Free)".to_string(),
                 provider_id: "openrouter".to_string(),
-                description: "Free model via OpenRouter".to_string(),
-                context_window: 8192,
-                supports_tools: false,
-                supports_vision: false,
-                max_tokens: 4096,
+                description: "Free tier Gemini 2.5 Flash".to_string(),
+                context_window: 1_048_576,
+                supports_tools: true,
+                supports_vision: true,
+                max_tokens: 65536,
                 input_cost_per_1k: 0.0,
                 output_cost_per_1k: 0.0,
-                use_cases: vec!["Testing".to_string()],
-                cost_tier: 1,
-            },
-            ModelInfo {
-                id: "meta-llama/llama-3-8b:free".to_string(),
-                name: "Llama 3 8B (Free)".to_string(),
-                provider_id: "openrouter".to_string(),
-                description: "Free open-source model".to_string(),
-                context_window: 8192,
-                supports_tools: false,
-                supports_vision: false,
-                max_tokens: 4096,
-                input_cost_per_1k: 0.0,
-                output_cost_per_1k: 0.0,
-                use_cases: vec!["Testing".to_string()],
-                cost_tier: 1,
+                use_cases: vec!["Testing".to_string(), "General tasks".to_string()],
+                cost_tier: 0,
             },
         ]
     }
@@ -353,32 +365,46 @@ pub mod predefined {
     pub fn gemini_models() -> Vec<ModelInfo> {
         vec![
             ModelInfo {
-                id: "gemini-1.5-pro".to_string(),
-                name: "Gemini 1.5 Pro".to_string(),
+                id: "gemini-2.5-pro".to_string(),
+                name: "Gemini 2.5 Pro".to_string(),
                 provider_id: "gemini".to_string(),
-                description: "Google's most capable model".to_string(),
-                context_window: 1_000_000,
+                description: "Advanced reasoning with 1M context".to_string(),
+                context_window: 1_048_576,
                 supports_tools: true,
                 supports_vision: true,
-                max_tokens: 8192,
-                input_cost_per_1k: 0.001,
-                output_cost_per_1k: 0.002,
-                use_cases: vec!["Long context".to_string(), "Multimodal".to_string()],
+                max_tokens: 65536,
+                input_cost_per_1k: 0.00125,
+                output_cost_per_1k: 0.01,
+                use_cases: vec!["Complex reasoning".to_string(), "Long context".to_string()],
+                cost_tier: 4,
+            },
+            ModelInfo {
+                id: "gemini-2.5-flash".to_string(),
+                name: "Gemini 2.5 Flash".to_string(),
+                provider_id: "gemini".to_string(),
+                description: "Best for high-volume, low-latency agentic tasks".to_string(),
+                context_window: 1_048_576,
+                supports_tools: true,
+                supports_vision: true,
+                max_tokens: 65536,
+                input_cost_per_1k: 0.0003,
+                output_cost_per_1k: 0.0025,
+                use_cases: vec!["General tasks".to_string(), "Coding".to_string()],
                 cost_tier: 2,
             },
             ModelInfo {
-                id: "gemini-pro".to_string(),
-                name: "Gemini Pro".to_string(),
+                id: "gemini-2.5-flash-lite".to_string(),
+                name: "Gemini 2.5 Flash-Lite".to_string(),
                 provider_id: "gemini".to_string(),
-                description: "Cost-effective model".to_string(),
-                context_window: 1_000_000,
+                description: "Fastest and cheapest Gemini 2.5 model".to_string(),
+                context_window: 1_048_576,
                 supports_tools: true,
                 supports_vision: true,
-                max_tokens: 8192,
-                input_cost_per_1k: 0.0005,
-                output_cost_per_1k: 0.001,
-                use_cases: vec!["General tasks".to_string(), "Chat".to_string()],
-                cost_tier: 2,
+                max_tokens: 65536,
+                input_cost_per_1k: 0.0001,
+                output_cost_per_1k: 0.0004,
+                use_cases: vec!["Quick tasks".to_string(), "High-volume".to_string()],
+                cost_tier: 1,
             },
         ]
     }
@@ -421,20 +447,50 @@ pub mod predefined {
     /// GitHub Copilot models
     // Model catalog — used by model selection UI and cost estimation
     pub fn copilot_models() -> Vec<ModelInfo> {
-        vec![ModelInfo {
-            id: "gpt-4o-copilot".to_string(),
-            name: "GPT-4o (Copilot)".to_string(),
-            provider_id: "copilot".to_string(),
-            description: "OpenAI GPT-4o via GitHub Copilot".to_string(),
-            context_window: 128_000,
-            supports_tools: true,
-            supports_vision: true,
-            max_tokens: 4096,
-            input_cost_per_1k: 0.0, // Included in subscription
-            output_cost_per_1k: 0.0,
-            use_cases: vec!["Coding".to_string(), "Integrated workflow".to_string()],
-            cost_tier: 1,
-        }]
+        vec![
+            ModelInfo {
+                id: "gpt-5.4-copilot".to_string(),
+                name: "GPT-5.4 (Copilot)".to_string(),
+                provider_id: "copilot".to_string(),
+                description: "GPT-5.4 with 1M context via GitHub Copilot".to_string(),
+                context_window: 1_000_000,
+                supports_tools: true,
+                supports_vision: true,
+                max_tokens: 32768,
+                input_cost_per_1k: 0.0,
+                output_cost_per_1k: 0.0,
+                use_cases: vec!["Coding".to_string(), "Architecture".to_string()],
+                cost_tier: 1,
+            },
+            ModelInfo {
+                id: "gpt-5.5-copilot".to_string(),
+                name: "GPT-5.5 (Copilot)".to_string(),
+                provider_id: "copilot".to_string(),
+                description: "Most capable OpenAI model via GitHub Copilot".to_string(),
+                context_window: 1_000_000,
+                supports_tools: true,
+                supports_vision: true,
+                max_tokens: 32768,
+                input_cost_per_1k: 0.0,
+                output_cost_per_1k: 0.0,
+                use_cases: vec!["Complex tasks".to_string(), "Reasoning".to_string()],
+                cost_tier: 1,
+            },
+            ModelInfo {
+                id: "claude-sonnet-4-6-copilot".to_string(),
+                name: "Claude Sonnet 4.6 (Copilot)".to_string(),
+                provider_id: "copilot".to_string(),
+                description: "Anthropic Claude Sonnet 4.6 via GitHub Copilot".to_string(),
+                context_window: 200_000,
+                supports_tools: true,
+                supports_vision: true,
+                max_tokens: 16384,
+                input_cost_per_1k: 0.0,
+                output_cost_per_1k: 0.0,
+                use_cases: vec!["Coding".to_string(), "Analysis".to_string()],
+                cost_tier: 1,
+            },
+        ]
     }
 
     /// Zhipu AI (z.ai) GLM models
@@ -442,50 +498,73 @@ pub mod predefined {
     pub fn zhipu_models() -> Vec<ModelInfo> {
         vec![
             ModelInfo {
-                id: "glm-4-plus".to_string(),
-                name: "GLM-4 Plus".to_string(),
+                id: "glm-5.1".to_string(),
+                name: "GLM-5.1".to_string(),
                 provider_id: "zhipu".to_string(),
-                description: "Zhipu's most capable model (GLM-4 series)".to_string(),
-                context_window: 128_000,
+                description: "Flagship — 8h autonomous work, matches Claude Opus 4.6".to_string(),
+                context_window: 200_000,
                 supports_tools: true,
                 supports_vision: true,
-                max_tokens: 4096,
-                input_cost_per_1k: 0.0014,
-                output_cost_per_1k: 0.0014,
-                use_cases: vec!["Complex reasoning".to_string(), "Code".to_string()],
-                cost_tier: 3,
-            },
-            ModelInfo {
-                id: "glm-4-flash".to_string(),
-                name: "GLM-4 Flash".to_string(),
-                provider_id: "zhipu".to_string(),
-                description: "Zhipu's fastest model".to_string(),
-                context_window: 128_000,
-                supports_tools: true,
-                supports_vision: false,
-                max_tokens: 4096,
-                input_cost_per_1k: 0.0001,
-                output_cost_per_1k: 0.0001,
-                use_cases: vec!["Fast response".to_string()],
-                cost_tier: 1,
+                max_tokens: 131_072,
+                input_cost_per_1k: 0.005,
+                output_cost_per_1k: 0.020,
+                use_cases: vec![
+                    "Long-horizon agents".to_string(),
+                    "Complex reasoning".to_string(),
+                    "Code generation".to_string(),
+                ],
+                cost_tier: 5,
             },
             ModelInfo {
                 id: "glm-5".to_string(),
                 name: "GLM-5".to_string(),
                 provider_id: "zhipu".to_string(),
-                description: "Zhipu's next-generation flagship model".to_string(),
+                description: "Strong coding, reliable multi-step reasoning".to_string(),
                 context_window: 200_000,
                 supports_tools: true,
                 supports_vision: true,
-                max_tokens: 8192,
+                max_tokens: 16_384,
                 input_cost_per_1k: 0.003,
                 output_cost_per_1k: 0.015,
                 use_cases: vec![
                     "Complex reasoning".to_string(),
                     "Code generation".to_string(),
-                    "Analysis".to_string(),
+                    "Agent tasks".to_string(),
                 ],
                 cost_tier: 4,
+            },
+            ModelInfo {
+                id: "glm-5-turbo".to_string(),
+                name: "GLM-5 Turbo".to_string(),
+                provider_id: "zhipu".to_string(),
+                description: "Fast GLM-5 optimized for dynamic long-chain tasks".to_string(),
+                context_window: 200_000,
+                supports_tools: true,
+                supports_vision: true,
+                max_tokens: 16_384,
+                input_cost_per_1k: 0.002,
+                output_cost_per_1k: 0.008,
+                use_cases: vec![
+                    "Quick reasoning".to_string(),
+                    "Code generation".to_string(),
+                    "Chat".to_string(),
+                ],
+                cost_tier: 3,
+            },
+            ModelInfo {
+                id: "glm-4.7-flash".to_string(),
+                name: "GLM-4.7 Flash".to_string(),
+                provider_id: "zhipu".to_string(),
+                description: "30B lightweight model, outperforms similar-scale open-source"
+                    .to_string(),
+                context_window: 128_000,
+                supports_tools: true,
+                supports_vision: false,
+                max_tokens: 8192,
+                input_cost_per_1k: 0.0001,
+                output_cost_per_1k: 0.0001,
+                use_cases: vec!["Fast response".to_string(), "Budget workloads".to_string()],
+                cost_tier: 1,
             },
         ]
     }
@@ -768,16 +847,16 @@ pub mod predefined {
     pub fn vertex_models() -> Vec<ModelInfo> {
         vec![
             ModelInfo {
-                id: "gemini-1.5-pro".to_string(),
-                name: "Gemini 1.5 Pro".to_string(),
+                id: "gemini-2.5-pro".to_string(),
+                name: "Gemini 2.5 Pro".to_string(),
                 provider_id: "vertex".to_string(),
                 description: "Google's most capable multimodal model via Vertex AI".to_string(),
-                context_window: 1_000_000,
+                context_window: 1_048_576,
                 supports_tools: true,
                 supports_vision: true,
-                max_tokens: 8192,
+                max_tokens: 65536,
                 input_cost_per_1k: 0.00125,
-                output_cost_per_1k: 0.005,
+                output_cost_per_1k: 0.01,
                 use_cases: vec![
                     "Complex reasoning".to_string(),
                     "Multimodal tasks".to_string(),
@@ -787,22 +866,40 @@ pub mod predefined {
                 cost_tier: 3,
             },
             ModelInfo {
-                id: "gemini-1.5-flash".to_string(),
-                name: "Gemini 1.5 Flash".to_string(),
+                id: "gemini-2.5-flash".to_string(),
+                name: "Gemini 2.5 Flash".to_string(),
                 provider_id: "vertex".to_string(),
                 description: "Fast and cost-effective multimodal model".to_string(),
-                context_window: 1_000_000,
+                context_window: 1_048_576,
                 supports_tools: true,
                 supports_vision: true,
-                max_tokens: 8192,
-                input_cost_per_1k: 0.000075,
-                output_cost_per_1k: 0.0003,
+                max_tokens: 65536,
+                input_cost_per_1k: 0.0003,
+                output_cost_per_1k: 0.0025,
                 use_cases: vec![
                     "Fast response".to_string(),
                     "Cost-effective tasks".to_string(),
                     "Chat".to_string(),
                 ],
                 cost_tier: 2,
+            },
+            ModelInfo {
+                id: "gemini-2.5-flash-lite".to_string(),
+                name: "Gemini 2.5 Flash-Lite".to_string(),
+                provider_id: "vertex".to_string(),
+                description: "Lightest-cost Gemini model for high-volume tasks".to_string(),
+                context_window: 1_048_576,
+                supports_tools: true,
+                supports_vision: true,
+                max_tokens: 65536,
+                input_cost_per_1k: 0.0001,
+                output_cost_per_1k: 0.0004,
+                use_cases: vec![
+                    "High-volume tasks".to_string(),
+                    "Classification".to_string(),
+                    "Summarization".to_string(),
+                ],
+                cost_tier: 1,
             },
         ]
     }
@@ -1223,14 +1320,14 @@ mod tests {
 
     #[test]
     fn test_predefined_context_window_known_model() {
-        let cw = predefined::context_window_for_model("claude-3-5-sonnet");
-        assert_eq!(cw, 200_000);
+        let cw = predefined::context_window_for_model("claude-sonnet-4-6");
+        assert_eq!(cw, 1_000_000);
     }
 
     #[test]
-    fn test_predefined_context_window_gpt4o() {
-        let cw = predefined::context_window_for_model("gpt-4o");
-        assert_eq!(cw, 128_000);
+    fn test_predefined_context_window_gpt55() {
+        let cw = predefined::context_window_for_model("gpt-5.5");
+        assert_eq!(cw, 1_000_000);
     }
 
     #[test]
@@ -1248,13 +1345,13 @@ mod tests {
     #[test]
     fn test_predefined_openai_models_count() {
         let models = predefined::openai_models();
-        assert_eq!(models.len(), 3);
+        assert_eq!(models.len(), 5);
     }
 
     #[test]
     fn test_predefined_gemini_models_count() {
         let models = predefined::gemini_models();
-        assert_eq!(models.len(), 2);
+        assert_eq!(models.len(), 3);
     }
 
     #[test]
@@ -1266,14 +1363,14 @@ mod tests {
     #[test]
     fn test_predefined_vertex_models_count() {
         let models = predefined::vertex_models();
-        assert_eq!(models.len(), 2);
+        assert_eq!(models.len(), 3);
     }
 
     #[test]
     fn test_predefined_openrouter_models_count() {
         let models = predefined::openrouter_models();
-        assert_eq!(models.len(), 3);
-        assert!(models.iter().any(|m| m.id == "anthropic/claude-3.5-sonnet"));
+        assert_eq!(models.len(), 2);
+        assert!(models.iter().any(|m| m.id == "anthropic/claude-sonnet-4-6"));
     }
 
     #[test]
@@ -1316,18 +1413,17 @@ mod tests {
     #[test]
     fn test_predefined_openai_models_vision() {
         let models = predefined::openai_models();
-        // gpt-3.5-turbo should NOT support vision
-        let gpt35 = models.iter().find(|m| m.id == "gpt-3.5-turbo").unwrap();
-        assert!(!gpt35.supports_vision);
-        // gpt-4o should support vision
-        let gpt4o = models.iter().find(|m| m.id == "gpt-4o").unwrap();
-        assert!(gpt4o.supports_vision);
+        // All current OpenAI models support vision
+        assert!(models.iter().all(|m| m.supports_vision));
+        // GPT-5.5 should be present and support vision
+        let gpt55 = models.iter().find(|m| m.id == "gpt-5.5").unwrap();
+        assert!(gpt55.supports_vision);
     }
 
     #[test]
     fn test_predefined_gemini_models_context_window() {
         let models = predefined::gemini_models();
-        assert!(models.iter().all(|m| m.context_window == 1_000_000));
+        assert!(models.iter().all(|m| m.context_window == 1_048_576));
     }
 
     #[test]
@@ -1351,8 +1447,8 @@ mod tests {
 
     #[test]
     fn test_context_window_for_model_gemini() {
-        let cw = predefined::context_window_for_model("gemini-1.5-pro");
-        assert_eq!(cw, 1_000_000);
+        let cw = predefined::context_window_for_model("gemini-2.5-pro");
+        assert_eq!(cw, 1_048_576);
     }
 
     #[test]
@@ -1370,8 +1466,8 @@ mod tests {
 
     #[test]
     fn test_context_window_for_model_vertex_flash() {
-        let cw = predefined::context_window_for_model("gemini-1.5-flash");
-        assert_eq!(cw, 1_000_000);
+        let cw = predefined::context_window_for_model("gemini-2.5-flash");
+        assert_eq!(cw, 1_048_576);
     }
 
     #[tokio::test]

@@ -152,22 +152,22 @@ impl Default for TaskModelConfig {
     fn default() -> Self {
         let mut task_models = HashMap::new();
         // Default task-model mappings (can be overridden)
-        task_models.insert(TaskType::CodeGeneration, "claude-3-5-sonnet".to_string());
-        task_models.insert(TaskType::CodeAnalysis, "claude-3-5-sonnet".to_string());
-        task_models.insert(TaskType::Planning, "claude-3-opus".to_string());
-        task_models.insert(TaskType::Testing, "claude-3-haiku".to_string());
-        task_models.insert(TaskType::General, "claude-3-5-sonnet".to_string());
-        task_models.insert(TaskType::Research, "claude-3-opus".to_string());
-        task_models.insert(TaskType::Specialized, "claude-3-5-sonnet".to_string());
+        task_models.insert(TaskType::CodeGeneration, "claude-sonnet-4-6".to_string());
+        task_models.insert(TaskType::CodeAnalysis, "claude-sonnet-4-6".to_string());
+        task_models.insert(TaskType::Planning, "claude-opus-4-7".to_string());
+        task_models.insert(TaskType::Testing, "claude-haiku-4-5-20251001".to_string());
+        task_models.insert(TaskType::General, "claude-sonnet-4-6".to_string());
+        task_models.insert(TaskType::Research, "claude-opus-4-7".to_string());
+        task_models.insert(TaskType::Specialized, "claude-sonnet-4-6".to_string());
 
         Self {
             task_models,
             fallback_chain: vec![
-                "claude-3-5-sonnet".to_string(),
-                "claude-3-opus".to_string(),
-                "gpt-4".to_string(),
+                "claude-sonnet-4-6".to_string(),
+                "claude-opus-4-7".to_string(),
+                "gpt-4.1".to_string(),
             ],
-            default_model: "claude-3-5-sonnet".to_string(),
+            default_model: "claude-sonnet-4-6".to_string(),
         }
     }
 }
@@ -199,43 +199,45 @@ impl ProviderMetadataRegistry {
             api_key_env: "ANTHROPIC_API_KEY".to_string(),
             models: vec![
                 ModelInfo {
-                    id: "claude-3-opus".to_string(),
-                    name: "Claude 3 Opus".to_string(),
-                    description: "Most capable model".to_string(),
-                    context_window: 200000,
+                    id: "claude-opus-4-7".to_string(),
+                    name: "Claude Opus 4.7".to_string(),
+                    description: "Current flagship with 1M context and adaptive thinking"
+                        .to_string(),
+                    context_window: 1_000_000,
                     supports_vision: true,
                     supports_tools: true,
-                    cost_per_1m_input: 15.0,
-                    cost_per_1m_output: 75.0,
-                    release_date: "2024-03-04".to_string(),
+                    cost_per_1m_input: 5.0,
+                    cost_per_1m_output: 25.0,
+                    release_date: "2026-01-01".to_string(),
                     tier: ModelTier::Premium,
                 },
                 ModelInfo {
-                    id: "claude-3-5-sonnet".to_string(),
-                    name: "Claude 3.5 Sonnet".to_string(),
-                    description: "Balanced and capable".to_string(),
-                    context_window: 200000,
+                    id: "claude-sonnet-4-6".to_string(),
+                    name: "Claude Sonnet 4.6".to_string(),
+                    description: "Best coding model with 1M context and adaptive thinking"
+                        .to_string(),
+                    context_window: 1_000_000,
                     supports_vision: true,
                     supports_tools: true,
                     cost_per_1m_input: 3.0,
                     cost_per_1m_output: 15.0,
-                    release_date: "2024-06-20".to_string(),
+                    release_date: "2026-01-01".to_string(),
                     tier: ModelTier::Balanced,
                 },
                 ModelInfo {
-                    id: "claude-3-haiku".to_string(),
-                    name: "Claude 3 Haiku".to_string(),
-                    description: "Fast and cheap".to_string(),
-                    context_window: 200000,
+                    id: "claude-haiku-4-5-20251001".to_string(),
+                    name: "Claude Haiku 4.5".to_string(),
+                    description: "Fast and cheap with best speed/cost ratio".to_string(),
+                    context_window: 200_000,
                     supports_vision: true,
                     supports_tools: true,
-                    cost_per_1m_input: 0.80,
-                    cost_per_1m_output: 4.0,
-                    release_date: "2024-03-04".to_string(),
+                    cost_per_1m_input: 1.0,
+                    cost_per_1m_output: 5.0,
+                    release_date: "2025-10-15".to_string(),
                     tier: ModelTier::Budget,
                 },
             ],
-            default_model: "claude-3-5-sonnet".to_string(),
+            default_model: "claude-sonnet-4-6".to_string(),
             supports_streaming: true,
             supports_tools: true,
             rate_limit_rpm: Some(50),
@@ -250,55 +252,67 @@ impl ProviderMetadataRegistry {
             api_key_env: "OPENAI_API_KEY".to_string(),
             models: vec![
                 ModelInfo {
-                    id: "gpt-4".to_string(),
-                    name: "GPT-4".to_string(),
-                    description: "Most capable GPT".to_string(),
-                    context_window: 128000,
-                    supports_vision: true,
-                    supports_tools: true,
-                    cost_per_1m_input: 10.0,
-                    cost_per_1m_output: 30.0,
-                    release_date: "2023-06-27".to_string(),
-                    tier: ModelTier::Premium,
-                },
-                ModelInfo {
-                    id: "gpt-4-turbo".to_string(),
-                    name: "GPT-4 Turbo".to_string(),
-                    description: "Improved GPT-4".to_string(),
-                    context_window: 128000,
-                    supports_vision: true,
-                    supports_tools: true,
-                    cost_per_1m_input: 10.0,
-                    cost_per_1m_output: 30.0,
-                    release_date: "2023-11-06".to_string(),
-                    tier: ModelTier::Premium,
-                },
-                ModelInfo {
-                    id: "gpt-4o".to_string(),
-                    name: "GPT-4o".to_string(),
-                    description: "Optimized GPT-4".to_string(),
-                    context_window: 128000,
+                    id: "gpt-5.5".to_string(),
+                    name: "GPT-5.5".to_string(),
+                    description: "Newest flagship for complex reasoning and coding".to_string(),
+                    context_window: 1_000_000,
                     supports_vision: true,
                     supports_tools: true,
                     cost_per_1m_input: 5.0,
+                    cost_per_1m_output: 30.0,
+                    release_date: "2026-05-01".to_string(),
+                    tier: ModelTier::Premium,
+                },
+                ModelInfo {
+                    id: "gpt-5.4".to_string(),
+                    name: "GPT-5.4".to_string(),
+                    description: "Affordable coding and professional work model".to_string(),
+                    context_window: 1_000_000,
+                    supports_vision: true,
+                    supports_tools: true,
+                    cost_per_1m_input: 2.50,
                     cost_per_1m_output: 15.0,
-                    release_date: "2024-05-13".to_string(),
+                    release_date: "2026-03-01".to_string(),
                     tier: ModelTier::Balanced,
                 },
                 ModelInfo {
-                    id: "gpt-4o-mini".to_string(),
-                    name: "GPT-4o Mini".to_string(),
-                    description: "Lightweight GPT-4o".to_string(),
-                    context_window: 128000,
+                    id: "gpt-5.4-mini".to_string(),
+                    name: "GPT-5.4 mini".to_string(),
+                    description: "Strongest mini model for coding and subagents".to_string(),
+                    context_window: 400_000,
                     supports_vision: true,
                     supports_tools: true,
-                    cost_per_1m_input: 0.15,
-                    cost_per_1m_output: 0.60,
-                    release_date: "2024-07-18".to_string(),
+                    cost_per_1m_input: 0.75,
+                    cost_per_1m_output: 4.50,
+                    release_date: "2026-03-01".to_string(),
                     tier: ModelTier::Budget,
                 },
+                ModelInfo {
+                    id: "gpt-4.1".to_string(),
+                    name: "GPT-4.1".to_string(),
+                    description: "Flagship GPT-4 with 1M context".to_string(),
+                    context_window: 1_047_576,
+                    supports_vision: true,
+                    supports_tools: true,
+                    cost_per_1m_input: 2.0,
+                    cost_per_1m_output: 8.0,
+                    release_date: "2025-04-14".to_string(),
+                    tier: ModelTier::Balanced,
+                },
+                ModelInfo {
+                    id: "o4-mini".to_string(),
+                    name: "o4-mini".to_string(),
+                    description: "Reasoning model with vision and agentic tool use".to_string(),
+                    context_window: 200_000,
+                    supports_vision: true,
+                    supports_tools: true,
+                    cost_per_1m_input: 1.10,
+                    cost_per_1m_output: 4.40,
+                    release_date: "2025-04-16".to_string(),
+                    tier: ModelTier::Balanced,
+                },
             ],
-            default_model: "gpt-4o".to_string(),
+            default_model: "gpt-5.4".to_string(),
             supports_streaming: true,
             supports_tools: true,
             rate_limit_rpm: Some(90),
@@ -313,31 +327,43 @@ impl ProviderMetadataRegistry {
             api_key_env: "GOOGLE_API_KEY".to_string(),
             models: vec![
                 ModelInfo {
-                    id: "gemini-2.0-flash".to_string(),
-                    name: "Gemini 2.0 Flash".to_string(),
-                    description: "Fast Gemini 2.0".to_string(),
-                    context_window: 1000000,
-                    supports_vision: true,
-                    supports_tools: true,
-                    cost_per_1m_input: 0.075,
-                    cost_per_1m_output: 0.3,
-                    release_date: "2024-12-19".to_string(),
-                    tier: ModelTier::Balanced,
-                },
-                ModelInfo {
-                    id: "gemini-1.5-pro".to_string(),
-                    name: "Gemini 1.5 Pro".to_string(),
-                    description: "Advanced Gemini".to_string(),
-                    context_window: 1000000,
+                    id: "gemini-2.5-pro".to_string(),
+                    name: "Gemini 2.5 Pro".to_string(),
+                    description: "Advanced reasoning with 1M context".to_string(),
+                    context_window: 1_048_576,
                     supports_vision: true,
                     supports_tools: true,
                     cost_per_1m_input: 1.25,
-                    cost_per_1m_output: 5.0,
-                    release_date: "2024-05-14".to_string(),
+                    cost_per_1m_output: 10.0,
+                    release_date: "2025-03-01".to_string(),
                     tier: ModelTier::Premium,
                 },
+                ModelInfo {
+                    id: "gemini-2.5-flash".to_string(),
+                    name: "Gemini 2.5 Flash".to_string(),
+                    description: "Best for high-volume, low-latency agentic tasks".to_string(),
+                    context_window: 1_048_576,
+                    supports_vision: true,
+                    supports_tools: true,
+                    cost_per_1m_input: 0.30,
+                    cost_per_1m_output: 2.50,
+                    release_date: "2025-03-01".to_string(),
+                    tier: ModelTier::Balanced,
+                },
+                ModelInfo {
+                    id: "gemini-2.5-flash-lite".to_string(),
+                    name: "Gemini 2.5 Flash-Lite".to_string(),
+                    description: "Fastest and cheapest Gemini 2.5 model".to_string(),
+                    context_window: 1_048_576,
+                    supports_vision: true,
+                    supports_tools: true,
+                    cost_per_1m_input: 0.10,
+                    cost_per_1m_output: 0.40,
+                    release_date: "2025-06-01".to_string(),
+                    tier: ModelTier::Budget,
+                },
             ],
-            default_model: "gemini-2.0-flash".to_string(),
+            default_model: "gemini-2.5-flash".to_string(),
             supports_streaming: true,
             supports_tools: true,
             rate_limit_rpm: Some(60),
@@ -352,31 +378,31 @@ impl ProviderMetadataRegistry {
             api_key_env: "OLLAMA_API_KEY".to_string(),
             models: vec![
                 ModelInfo {
-                    id: "llama2".to_string(),
-                    name: "Llama 2".to_string(),
-                    description: "Meta's Llama 2".to_string(),
-                    context_window: 4096,
-                    supports_vision: false,
-                    supports_tools: false,
-                    cost_per_1m_input: 0.0,
-                    cost_per_1m_output: 0.0,
-                    release_date: "2023-07-18".to_string(),
-                    tier: ModelTier::Budget,
-                },
-                ModelInfo {
-                    id: "mistral".to_string(),
-                    name: "Mistral".to_string(),
-                    description: "Mistral AI".to_string(),
+                    id: "llama3".to_string(),
+                    name: "Llama 3".to_string(),
+                    description: "Meta's Llama 3".to_string(),
                     context_window: 8192,
                     supports_vision: false,
                     supports_tools: false,
                     cost_per_1m_input: 0.0,
                     cost_per_1m_output: 0.0,
-                    release_date: "2023-09-27".to_string(),
+                    release_date: "2024-04-18".to_string(),
+                    tier: ModelTier::Budget,
+                },
+                ModelInfo {
+                    id: "qwen2.5-coder".to_string(),
+                    name: "Qwen 2.5 Coder".to_string(),
+                    description: "Code-specialized model".to_string(),
+                    context_window: 32768,
+                    supports_vision: false,
+                    supports_tools: false,
+                    cost_per_1m_input: 0.0,
+                    cost_per_1m_output: 0.0,
+                    release_date: "2024-11-01".to_string(),
                     tier: ModelTier::Balanced,
                 },
             ],
-            default_model: "mistral".to_string(),
+            default_model: "qwen2.5-coder".to_string(),
             supports_streaming: true,
             supports_tools: false,
             rate_limit_rpm: None,
@@ -440,7 +466,7 @@ impl ProviderMetadataRegistry {
 
     /// Get default model
     pub fn default_model(&self) -> Option<&ModelInfo> {
-        let default_id = "claude-3-5-sonnet";
+        let default_id = "claude-sonnet-4-6";
         self.all_models().into_iter().find(|m| m.id == default_id)
     }
 
@@ -595,7 +621,7 @@ mod tests {
     #[test]
     fn test_get_provider_for_model() {
         let registry = ProviderMetadataRegistry::new();
-        let provider = registry.provider_for_model("claude-3-5-sonnet");
+        let provider = registry.provider_for_model("claude-sonnet-4-6");
         assert!(provider.is_some());
         assert_eq!(provider.unwrap().id, "anthropic");
     }
@@ -613,7 +639,7 @@ mod tests {
     #[test]
     fn test_task_model_config_default() {
         let config = TaskModelConfig::default();
-        assert_eq!(config.default_model, "claude-3-5-sonnet");
+        assert_eq!(config.default_model, "claude-sonnet-4-6");
         assert!(config.task_models.contains_key(&TaskType::CodeGeneration));
     }
 
@@ -624,6 +650,6 @@ mod tests {
 
         let model = registry.select_model_for_task(TaskType::CodeGeneration, &config);
         assert!(model.is_some());
-        assert_eq!(model.unwrap().id, "claude-3-5-sonnet");
+        assert_eq!(model.unwrap().id, "claude-sonnet-4-6");
     }
 }

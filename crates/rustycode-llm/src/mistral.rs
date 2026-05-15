@@ -15,7 +15,7 @@ use crate::provider::{
     CompletionRequest, CompletionResponse, LLMProvider, ProviderConfig, ProviderError, StreamChunk,
 };
 use crate::provider_metadata::{
-    ConfigField, ConfigFieldType, ConfigSchema, PromptOptimizations, PromptTemplate,
+    ConfigField, ConfigFieldType, ConfigSchema, ModelInfo, PromptOptimizations, PromptTemplate,
     ProviderMetadata, ToolCallingMetadata, ToolFormat,
 };
 use crate::route::Route;
@@ -120,6 +120,54 @@ impl MistralProvider {
                 streaming_support: true,
             },
             recommended_models: vec![
+                ModelInfo {
+                    model_id: "mistral-large-latest".to_string(),
+                    display_name: "Mistral Large".to_string(),
+                    description: "Most capable Mistral model for complex tasks".to_string(),
+                    context_window: 128_000,
+                    supports_tools: true,
+                    use_cases: vec![
+                        "Complex reasoning".to_string(),
+                        "Code generation".to_string(),
+                    ],
+                    cost_tier: 3,
+                },
+                ModelInfo {
+                    model_id: "mistral-small-latest".to_string(),
+                    display_name: "Mistral Small".to_string(),
+                    description: "Fast, cost-effective Mistral model".to_string(),
+                    context_window: 128_000,
+                    supports_tools: true,
+                    use_cases: vec![
+                        "Quick tasks".to_string(),
+                        "High-volume workloads".to_string(),
+                    ],
+                    cost_tier: 1,
+                },
+                ModelInfo {
+                    model_id: "codestral-latest".to_string(),
+                    display_name: "Codestral".to_string(),
+                    description: "Code-specialized model with 256K context".to_string(),
+                    context_window: 256_000,
+                    supports_tools: true,
+                    use_cases: vec![
+                        "Code generation".to_string(),
+                        "Code completion".to_string(),
+                    ],
+                    cost_tier: 2,
+                },
+                ModelInfo {
+                    model_id: "devstral-small-latest".to_string(),
+                    display_name: "Devstral Small".to_string(),
+                    description: "Agentic coding model optimized for development".to_string(),
+                    context_window: 128_000,
+                    supports_tools: true,
+                    use_cases: vec![
+                        "Agent workflows".to_string(),
+                        "Code editing".to_string(),
+                    ],
+                    cost_tier: 1,
+                },
             ],
             model_behavior_profiles: HashMap::new(),
         }
@@ -141,12 +189,10 @@ impl LLMProvider for MistralProvider {
 
     async fn list_models(&self) -> Result<Vec<String>, ProviderError> {
         Ok(vec![
-            "mistral-large-2407".to_string(),
-            "mixtral-8x22b-2407".to_string(),
-            "mixtral-8x7b-2407".to_string(),
-            "mistral-medium-2312".to_string(),
-            "mistral-small-2409".to_string(),
-            "codestral-2405".to_string(),
+            "mistral-large-latest".to_string(),
+            "mistral-small-latest".to_string(),
+            "codestral-latest".to_string(),
+            "devstral-small-latest".to_string(),
         ])
     }
 

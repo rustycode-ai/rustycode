@@ -139,12 +139,25 @@ impl AzureProvider {
             },
             recommended_models: vec![
                 crate::provider_metadata::ModelInfo {
-                    model_id: "gpt-4o".to_string(),
-                    display_name: "GPT-4o".to_string(),
-                    description: "Fastest and most capable omni model".to_string(),
-                    context_window: 128_000,
+                    model_id: "gpt-4.1".to_string(),
+                    display_name: "GPT-4.1".to_string(),
+                    description: "Flagship model with 1M context".to_string(),
+                    context_window: 1_047_576,
                     supports_tools: true,
-                    use_cases: vec!["General purpose".to_string(), "Fast responses".to_string()],
+                    use_cases: vec!["General purpose".to_string(), "Coding".to_string()],
+                    cost_tier: 3,
+                },
+                crate::provider_metadata::ModelInfo {
+                    model_id: "o4-mini".to_string(),
+                    display_name: "o4-mini".to_string(),
+                    description: "Latest reasoning model with vision and agentic tool use"
+                        .to_string(),
+                    context_window: 200_000,
+                    supports_tools: true,
+                    use_cases: vec![
+                        "Complex reasoning".to_string(),
+                        "Math and science".to_string(),
+                    ],
                     cost_tier: 3,
                 },
             ],
@@ -168,14 +181,14 @@ impl LLMProvider for AzureProvider {
 
     async fn list_models(&self) -> Result<Vec<String>, ProviderError> {
         Ok(vec![
+            "o4-mini".to_string(),
             "o3".to_string(),
             "o3-mini".to_string(),
-            "o1".to_string(),
-            "o1-mini".to_string(),
             "gpt-4.1".to_string(),
+            "gpt-4.1-mini".to_string(),
+            "gpt-4.1-nano".to_string(),
             "gpt-4o".to_string(),
             "gpt-4o-mini".to_string(),
-            "gpt-4".to_string(),
         ])
     }
 

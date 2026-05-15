@@ -117,36 +117,57 @@ impl ZhipuProvider {
             },
             recommended_models: vec![
                 ModelInfo {
+                    model_id: "glm-5.1".to_string(),
+                    display_name: "GLM-5.1".to_string(),
+                    description: "Flagship — 8h autonomous work, matches Claude Opus 4.6 (200K context)"
+                        .to_string(),
+                    context_window: 200_000,
+                    supports_tools: true,
+                    use_cases: vec![
+                        "Long-horizon agents".to_string(),
+                        "Complex reasoning".to_string(),
+                        "Code generation".to_string(),
+                    ],
+                    cost_tier: 5,
+                },
+                ModelInfo {
                     model_id: "glm-5".to_string(),
                     display_name: "GLM-5".to_string(),
-                    description: "Latest flagship model with agentic capabilities".to_string(),
-                    context_window: 128_000,
+                    description: "Strong coding, reliable multi-step reasoning (200K context)"
+                        .to_string(),
+                    context_window: 200_000,
                     supports_tools: true,
                     use_cases: vec![
                         "Complex reasoning".to_string(),
-                        "Coding".to_string(),
-                        "Agent workflows".to_string(),
+                        "Code generation".to_string(),
+                        "Agent tasks".to_string(),
+                    ],
+                    cost_tier: 4,
+                },
+                ModelInfo {
+                    model_id: "glm-5-turbo".to_string(),
+                    display_name: "GLM-5 Turbo".to_string(),
+                    description: "Fast GLM-5 optimized for dynamic long-chain tasks (200K context)"
+                        .to_string(),
+                    context_window: 200_000,
+                    supports_tools: true,
+                    use_cases: vec![
+                        "Quick reasoning".to_string(),
+                        "Code generation".to_string(),
+                        "Chat".to_string(),
                     ],
                     cost_tier: 3,
                 },
                 ModelInfo {
-                    model_id: "glm-4-plus".to_string(),
-                    display_name: "GLM-4 Plus".to_string(),
-                    description: "High-capability GLM-4 model".to_string(),
-                    context_window: 128_000,
-                    supports_tools: true,
-                    use_cases: vec!["General tasks".to_string(), "Coding".to_string()],
-                    cost_tier: 2,
-                },
-                ModelInfo {
-                    model_id: "glm-4-flash".to_string(),
-                    display_name: "GLM-4 Flash".to_string(),
-                    description: "Fast, cost-effective GLM-4 model".to_string(),
+                    model_id: "glm-4.7-flash".to_string(),
+                    display_name: "GLM-4.7 Flash".to_string(),
+                    description: "30B lightweight model, outperforms similar-scale open-source (128K context)"
+                        .to_string(),
                     context_window: 128_000,
                     supports_tools: true,
                     use_cases: vec![
-                        "Quick tasks".to_string(),
-                        "High-volume workloads".to_string(),
+                        "Fast response".to_string(),
+                        "Budget workloads".to_string(),
                     ],
                     cost_tier: 1,
                 },
@@ -241,5 +262,42 @@ mod tests {
         let config = make_config(Some("test-key"));
         let provider = ZhipuProvider::new(config).unwrap();
         assert!(provider.config().is_some());
+    }
+
+    #[test]
+    fn glm5_has_200k_context_window() {
+        let meta = ZhipuProvider::metadata();
+        let glm5 = meta
+            .recommended_models
+            .iter()
+            .find(|m| m.model_id == "glm-5")
+            .expect("GLM-5 should be in recommended_models");
+
+        assert_eq!(
+            glm5.context_window, 200_000,
+            "GLM-5 must have 200K context window for SWE-bench"
+        );
+        assert!(
+            glm5.supports_tools,
+            "GLM-5 must support tool calling for SWE-bench"
+        );
+        assert!(
+            glm5.description.contains("200K"),
+            "GLM-5 description should mention 200K context"
+        );
+    }
+
+    #[test]
+    fn zhipu_metadata_has_required_models() {
+        let meta = ZhipuProvider::metadata();
+        let model_ids: Vec<&str> = meta
+            .recommended_models
+            .iter()
+            .map(|m| m.model_id.as_str())
+            .collect();
+
+        assert!(model_ids.contains(&"glm-5"), "Missing glm-5");
+        assert!(model_ids.contains(&"glm-4-plus"), "Missing glm-4-plus");
+        assert!(model_ids.contains(&"glm-4-flash"), "Missing glm-4-flash");
     }
 }
