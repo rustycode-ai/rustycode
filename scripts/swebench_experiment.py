@@ -2358,6 +2358,43 @@ def build_import_map(test_patch: str, repo_dir) -> str:
 
 # ── Agent Loop ────────────────────────────────────────────────────────
 
+def compact_messages(messages, token_count, max_tokens=180_000):
+    """Compact old tool results when token count approaches context limit.
+
+    Uses actual input_tokens from API response for accuracy.
+    Keeps the first user message (cached context) and last N exchanges intact.
+    """
+    if token_count < max_tokens:
+        return messages
+
+    print(f"  [compact] {token_count:,} tokens approaching limit, compacting...")
+
+    # Strategy: truncate old tool_result content, keep first and last messages
+    compacted = []
+    for i, msg in enumerate(messages):
+        # Always keep the first user message (cached context) and last 4 messages
+        if i == 0 or i >= len(messages) - 4:
+            compacted.append(msg)
+            continue
+
+        content = msg.get("content", "")
+        if isinstance(content, list):
+            new_blocks = []
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "tool_result":
+                    text = block.get("content", "")
+                    if len(text) > 2000:
+                        block = {**block, "content": text[:500] + f"\n... [truncated {len(text)} chars]"}
+                new_blocks.append(block)
+            compacted.append({**msg, "content": new_blocks})
+        elif isinstance(content, str) and len(content) > 5000 and i > 1:
+            compacted.append({**msg, "content": content[:2000] + f"\n... [truncated {len(content)} chars]"})
+        else:
+            compacted.append(msg)
+
+    return compacted
+
+
 def run_agent(inst, repo_dir, args, venv_python="python3"):
     """Run the agent loop on a single instance. Returns patch string."""
     client = anthropic.Anthropic()
@@ -2453,7 +2490,15 @@ def run_agent(inst, repo_dir, args, venv_python="python3"):
 
 Key: Fix the ROOT CAUSE, not just the symptom. If your first fix doesn't work, re-read the test error and try a different approach."""
 
-    messages = [{"role": "user", "content": user_prompt}]
+    # Build system prompt with cache_control for prompt caching
+    system_content = [
+        {"type": "text", "text": SYSTEM_PROMPTS[args.system_prompt], "cache_control": {"type": "ephemeral"}},
+    ]
+
+    # Build initial user message with cache_control
+    messages = [{"role": "user", "content": [
+        {"type": "text", "text": user_prompt, "cache_control": {"type": "ephemeral"}},
+    ]}]
     max_turns = args.max_turns
     total_input = 0
     total_output = 0
@@ -2473,11 +2518,11 @@ Key: Fix the ROOT CAUSE, not just the symptom. If your first fix doesn't work, r
         print(f"\n--- Turn {turn + 1}/{max_turns} ---")
 
         try:
-            # Build API kwargs
+            # Build API kwargs with cached system prompt
             api_kwargs = dict(
                 model=args.model,
                 max_tokens=args.max_tokens,
-                system=SYSTEM_PROMPTS[args.system_prompt],
+                system=system_content,
                 tools=TOOLS,
                 messages=messages,
             )
@@ -2492,6 +2537,10 @@ Key: Fix the ROOT CAUSE, not just the symptom. If your first fix doesn't work, r
 
         total_input += getattr(response.usage, 'input_tokens', 0)
         total_output += getattr(response.usage, 'output_tokens', 0)
+
+        # Compact if approaching context limit (use actual token count from API)
+        current_tokens = getattr(response.usage, 'input_tokens', 0)
+        messages = compact_messages(messages, current_tokens)
 
         # Process response blocks
         tool_use_blocks = []
