@@ -484,7 +484,7 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
     let mut adapter = bridge.take_adapter();
     let mut _stop_flag_clone = stop_signal.clone();
 
-    let _broadcast_handler = tokio::spawn(async move {
+    let broadcast_handler = tokio::spawn(async move {
         while let Ok(msg) = event_rx.recv().await {
             adapter.on_event_msg(msg);
 
@@ -522,9 +522,8 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
                     }
                 } => {
                     tracing::info!("Streaming cancelled by user via Op::StopStream");
-                    // After sending StopStream, we still need to wait for the future
-                    // But since it was already moved into the select!, we need a different approach
-                    // For now, return an error to indicate cancellation
+                    // Abort the broadcast handler to prevent double-Done
+                    broadcast_handler.abort();
                     Err(anyhow::anyhow!("Streaming cancelled by user"))
                 }
             }

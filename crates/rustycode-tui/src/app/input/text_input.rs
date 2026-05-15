@@ -608,6 +608,7 @@ impl TUI {
                 use rustycode_llm::provider::{ContentBlock, ImageSource};
 
                 let mut blocks = Vec::new();
+                let mut image_errors: Vec<String> = Vec::new();
                 for img in &attached_images {
                     match std::fs::read(&img.path) {
                         Ok(bytes) => {
@@ -643,8 +644,17 @@ impl TUI {
                         }
                         Err(e) => {
                             tracing::warn!("Failed to read image {}: {}", img.path.display(), e);
+                            image_errors.push(img.path.display().to_string());
                         }
                     }
+                }
+                if !image_errors.is_empty() {
+                    let msg = format!(
+                        "Failed to attach image{}: {}",
+                        if image_errors.len() > 1 { "s" } else { "" },
+                        image_errors.join(", ")
+                    );
+                    self.add_system_message(msg);
                 }
                 blocks
             } else {

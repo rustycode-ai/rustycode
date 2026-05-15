@@ -507,32 +507,38 @@ pub fn text_from_clipboard() -> Result<String> {
 pub fn copy_text_to_clipboard_osc52(text: &str) -> Result<()> {
     use base64::Engine;
 
-    // Encode text as base64 (required by OSC 52)
     let encoded = base64::engine::general_purpose::STANDARD.encode(text);
-
-    // OSC 52 escape sequence format: \x1b]52;c;<base64_data>\x07
     let osc52_sequence = format!("\x1b]52;c;{}\x07", encoded);
 
-    // Suspend raw mode temporarily to write the sequence
+    struct RawModeGuard {
+        needs_restore: bool,
+    }
+
+    impl Drop for RawModeGuard {
+        fn drop(&mut self) {
+            if self.needs_restore {
+                if let Err(e) = crossterm::terminal::enable_raw_mode() {
+                    tracing::error!("FATAL: Failed to re-enable raw mode after OSC 52 clipboard: {e}. Terminal may be unusable.");
+                }
+            }
+        }
+    }
+
     let was_raw_mode = crossterm::terminal::is_raw_mode_enabled().unwrap_or(false);
     if was_raw_mode {
         if let Err(e) = crossterm::terminal::disable_raw_mode() {
-            tracing::warn!("Failed to disable raw mode for OSC 52 clipboard: {}", e);
+            tracing::warn!("Failed to disable raw mode for OSC 52 clipboard: {e}");
         }
     }
 
-    // Write the sequence
+    let _guard = RawModeGuard {
+        needs_restore: was_raw_mode,
+    };
+
     print!("{}", osc52_sequence);
     use std::io::Write;
     if let Err(e) = std::io::stdout().flush() {
-        tracing::warn!("Failed to flush stdout for OSC 52 clipboard: {}", e);
-    }
-
-    // Restore raw mode if it was enabled
-    if was_raw_mode {
-        if let Err(e) = crossterm::terminal::enable_raw_mode() {
-            tracing::warn!("Failed to re-enable raw mode after OSC 52 clipboard: {}", e);
-        }
+        tracing::warn!("Failed to flush stdout for OSC 52 clipboard: {e}");
     }
 
     tracing::info!("Copied {} characters to clipboard via OSC 52", text.len());

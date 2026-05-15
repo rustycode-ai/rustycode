@@ -238,9 +238,8 @@ impl PipelineCronScheduler {
             }
         });
 
-        if let Ok(mut h) = self.handles.lock() {
-            h.push(handle);
-        }
+        let mut h = self.handles.lock().unwrap_or_else(|e| e.into_inner());
+        h.push(handle);
     }
 
     /// Returns `true` if the scheduler is currently running.

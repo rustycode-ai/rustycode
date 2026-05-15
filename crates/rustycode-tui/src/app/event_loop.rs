@@ -223,6 +223,12 @@ impl TUI {
 
         self.session.doom_loop.reset();
         self.session.undo.clear();
+        self.session.execution_trace = None;
+        self.session.pending_doom_note = None;
+
+        if let Ok(mut tracker) = self.integration.services.error_tracker().lock() {
+            tracker.clear_all();
+        }
         self.search.search_state.visible = false;
         self.search.search_state.matches.clear();
         self.search.search_state.query.clear();

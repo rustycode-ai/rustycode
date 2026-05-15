@@ -32,9 +32,9 @@ impl PolishedRenderer {
         let input_h = area.height.saturating_sub(2);
         let hints_h = if area.height >= 3 { 1 } else { 0 };
         let hints_y = if hints_h > 0 {
-            area.y + area.height.saturating_sub(1)
+            area.y.saturating_add(area.height.saturating_sub(1))
         } else {
-            area.y + area.height
+            area.y.saturating_add(area.height)
         };
 
         let label_area = Rect::new(area.x, area.y, area.width, label_h);

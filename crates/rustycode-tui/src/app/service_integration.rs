@@ -332,15 +332,16 @@ impl ServiceManager {
                 .unwrap_or(0)
         );
 
+        let stop_flag = Arc::new(AtomicBool::new(false));
+        self.forwarding_thread_stop = Arc::clone(&stop_flag);
+
+        let mut rx = bus.subscribe();
+
         self.forwarding_thread_stop.store(true, Ordering::SeqCst);
         if let Some(handle) = self.forwarding_thread_handle.take() {
             let _ = handle.join();
         }
 
-        let stop_flag = Arc::new(AtomicBool::new(false));
-        self.forwarding_thread_stop = Arc::clone(&stop_flag);
-
-        let mut rx = bus.subscribe();
         let handle = thread::spawn(move || {
             rustycode_shared_runtime::block_on_shared(async {
                 let mut adapter =

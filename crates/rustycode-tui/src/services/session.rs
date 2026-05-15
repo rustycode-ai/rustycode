@@ -263,8 +263,12 @@ pub fn load_session_history_list(
     // Ensure sessions directory exists
     let sessions_dir = sessions_dir();
     if let Err(e) = fs::create_dir_all(&sessions_dir) {
-        tracing::warn!("Failed to create sessions directory: {}", e);
-        return entries;
+        tracing::warn!("Failed to create sessions directory {sessions_dir:?}: {e}");
+        if sessions_dir.exists() {
+            tracing::info!("Sessions directory exists despite error, attempting to read");
+        } else {
+            return entries;
+        }
     }
 
     // Add current session to the list
