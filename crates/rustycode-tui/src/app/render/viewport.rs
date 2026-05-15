@@ -77,7 +77,7 @@ impl ViewportState {
     }
 
     pub fn update(&mut self, height: usize, message_count: usize, scroll_offset: &mut usize) {
-        self.height = height;
+        self.height = height.max(1);
         // Adjust scroll offset if needed
         let max_offset = message_count.saturating_sub(self.height);
         if *scroll_offset > max_offset {

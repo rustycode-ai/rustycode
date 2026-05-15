@@ -561,22 +561,15 @@ fn render_tool_result_detail(
         let display_output: String = if tui.panels.tool_panel.tool_result_show_full || output.len() <= 5000 {
             output.clone()
         } else {
-            // Head+tail truncation: show first ~2500 and last ~2000 chars
-            // This is more useful than just showing the beginning because
-            // the end often contains the actual result or error message
-
-            // Find clean boundaries
             let head_end = output.chars().take(2500).map(|c| c.len_utf8()).sum::<usize>();
             let tail_offset = output.chars().rev().take(2000).map(|c| c.len_utf8()).sum::<usize>();
             let tail_start = output.len().saturating_sub(tail_offset);
-            // Ensure tail_start is on a char boundary
             let tail_start = if output.is_char_boundary(tail_start) {
                 tail_start
             } else {
                 output.ceil_char_boundary(tail_start)
             };
 
-            // Find good line boundaries for clean cuts
             let head_cut = output[..head_end]
                 .rfind('\n')
                 .map(|pos| pos + 1)
@@ -587,10 +580,13 @@ fn render_tool_result_detail(
                 .map(|pos| tail_start + pos + 1)
                 .unwrap_or(tail_start);
 
-            let head_part = &output[..head_cut];
-            let tail_part = &output[tail_cut..];
+            if head_cut >= tail_cut {
+                output.clone()
+            } else {
+                let head_part = &output[..head_cut];
+                let tail_part = &output[tail_cut..];
 
-            let hidden_lines = output[head_cut..tail_cut].lines().count();
+                let hidden_lines = output[head_cut..tail_cut].lines().count();
 
             let mut result = head_part.to_string();
 
@@ -621,6 +617,7 @@ fn render_tool_result_detail(
             }
 
             result
+            }
         };
 
         // Render output with syntax highlighting via markdown renderer

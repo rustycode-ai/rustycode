@@ -192,6 +192,10 @@ mod tests {
         assert!(prompt.contains("TodoWrite"));
         assert!(prompt.contains("going backwards"));
         assert!(prompt.contains("Confident in the fix"));
+        assert!(prompt.contains("## Before saying 'done'"));
+        assert!(prompt.contains("## When stuck"));
+        assert!(prompt.contains("which step am I on"));
+        assert!(prompt.contains("root cause"));
     }
 
     #[tokio::test]

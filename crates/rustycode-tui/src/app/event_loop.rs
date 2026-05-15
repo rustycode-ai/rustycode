@@ -1407,6 +1407,9 @@ impl TUI {
             // indicator persists indefinitely when no other state changes occur.
             if self.theme.error_manager.is_showing() {
                 self.sys.dirty = true;
+            } else if self.overlays.showing_error {
+                self.overlays.showing_error = false;
+                self.sys.dirty = true;
             }
 
             // Phase 2: Poll async sources (ONE item each)
@@ -1656,6 +1659,9 @@ impl TUI {
 
         if sanitized.contains('\n') {
             self.ui.input_handler.state.mode = crate::ui::input_state::InputMode::MultiLine;
+        }
+        if self.ui.input_handler.state.has_selection() {
+            self.ui.input_handler.state.delete_selection();
         }
         self.ui
             .input_handler

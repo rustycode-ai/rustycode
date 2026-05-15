@@ -154,6 +154,10 @@ impl InputState {
     /// For single-line text, inserts inline. For multiline text, splits
     /// the current line at the cursor and inserts all pasted lines.
     pub fn insert_text_at_cursor(&mut self, text: &str) {
+        if self.has_selection() {
+            self.delete_selection();
+        }
+
         let normalized = text.replace("\r\n", "\n").replace('\r', "");
         let lines: Vec<&str> = normalized.split('\n').collect();
 
@@ -499,6 +503,45 @@ impl InputState {
         self.selection_anchor_row = None;
     }
 
+    pub fn delete_selection(&mut self) {
+        let Some((start_row, start_col, end_row, end_col)) = self.selection_range() else {
+            return;
+        };
+
+        if start_row == end_row {
+            if let Some(line) = self.lines.get_mut(start_row) {
+                let sc = line.floor_char_boundary(start_col.min(line.len()));
+                let ec = line.floor_char_boundary(end_col.min(line.len()));
+                line.replace_range(sc..ec, "");
+            }
+        } else {
+            let first_part = self
+                .lines
+                .get(start_row)
+                .map(|l| {
+                    let sc = l.floor_char_boundary(start_col.min(l.len()));
+                    l[..sc].to_string()
+                })
+                .unwrap_or_default();
+
+            let last_part = self
+                .lines
+                .get(end_row)
+                .map(|l| {
+                    let ec = l.floor_char_boundary(end_col.min(l.len()));
+                    l[ec..].to_string()
+                })
+                .unwrap_or_default();
+
+            self.lines[start_row] = format!("{first_part}{last_part}");
+            self.lines.drain((start_row + 1)..=end_row);
+        }
+
+        self.cursor_row = start_row;
+        self.cursor_col = start_col;
+        self.clear_selection();
+    }
+
     pub fn selection_range(&self) -> Option<(usize, usize, usize, usize)> {
         let anchor_row = self.selection_anchor_row?;
         let anchor_col = self.selection_anchor_col?;
@@ -586,6 +629,9 @@ impl InputState {
             self.cursor_row = 0;
             self.cursor_col = text.len();
         }
+        self.display_offset = 0;
+        self.selection_anchor_col = None;
+        self.selection_anchor_row = None;
     }
 
     /// Insert newline at cursor position
@@ -621,6 +667,9 @@ impl InputState {
         self.lines = vec![single];
         self.cursor_row = 0;
         self.cursor_col = self.lines[0].len();
+        self.display_offset = 0;
+        self.selection_anchor_col = None;
+        self.selection_anchor_row = None;
     }
 
     /// Remove image by ID and cleanup temp file
@@ -1469,5 +1518,182 @@ mod tests {
         // Should not panic; floor_char_boundary floors to byte 3.
         // Insert at byte 3: "abc" + "ZZ" + "你好"
         assert!(state.lines[0].starts_with("abcZZ"));
+    }
+
+    // === Regression: set_text / flatten_to_single_line must reset display_offset & selection ===
+
+    #[test]
+    fn test_set_text_resets_display_offset_and_selection() {
+        let mut state = InputState::new();
+        // Simulate horizontal scroll and active selection
+        state.lines[0] = "a".repeat(200);
+        state.cursor_col = 200;
+        state.display_offset = 50;
+        state.selection_anchor_col = Some(10);
+        state.selection_anchor_row = Some(0);
+
+        state.set_text("new content");
+
+        assert_eq!(state.display_offset, 0, "display_offset must reset to 0");
+        assert_eq!(
+            state.selection_anchor_col, None,
+            "selection_anchor_col must be cleared"
+        );
+        assert_eq!(
+            state.selection_anchor_row, None,
+            "selection_anchor_row must be cleared"
+        );
+        assert_eq!(state.lines, vec!["new content"]);
+    }
+
+    #[test]
+    fn test_flatten_to_single_line_resets_display_offset_and_selection() {
+        let mut state = InputState::new();
+        // Multi-line with scroll and selection
+        state.lines = vec!["a".repeat(200), "second line".to_string()];
+        state.cursor_row = 1;
+        state.cursor_col = 5;
+        state.display_offset = 80;
+        state.selection_anchor_col = Some(10);
+        state.selection_anchor_row = Some(0);
+
+        state.flatten_to_single_line();
+
+        assert_eq!(state.display_offset, 0, "display_offset must reset to 0");
+        assert_eq!(
+            state.selection_anchor_col, None,
+            "selection_anchor_col must be cleared"
+        );
+        assert_eq!(
+            state.selection_anchor_row, None,
+            "selection_anchor_row must be cleared"
+        );
+        assert_eq!(state.lines.len(), 1);
+    }
+
+    // === delete_selection regression tests ===
+
+    #[test]
+    fn test_delete_selection_single_line() {
+        let mut state = InputState::new();
+        state.lines[0] = "Hello World".to_string();
+        state.cursor_col = 2;
+        state.start_selection();
+        state.cursor_col = 7;
+
+        state.delete_selection();
+
+        assert_eq!(state.lines[0], "Heorld");
+        assert_eq!(state.cursor_row, 0);
+        assert_eq!(state.cursor_col, 2);
+        assert!(!state.has_selection());
+    }
+
+    #[test]
+    fn test_delete_selection_multi_line() {
+        let mut state = InputState::new();
+        state.lines = vec!["Hello".to_string(), "World".to_string()];
+        state.cursor_row = 0;
+        state.cursor_col = 3;
+        state.start_selection();
+        state.cursor_row = 1;
+        state.cursor_col = 2;
+
+        state.delete_selection();
+
+        assert_eq!(state.lines, vec!["Helrld"]);
+        assert_eq!(state.cursor_row, 0);
+        assert_eq!(state.cursor_col, 3);
+        assert!(!state.has_selection());
+    }
+
+    #[test]
+    fn test_delete_selection_three_line_span() {
+        let mut state = InputState::new();
+        state.lines = vec![
+            "AAA".to_string(),
+            "BBB".to_string(),
+            "CCC".to_string(),
+            "DDD".to_string(),
+        ];
+        state.cursor_row = 0;
+        state.cursor_col = 1;
+        state.start_selection();
+        state.cursor_row = 3;
+        state.cursor_col = 2;
+
+        state.delete_selection();
+
+        assert_eq!(state.lines, vec!["AD"]);
+        assert_eq!(state.cursor_row, 0);
+        assert_eq!(state.cursor_col, 1);
+        assert!(!state.has_selection());
+    }
+
+    #[test]
+    fn test_delete_selection_then_insert_char() {
+        let mut state = InputState::new();
+        state.lines[0] = "Hello World".to_string();
+        state.cursor_col = 2;
+        state.start_selection();
+        state.cursor_col = 7;
+        assert!(state.has_selection());
+
+        state.delete_selection();
+        state.insert_char('X');
+
+        assert_eq!(state.lines[0], "HeXorld");
+        assert_eq!(state.cursor_col, 3);
+        assert!(!state.has_selection());
+    }
+
+    #[test]
+    fn test_delete_selection_then_paste() {
+        let mut state = InputState::new();
+        state.lines = vec!["Hello".to_string(), "World".to_string()];
+        state.cursor_row = 0;
+        state.cursor_col = 3;
+        state.start_selection();
+        state.cursor_row = 1;
+        state.cursor_col = 2;
+
+        state.delete_selection();
+        assert_eq!(state.lines, vec!["Helrld"]);
+
+        state.insert_text_at_cursor("NEW\nLINE");
+
+        assert_eq!(state.lines, vec!["HelNEW", "LINErld"]);
+        assert_eq!(state.cursor_row, 1);
+        assert!(!state.has_selection());
+    }
+
+    #[test]
+    fn test_delete_selection_no_op_when_no_selection() {
+        let mut state = InputState::new();
+        state.lines[0] = "Hello".to_string();
+        state.cursor_col = 3;
+
+        state.delete_selection();
+
+        assert_eq!(state.lines[0], "Hello");
+        assert_eq!(state.cursor_col, 3);
+    }
+
+    #[test]
+    fn test_delete_selection_entire_content() {
+        let mut state = InputState::new();
+        state.lines = vec!["Hello".to_string(), "World".to_string()];
+        state.cursor_row = 0;
+        state.cursor_col = 0;
+        state.start_selection();
+        state.cursor_row = 1;
+        state.cursor_col = 5;
+
+        state.delete_selection();
+
+        assert_eq!(state.lines, vec![""]);
+        assert_eq!(state.cursor_row, 0);
+        assert_eq!(state.cursor_col, 0);
+        assert!(!state.has_selection());
     }
 }

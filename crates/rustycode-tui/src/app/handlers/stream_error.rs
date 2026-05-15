@@ -129,6 +129,7 @@ pub(super) fn handle_error_chunk(tui: &mut TUI, err: StreamError) {
         tui.integration.rate_limit.retry_count.saturating_add(1);
 
     tui.auto_scroll();
+    tui.sys.dirty = true;
 
     tracing::debug!(
         "Stream error: {} (retry {} in {}s)",

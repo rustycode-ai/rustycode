@@ -28,18 +28,27 @@ impl PolishedRenderer {
         Rect,
         Rect,
     ) {
-        let label_area = Rect::new(area.x, area.y, area.width, 1);
+        let label_h = if area.height >= 3 { 1 } else { 0 };
+        let input_h = area.height.saturating_sub(2);
+        let hints_h = if area.height >= 3 { 1 } else { 0 };
+        let hints_y = if hints_h > 0 {
+            area.y + area.height.saturating_sub(1)
+        } else {
+            area.y + area.height
+        };
+
+        let label_area = Rect::new(area.x, area.y, area.width, label_h);
         let input_area = Rect::new(
             area.x,
-            area.y + 1,
+            area.y + label_h,
             area.width,
-            area.height.saturating_sub(2),
+            input_h,
         );
         let hints_area = Rect::new(
             area.x,
-            area.y + area.height.saturating_sub(1),
+            hints_y,
             area.width,
-            1,
+            hints_h,
         );
         (label_area, input_area, hints_area)
     }
@@ -479,6 +488,13 @@ impl PolishedRenderer {
     ) -> Vec<ratatui::text::Span<'static>> {
         use ratatui::style::{Color, Style};
         use ratatui::text::Span;
+
+        if area.width < 10 {
+            return vec![
+                Span::styled("│", Style::default().fg(Color::DarkGray)),
+                Span::styled(send_hint, Style::default().fg(Color::Green)),
+            ];
+        }
 
         vec![
             Span::styled("│ ", Style::default().fg(Color::DarkGray)),

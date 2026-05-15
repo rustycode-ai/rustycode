@@ -146,6 +146,13 @@ impl TUI {
                 .join(" · ");
             self.add_system_message(format!("{} — {}", inline, hint));
         }
+
+        let error_display = crate::ui::errors::ErrorDisplay::new(_severity, title)
+            .with_message(&error_msg)
+            .with_suggestions(suggestions);
+        self.theme.error_manager.show(error_display);
+        self.overlays.showing_error = true;
+        self.sys.dirty = true;
     }
 
     /// Add tools to the last AI message

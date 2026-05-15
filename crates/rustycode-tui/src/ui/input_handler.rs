@@ -200,7 +200,9 @@ impl InputHandler {
                             InputAction::Ignored
                         }
                     } else {
-                        self.state.clear_selection();
+                        if self.state.has_selection() {
+                            self.state.delete_selection();
+                        }
                         self.state.insert_char(c);
                         InputAction::Consumed
                     }
@@ -208,7 +210,7 @@ impl InputHandler {
             }
 
             // === Navigation ===
-            (KeyCode::Left, KeyModifiers::SHIFT) => {
+            (KeyCode::Left, mods) if mods.contains(KeyModifiers::SHIFT) => {
                 self.state.start_selection();
                 if modifiers.contains(KeyModifiers::CONTROL) {
                     self.state.move_word_backward();
@@ -217,7 +219,7 @@ impl InputHandler {
                 }
                 InputAction::Consumed
             }
-            (KeyCode::Right, KeyModifiers::SHIFT) => {
+            (KeyCode::Right, mods) if mods.contains(KeyModifiers::SHIFT) => {
                 self.state.start_selection();
                 if modifiers.contains(KeyModifiers::CONTROL) {
                     self.state.move_word_forward();
@@ -302,14 +304,22 @@ impl InputHandler {
                     InputAction::Consumed
                 } else {
                     self.history.exit_history_mode();
-                    self.state.backspace();
+                    if self.state.has_selection() {
+                        self.state.delete_selection();
+                    } else {
+                        self.state.backspace();
+                    }
                     InputAction::Consumed
                 }
             }
 
             (KeyCode::Delete, KeyModifiers::NONE) => {
                 self.history.exit_history_mode();
-                self.state.delete();
+                if self.state.has_selection() {
+                    self.state.delete_selection();
+                } else {
+                    self.state.delete();
+                }
                 InputAction::Consumed
             }
 
@@ -1188,10 +1198,10 @@ mod tests {
 
         let action =
             handler.handle_key_event(KeyCode::Left, KeyModifiers::CONTROL | KeyModifiers::SHIFT);
-        assert_eq!(action, InputAction::Ignored);
+        assert_eq!(action, InputAction::Consumed);
 
-        assert!(!handler.state.has_selection());
-        assert_eq!(handler.state.cursor_col, 11);
+        assert!(handler.state.has_selection());
+        assert!(handler.state.cursor_col < 11);
     }
 
     #[test]
@@ -1202,10 +1212,10 @@ mod tests {
 
         let action =
             handler.handle_key_event(KeyCode::Right, KeyModifiers::CONTROL | KeyModifiers::SHIFT);
-        assert_eq!(action, InputAction::Ignored);
+        assert_eq!(action, InputAction::Consumed);
 
-        assert!(!handler.state.has_selection());
-        assert_eq!(handler.state.cursor_col, 0);
+        assert!(handler.state.has_selection());
+        assert!(handler.state.cursor_col > 0);
     }
 
     // -- Selection clearing --

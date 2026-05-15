@@ -469,7 +469,7 @@ impl PolishedRenderer {
                         if l.width() == 0 {
                             1u16
                         } else {
-                            l.width().div_ceil(content_width).max(1) as u16
+                            u16::try_from(l.width().div_ceil(content_width)).unwrap_or(u16::MAX).max(1)
                         }
                     })
                     .fold(0u16, |acc, rows| acc.saturating_add(rows));

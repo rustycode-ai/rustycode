@@ -489,7 +489,7 @@ impl TUI {
                 }
 
                 // Home/End always jump to top/bottom of messages (Ctrl+A/CtrlE handle cursor)
-                if !self.session.messages.is_empty() {
+                if !self.session.messages.is_empty() && key.modifiers == KeyModifiers::NONE {
                     match key.code {
                         KeyCode::Home => {
                             self.push_undo_position();

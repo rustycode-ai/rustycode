@@ -709,7 +709,7 @@ impl TUI {
             self.panels.tool_panel.tool_result_scroll_offset = 0;
             return true;
         }
-        if self.panels.awaiting_clarification && self.panels.clarification_panel.visible {
+        if self.panels.awaiting_clarification {
             self.panels.clarification_panel.visible = false;
             self.panels.awaiting_clarification = false;
             self.sys.dirty = true;
