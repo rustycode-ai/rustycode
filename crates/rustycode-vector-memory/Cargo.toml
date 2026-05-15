@@ -1,6 +1,6 @@
 [package]
 name = "rustycode-vector-memory"
-version = "0.1.0"
+version = "0.5.3"
 edition = "2021"
 description = "Vector-based memory system for rustycode agents with semantic search"
 license = "MIT"

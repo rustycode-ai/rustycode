@@ -1,6 +1,6 @@
 [package]
 name = "rustycode-orchestration"
-version = "0.1.0"
+version = "0.5.3"
 edition = "2021"
 license = "MIT"
 description = "Tiered model orchestration for terminal-bench and complex task solving"
