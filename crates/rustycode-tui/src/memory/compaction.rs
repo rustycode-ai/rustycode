@@ -751,8 +751,8 @@ mod tests {
         let mut monitor = ContextMonitor::new(100_000, 0.8);
         assert_eq!(monitor.current_tokens, 0);
 
-        // Simulate API reporting 15k input tokens for claude-3-5-sonnet
-        monitor.update_from_api(15_000, "claude-3-5-sonnet");
+        // Simulate API reporting 15k input tokens for claude-sonnet-4-5 (200k window)
+        monitor.update_from_api(15_000, "claude-sonnet-4-5");
         assert_eq!(monitor.current_tokens, 15_000);
         // max_tokens should update to model's context window (200k)
         assert_eq!(monitor.max_tokens, 200_000);
