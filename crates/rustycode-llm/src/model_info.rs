@@ -249,191 +249,30 @@ pub fn is_reasoning_model_name(name: &str) -> bool {
 static KNOWN_MODELS: Lazy<HashMap<&'static str, ModelInfo>> = Lazy::new(|| {
     let mut m = HashMap::new();
 
-    // OpenAI models - GPT-5.x (latest)
-    m.insert(
-        "gpt-5.2",
-        ModelInfo::with_cost("gpt-5.2", 128_000, 12.0, 48.0)
-            .max_output(32_768)
-            .with_capabilities(ModelCapabilities::all()),
-    );
-    m.insert(
-        "gpt-5.1",
-        ModelInfo::with_cost("gpt-5.1", 128_000, 5.0, 20.0)
-            .max_output(32_768)
-            .with_capabilities(ModelCapabilities::all()),
-    );
-    m.insert(
-        "gpt-5-pro",
-        ModelInfo::with_cost("gpt-5-pro", 128_000, 8.0, 32.0)
-            .max_output(32_768)
-            .with_capabilities(ModelCapabilities::all()),
-    );
+    // Populate from the generated model catalog
+    for entry in rustycode_providers::model_catalog::catalog() {
+        let caps = ModelCapabilities {
+            reasoning: entry.supports_reasoning,
+            tool_calling: entry.supports_tools,
+            streaming: true,
+            vision: entry.supports_vision,
+            cache_control: entry.supports_caching,
+            json_mode: entry.supports_tools,
+        };
 
-    // OpenAI models - GPT-4.x
-    m.insert(
-        "gpt-4.1",
-        ModelInfo::with_cost("gpt-4.1", 128_000, 2.0, 8.0)
-            .max_output(32_768)
-            .with_capabilities(ModelCapabilities::all()),
-    );
-    m.insert(
-        "gpt-4.1-mini",
-        ModelInfo::with_cost("gpt-4.1-mini", 128_000, 0.40, 1.60)
-            .max_output(32_768)
-            .with_capabilities(ModelCapabilities::all()),
-    );
-    m.insert(
-        "gpt-4.1-nano",
-        ModelInfo::with_cost("gpt-4.1-nano", 128_000, 0.10, 0.40)
-            .max_output(32_768)
-            .with_capabilities(ModelCapabilities::all()),
-    );
-    m.insert(
-        "gpt-4o",
-        ModelInfo::with_cost("gpt-4o", 128_000, 2.50, 10.0)
-            .max_output(16_384)
-            .with_capabilities(ModelCapabilities::all()),
-    );
-    m.insert(
-        "gpt-4o-mini",
-        ModelInfo::with_cost("gpt-4o-mini", 128_000, 0.15, 0.60)
-            .max_output(16_384)
-            .with_capabilities(ModelCapabilities::all()),
-    );
-    m.insert(
-        "gpt-4-turbo",
-        ModelInfo::with_cost("gpt-4-turbo", 128_000, 10.0, 30.0)
-            .max_output(4_096)
-            .with_capabilities(ModelCapabilities::all()),
-    );
-
-    // OpenAI models - o-series (reasoning)
-    m.insert(
-        "o4-mini",
-        ModelInfo::with_cost("o4-mini", 200_000, 1.10, 4.40)
-            .max_output(100_000)
-            .with_capabilities(ModelCapabilities::reasoning()),
-    );
-    m.insert(
-        "o3",
-        ModelInfo::with_cost("o3", 200_000, 10.0, 40.0)
-            .max_output(100_000)
-            .with_capabilities(ModelCapabilities::reasoning()),
-    );
-    m.insert(
-        "o3-mini",
-        ModelInfo::with_cost("o3-mini", 200_000, 1.10, 4.40)
-            .max_output(100_000)
-            .with_capabilities(ModelCapabilities::reasoning()),
-    );
-    m.insert(
-        "o1",
-        ModelInfo::with_cost("o1", 200_000, 15.0, 60.0)
-            .max_output(100_000)
-            .with_capabilities(ModelCapabilities::reasoning()),
-    );
-    m.insert(
-        "o1-mini",
-        ModelInfo::with_cost("o1-mini", 128_000, 3.0, 12.0)
-            .max_output(65_536)
-            .with_capabilities(ModelCapabilities::reasoning()),
-    );
-
-    // Anthropic models - Claude 4.6 (latest)
-    m.insert(
-        "claude-sonnet-4-6",
-        ModelInfo::with_cost("claude-sonnet-4-6", 200_000, 3.0, 15.0)
-            .max_output(16_384)
-            .with_cache_control(true)
-            .with_tool_calling(true)
-            .with_streaming(true)
-            .with_vision(true)
-            .with_json_mode(true),
-    );
-    m.insert(
-        "claude-opus-4-6",
-        ModelInfo::with_cost("claude-opus-4-6", 200_000, 15.0, 75.0)
-            .max_output(32_000)
-            .with_cache_control(true)
-            .with_tool_calling(true)
-            .with_streaming(true)
-            .with_vision(true)
-            .with_json_mode(true),
-    );
-
-    // Anthropic models - Claude 4.5
-    m.insert(
-        "claude-sonnet-4-6",
-        ModelInfo::with_cost("claude-sonnet-4-6", 200_000, 3.0, 15.0)
-            .max_output(16_384)
-            .with_cache_control(true)
-            .with_tool_calling(true)
-            .with_streaming(true)
-            .with_vision(true)
-            .with_json_mode(true),
-    );
-    m.insert(
-        "claude-opus-4-6",
-        ModelInfo::with_cost("claude-opus-4-6", 200_000, 15.0, 75.0)
-            .max_output(32_000)
-            .with_cache_control(true)
-            .with_tool_calling(true)
-            .with_streaming(true)
-            .with_vision(true)
-            .with_json_mode(true),
-    );
-
-    // Anthropic models - Claude Haiku
-    m.insert(
-        "claude-haiku-4-5-20251001",
-        ModelInfo::with_cost("claude-haiku-4-5-20251001", 200_000, 0.80, 4.0)
-            .max_output(8_192)
-            .with_cache_control(true)
-            .with_tool_calling(true)
-            .with_streaming(true)
-            .with_vision(true)
-            .with_json_mode(true),
-    );
-
-    // Google models
-    m.insert(
-        "gemini-2.5-pro",
-        ModelInfo::with_cost("gemini-2.5-pro", 1_048_576, 1.25, 10.0)
-            .max_output(65_536)
-            .with_capabilities(ModelCapabilities::all()),
-    );
-    m.insert(
-        "gemini-2.5-flash",
-        ModelInfo::with_cost("gemini-2.5-flash", 1_048_576, 0.15, 0.60)
-            .max_output(65_536)
-            .with_capabilities(ModelCapabilities::all()),
-    );
-    m.insert(
-        "gemini-2.0-flash",
-        ModelInfo::with_cost("gemini-2.0-flash", 1_048_576, 0.10, 0.40)
-            .max_output(8_192)
-            .with_capabilities(ModelCapabilities::all()),
-    );
-
-    // Ollama / local models
-    m.insert(
-        "llama3.1:8b",
-        ModelInfo::new("llama3.1:8b", 128_000)
-            .max_output(4_096)
-            .with_capabilities(ModelCapabilities::basic()),
-    );
-    m.insert(
-        "qwen2.5-coder:7b",
-        ModelInfo::new("qwen2.5-coder:7b", 131_072)
-            .max_output(8_192)
-            .with_capabilities(ModelCapabilities::basic()),
-    );
-    m.insert(
-        "deepseek-coder-v2:16b",
-        ModelInfo::new("deepseek-coder-v2:16b", 128_000)
-            .max_output(4_096)
-            .with_capabilities(ModelCapabilities::basic()),
-    );
+        m.entry(entry.id).or_insert_with(|| ModelInfo {
+            name: entry.id.to_string(),
+            context_limit: entry.context_window,
+            max_output_tokens: if entry.max_output > 0 {
+                Some(entry.max_output)
+            } else {
+                None
+            },
+            input_cost_per_mtok: Some(entry.input_cost_per_1m),
+            output_cost_per_mtok: Some(entry.output_cost_per_1m),
+            capabilities: caps,
+        });
+    }
 
     m
 });
@@ -546,11 +385,11 @@ mod tests {
     fn test_known_models_get() {
         let gpt4o = KnownModels::get("gpt-4o");
         assert_eq!(gpt4o.name, "gpt-4o");
-        assert_eq!(gpt4o.context_limit, 128_000);
+        assert!(gpt4o.context_limit >= 128_000);
         assert!(gpt4o.supports_tool_calling());
 
         let claude = KnownModels::get("claude-sonnet-4-6");
-        assert_eq!(claude.context_limit, 200_000);
+        assert!(claude.context_limit >= 200_000);
     }
 
     #[test]
@@ -572,7 +411,7 @@ mod tests {
         let names = KnownModels::all_names();
         assert!(names.contains(&"gpt-4o"));
         assert!(names.contains(&"claude-sonnet-4-6"));
-        assert!(names.contains(&"o3-mini"));
+        assert!(names.contains(&"o4-mini"));
 
         // Verify sorted
         let mut sorted = names.clone();

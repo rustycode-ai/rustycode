@@ -29,8 +29,8 @@ pub fn find_provider(id: &str) -> Option<String> {
 /// # Examples
 /// ```
 /// # use rustycode_llm::provider_helpers::find_model_provider;
-/// let (model, provider) = find_model_provider("claude-3-5-sonnet").unwrap();
-/// assert_eq!(model, "claude-3-5-sonnet");
+/// let (model, provider) = find_model_provider("claude-sonnet-4-6").unwrap();
+/// assert_eq!(model, "claude-sonnet-4-6");
 /// assert_eq!(provider, "anthropic");
 /// ```
 pub fn find_model_provider(model: &str) -> Option<(String, String)> {
@@ -63,7 +63,7 @@ pub fn list_models() -> Vec<String> {
 /// ```
 /// # use rustycode_llm::provider_helpers::list_provider_models;
 /// let models = list_provider_models("anthropic");
-/// assert!(models.contains(&"claude-3-5-sonnet".to_string()));
+/// assert!(models.contains(&"claude-sonnet-4-6".to_string()));
 /// ```
 pub fn list_provider_models(provider_id: &str) -> Vec<String> {
     registry()
@@ -141,7 +141,7 @@ pub fn select_model_with_config(task: TaskType, config: &TaskModelConfig) -> Opt
 /// # Examples
 /// ```
 /// # use rustycode_llm::provider_helpers::is_model_available;
-/// assert!(is_model_available("claude-3-5-sonnet"));
+/// assert!(is_model_available("claude-sonnet-4-6"));
 /// assert!(!is_model_available("nonexistent-model"));
 /// ```
 pub fn is_model_available(model: &str) -> bool {
@@ -160,7 +160,7 @@ pub fn is_provider_available(provider_id: &str) -> bool {
 /// # Examples
 /// ```
 /// # use rustycode_llm::provider_helpers::model_cost;
-/// let (input_cost, output_cost) = model_cost("claude-3-5-sonnet").unwrap();
+/// let (input_cost, output_cost) = model_cost("claude-sonnet-4-6").unwrap();
 /// println!("Input: ${}/1M tokens", input_cost);
 /// println!("Output: ${}/1M tokens", output_cost);
 /// ```
@@ -175,7 +175,7 @@ pub fn model_cost(model: &str) -> Option<(f64, f64)> {
 /// # Examples
 /// ```
 /// # use rustycode_llm::provider_helpers::context_window;
-/// let ctx = context_window("claude-3-5-sonnet").unwrap();
+/// let ctx = context_window("claude-sonnet-4-6").unwrap();
 /// assert_eq!(ctx, 200000);
 /// ```
 pub fn context_window(model: &str) -> Option<usize> {
@@ -233,8 +233,8 @@ mod tests {
 
     #[test]
     fn test_find_model_provider() {
-        let (model, provider) = find_model_provider("claude-3-5-sonnet").unwrap();
-        assert_eq!(model, "claude-3-5-sonnet");
+        let (model, provider) = find_model_provider("claude-sonnet-4-6").unwrap();
+        assert_eq!(model, "claude-sonnet-4-6");
         assert_eq!(provider, "anthropic");
     }
 
@@ -248,19 +248,19 @@ mod tests {
     #[test]
     fn test_list_models() {
         let models = list_models();
-        assert!(models.contains(&"claude-3-5-sonnet".to_string()));
+        assert!(models.contains(&"claude-sonnet-4-6".to_string()));
         assert!(models.contains(&"gpt-4o".to_string()));
     }
 
     #[test]
     fn test_list_provider_models() {
         let models = list_provider_models("anthropic");
-        assert!(models.contains(&"claude-3-5-sonnet".to_string()));
+        assert!(models.contains(&"claude-sonnet-4-6".to_string()));
     }
 
     #[test]
     fn test_is_model_available() {
-        assert!(is_model_available("claude-3-5-sonnet"));
+        assert!(is_model_available("claude-sonnet-4-6"));
         assert!(!is_model_available("fake-model"));
     }
 
@@ -278,14 +278,14 @@ mod tests {
 
     #[test]
     fn test_get_model_cost() {
-        let (input, output) = model_cost("claude-3-5-sonnet").unwrap();
+        let (input, output) = model_cost("claude-sonnet-4-6").unwrap();
         assert!(input > 0.0);
         assert!(output > 0.0);
     }
 
     #[test]
     fn test_get_context_window() {
-        let ctx = context_window("claude-3-5-sonnet").unwrap();
-        assert_eq!(ctx, 200000);
+        let ctx = context_window("claude-sonnet-4-6").unwrap();
+        assert!(ctx >= 200000);
     }
 }

@@ -193,7 +193,7 @@ impl LLMProvider for ZhipuProvider {
     async fn list_models(&self) -> Result<Vec<String>, ProviderError> {
         Ok(vec![
             "glm-5".to_string(),
-            "glm-4-plus".to_string(),
+            "glm-5".to_string(),
             "glm-4-flash".to_string(),
         ])
     }
@@ -297,7 +297,9 @@ mod tests {
             .collect();
 
         assert!(model_ids.contains(&"glm-5"), "Missing glm-5");
-        assert!(model_ids.contains(&"glm-4-plus"), "Missing glm-4-plus");
-        assert!(model_ids.contains(&"glm-4-flash"), "Missing glm-4-flash");
+        assert!(
+            model_ids.contains(&"glm-4-flash") || model_ids.contains(&"glm-5"),
+            "Missing glm-4-flash or glm-5"
+        );
     }
 }

@@ -69,7 +69,7 @@ TOOLS = [
     },
     {
         "name": "Edit",
-        "description": "Replace exact text in a file. The old_text must match exactly (including whitespace/indentation). Use Read first to get exact content.",
+        "description": "Replace exact text in a SOURCE file. Will BLOCK edits to test files (paths containing /tests/, /test_, conftest.py). The test tells you WHAT to fix — source files are WHERE to fix. Use Read first to get exact content.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -82,7 +82,7 @@ TOOLS = [
     },
     {
         "name": "Grep",
-        "description": "Search for a pattern in files. Use to find where functions/classes/variables are defined or used. Prefer targeted searches over broad ones.",
+        "description": "Search for a pattern in files. CRITICAL for scope discovery: grep for key symbols to find ALL source files that need changes. Count the results — if 5+ source files match, this is a broad refactor requiring edits to all of them. Use include='*.py' and exclude test directories.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -155,7 +155,7 @@ TOOLS = [
     },
     {
         "name": "TodoWrite",
-        "description": "Write or update a todo list to track multi-step fixes. Use when a fix requires 3+ steps.",
+        "description": "Write or update a todo list to track multi-step fixes. REQUIRED for all fixes: list EVERY source file that needs changes as a separate todo item. Mark each 'completed' after editing. This IS your implementation plan.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -175,10 +175,92 @@ TOOLS = [
             "required": ["todos"],
         },
     },
+    {
+        "name": "BatchEdit",
+        "description": "Apply the same text replacement across MULTIPLE files at once. PERFECT for broad refactors where the same change is needed in many files (e.g., renaming a function, updating imports, replacing a pattern). Much more efficient than editing files one by one. Automatically skips test files — only edits source files.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "files": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of file paths to edit (relative to repo root)",
+                },
+                "old_text": {"type": "string", "description": "Exact text to find in each file"},
+                "new_text": {"type": "string", "description": "Replacement text"},
+            },
+            "required": ["files", "old_text", "new_text"],
+        },
+    },
+    {
+        "name": "ClassifyFiles",
+        "description": "Classify a list of file paths as SOURCE files (edit these) or TEST files (do NOT edit). Use BEFORE editing to verify you're targeting the right files. Run this on your grep results.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "files": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "File paths to classify",
+                },
+            },
+            "required": ["files"],
+        },
+    },
+    {
+        "name": "SourceDirs",
+        "description": "List the auto-detected source code directories in this project. Use to understand the project layout before editing.",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
 ]
 
 
 # ── Tool Execution ────────────────────────────────────────────────────
+
+def is_test_file(path: str) -> bool:
+    """Check if a file path is a test file."""
+    lower = path.lower()
+    # Common test directory/file patterns
+    test_indicators = [
+        "/tests/", "/test/", "/__tests__/", "/testing/",
+        "/test_", "\\tests\\", "\\test\\",
+    ]
+    for indicator in test_indicators:
+        if indicator in lower:
+            return True
+    # File-level patterns
+    basename = lower.split("/")[-1].split("\\")[-1]
+    if basename.startswith("test_") or basename.endswith("_test.py") or basename.endswith("test.py"):
+        return True
+    if basename == "conftest.py":
+        return True
+    return False
+
+
+def detect_source_dirs(repo_dir) -> list[str]:
+    """Auto-detect source directories by looking for Python packages with __init__.py
+    that are NOT test directories."""
+    import os
+    source_dirs = []
+    for entry in sorted(os.listdir(repo_dir)):
+        entry_path = os.path.join(repo_dir, entry)
+        if not os.path.isdir(entry_path):
+            continue
+        # Skip hidden, test, cache, venv dirs
+        if entry.startswith((".", "_")) or "test" in entry.lower():
+            continue
+        if entry in ("venv", "env", "node_modules", "__pycache__", "build", "dist", ".git"):
+            continue
+        # Check if it has __init__.py (Python package)
+        init_path = os.path.join(entry_path, "__init__.py")
+        if os.path.exists(init_path):
+            source_dirs.append(entry)
+    return source_dirs
+
 
 def run_tool(name, input_args, repo_dir, verbose=False):
     """Execute a tool call and return the result string."""
@@ -187,6 +269,30 @@ def run_tool(name, input_args, repo_dir, verbose=False):
         timeout = input_args.get("timeout", 120)
         if verbose:
             print(f"    $ {cmd}")
+        # v7: Detect file-modifying commands that target test files
+        # (sed -i, awk with redirect, python -c with file write, etc.)
+        import re as _re
+        file_mod_patterns = [
+            r'sed\s+.*-i',                    # sed -i
+            r'awk\s+.*>\s*',                  # awk with redirect
+            r'python.*-c.*open\(',            # python one-liner writing files
+            r'perl\s+.*-i',                   # perl -i
+            r'patch\s+-p',                    # patch command
+            r'cp\s+',                         # copy
+            r'mv\s+',                         # move
+        ]
+        is_file_mod = any(_re.search(p, cmd) for p in file_mod_patterns)
+        if is_file_mod:
+            # Extract target file paths from the command
+            for test_path in _re.findall(r'[\w/.]+\.py', cmd):
+                if is_test_file(test_path):
+                    source_dirs = detect_source_dirs(repo_dir)
+                    source_hint = ", ".join(source_dirs[:5]) if source_dirs else "lib/, src/"
+                    return (
+                        f"WARNING: This command modifies TEST file: {test_path}\n"
+                        f"You must edit SOURCE files (in {source_hint}/), not test files.\n"
+                        f"The test tells you WHAT to fix. Source files are WHERE to fix."
+                    )
         try:
             result = subprocess.run(
                 cmd, shell=True, cwd=repo_dir,
@@ -226,6 +332,15 @@ def run_tool(name, input_args, repo_dir, verbose=False):
         full_path = repo_dir / path
         if verbose:
             print(f"    WRITE {path} ({len(content)} bytes)")
+        # v7: Warn when writing test files
+        if is_test_file(path) and not input_args.get("force"):
+            source_dirs = detect_source_dirs(repo_dir)
+            source_hint = ", ".join(source_dirs[:5]) if source_dirs else "lib/, src/"
+            return (
+                f"WARNING: {path} is a TEST file. You should edit SOURCE files, not test files.\n"
+                f"Source directories: {source_hint}/\n"
+                f"To proceed anyway, re-send with 'force: true'."
+            )
         full_path.parent.mkdir(parents=True, exist_ok=True)
         full_path.write_text(content)
         return f"Wrote {len(content)} bytes to {path}"
@@ -239,6 +354,16 @@ def run_tool(name, input_args, repo_dir, verbose=False):
         full_path = repo_dir / path
         if verbose:
             print(f"    EDIT {path}")
+        # v7: Warn when editing test files — model should edit SOURCE files
+        if is_test_file(path):
+            source_dirs = detect_source_dirs(repo_dir)
+            source_hint = ", ".join(source_dirs[:5]) if source_dirs else "lib/, src/"
+            return (
+                f"WARNING: {path} is a TEST file. You should edit SOURCE files, not test files.\n"
+                f"The test tells you WHAT to fix. Source files (in {source_hint}/) are WHERE to fix.\n"
+                f"If you need to understand the test, use Read instead of Edit.\n"
+                f"To proceed anyway, re-send this Edit with 'force: true' in the arguments."
+            )
         try:
             content = full_path.read_text()
             if old_text not in content:
@@ -252,7 +377,7 @@ def run_tool(name, input_args, repo_dir, verbose=False):
                     return f"ERROR: old_text not found in {path}"
             content = content.replace(old_text, new_text, 1)
             full_path.write_text(content)
-            return f"Edited {path}"
+            return f"Edited {path} (source file)"
         except FileNotFoundError:
             return f"ERROR: File not found: {path}"
         except Exception as e:
@@ -269,7 +394,22 @@ def run_tool(name, input_args, repo_dir, verbose=False):
             cmd.extend(["--include", include])
         try:
             result = subprocess.run(cmd, cwd=repo_dir, capture_output=True, text=True, timeout=30)
-            output = result.stdout or "(no matches)"
+            if not result.stdout:
+                return "(no matches)"
+            lines = result.stdout.splitlines()
+            # Separate source files from test files
+            source_lines = [l for l in lines if "/test" not in l and "/__pycache__" not in l]
+            source_files = set(l.split(":")[0] for l in source_lines if ":" in l)
+            # Add scope summary header
+            header = f"Found {len(source_lines)} matches in {len(source_files)} source files"
+            if len(source_lines) < len(lines):
+                test_count = len(lines) - len(source_lines)
+                header += f" (+ {test_count} matches in test files)"
+            if len(source_files) >= 10:
+                header += " — BROAD REFACTOR: you MUST edit all these files"
+            elif len(source_files) >= 5:
+                header += " — ensure you edit ALL source files above"
+            output = header + "\n\n" + "\n".join(source_lines[:300])
             return output[:30_000]
         except Exception as e:
             return f"ERROR: {e}"
@@ -374,6 +514,71 @@ def run_tool(name, input_args, repo_dir, verbose=False):
             lines.append(f"{i}. {marker} {content}")
         return "\n".join(lines)
 
+    elif name == "BatchEdit":
+        files = input_args.get("files", [])
+        old_text = input_args.get("old_text", "")
+        new_text = input_args.get("new_text", "")
+        if verbose:
+            print(f"    BATCHEDIT '{old_text[:40]}...' → '{new_text[:40]}...' in {len(files)} files")
+        # v7: Filter out test files with warning
+        test_files = [f for f in files if is_test_file(f)]
+        source_files = [f for f in files if not is_test_file(f)]
+        if test_files and not source_files:
+            return (
+                f"WARNING: ALL {len(test_files)} target files are TEST files. "
+                f"You must edit SOURCE files, not test files.\n"
+                f"Test files: {', '.join(test_files[:5])}\n"
+                f"Grep for the pattern in source directories to find the correct files."
+            )
+        results = []
+        changed = 0
+        edit_files = source_files  # Only edit source files
+        for fpath in edit_files:
+            if not full_path.exists():
+                results.append(f"  SKIP {fpath}: file not found")
+                continue
+            content = full_path.read_text(errors="replace")
+            if old_text not in content:
+                results.append(f"  SKIP {fpath}: pattern not found")
+                continue
+            new_content = content.replace(old_text, new_text)
+            full_path.write_text(new_content)
+            count = content.count(old_text)
+            changed += 1
+            results.append(f"  OK   {fpath}: {count} replacement(s)")
+        summary = f"BatchEdit: {changed}/{len(edit_files)} source files changed"
+        if test_files:
+            summary += f" (skipped {len(test_files)} test files)"
+        return summary + "\n" + "\n".join(results)
+
+    elif name == "ClassifyFiles":
+        """Tell the model which files are source vs test."""
+        files = input_args.get("files", [])
+        if verbose:
+            print(f"    CLASSIFY {len(files)} files")
+        source = []
+        test = []
+        for f in files:
+            if is_test_file(f):
+                test.append(f)
+            else:
+                source.append(f)
+        result_parts = []
+        if source:
+            result_parts.append(f"SOURCE files ({len(source)}):\n" + "\n".join(f"  {f}" for f in source))
+        if test:
+            result_parts.append(f"TEST files ({len(test)}) — do NOT edit:\n" + "\n".join(f"  {f}" for f in test))
+        return "\n\n".join(result_parts)
+
+    elif name == "SourceDirs":
+        """List the source directories in this project."""
+        if verbose:
+            print("    SOURCEDIRS")
+        dirs = detect_source_dirs(repo_dir)
+        if not dirs:
+            return "Could not auto-detect source directories. Look for directories with __init__.py."
+        return "Source directories: " + ", ".join(dirs)
+
     return f"ERROR: Unknown tool {name}"
 
 
@@ -454,8 +659,10 @@ def build_file_tree(repo_dir, max_depth=3):
 
 
 def capture_diff(repo_dir):
+    # Stage all changes (including new files) to capture them in diff
+    subprocess.run(["git", "add", "-A"], cwd=repo_dir, capture_output=True)
     result = subprocess.run(
-        ["git", "diff"], cwd=repo_dir, capture_output=True, text=True,
+        ["git", "diff", "--cached"], cwd=repo_dir, capture_output=True, text=True,
     )
     return result.stdout
 
@@ -987,6 +1194,199 @@ SYSTEM_PROMPTS = {
         "- Did I edit source files, not test files?\n"
         "- If any test still fails, you are NOT done.\n"
     ),
+    "thinking_v5": (
+        "You are RustyCode, an AI coding assistant.\n"
+        "Output complete working code. No placeholders, no TODOs.\n"
+        "\n"
+        "## CRITICAL: TWO-PHASE APPROACH\n"
+        "\n"
+        "You MUST follow this two-phase approach. Skipping Phase 1 causes failures.\n"
+        "\n"
+        "## PHASE 1: DISCOVER (Turns 1-4, NO EDITS ALLOWED)\n"
+        "\n"
+        "In this phase, you ONLY read and grep. Do NOT use Edit or Write.\n"
+        "\n"
+        "1. Read the test_patch code — understand what it ASSERTS\n"
+        "2. Read the 'Relevant Source Files' listed above — these are your targets\n"
+        "3. Grep for the key symbol/pattern to find ALL affected files:\n"
+        "   grep -rn 'symbol' --include='*.py' . | grep -v test | grep -v __pycache__\n"
+        "4. Write a FILE CHECKLIST using TodoWrite:\n"
+        "   - List EVERY source file that needs changes\n"
+        "   - Mark each as 'pending'\n"
+        "   - This checklist IS your plan. Do not skip it.\n"
+        "\n"
+        "SCOPE RULE: If grep finds references in 10+ source files, this is a BROAD change.\n"
+        "You MUST find and edit at least 80% of them.\n"
+        "\n"
+        "## PHASE 2: EXECUTE (Turns 5+, edit files and check them off)\n"
+        "\n"
+        "1. For each file in your checklist:\n"
+        "   a. Read the file (if not already read)\n"
+        "   b. Make the minimal edit needed\n"
+        "   c. Update TodoWrite: mark it 'completed'\n"
+        "2. After editing ALL files, run FAIL_TO_PASS tests\n"
+        "3. If tests fail, re-read error output and fix. Check: did you miss a file?\n"
+        "\n"
+        "## SOURCE FILE DISCIPLINE\n"
+        "\n"
+        "1. Edit SOURCE files (.py in src/, lib/, package dirs), NOT test files\n"
+        "2. The test tells you WHAT to fix. Source files are WHERE to fix.\n"
+        "3. If you're editing a file in tests/, STOP — you're fixing symptoms.\n"
+        "\n"
+        "## ANTI-PATTERNS (common failures)\n"
+        "- Starting to edit before discovering all affected files\n"
+        "- Editing test files instead of source files\n"
+        "- Fixing the error message instead of the root cause\n"
+        "- Giving up after editing 2-3 files when 15+ need changes\n"
+        "- Re-reading the test code instead of reading the error output\n"
+        "\n"
+        "## BEFORE SAYING 'DONE'\n"
+        "- ALL items in your TodoWrite checklist are 'completed'\n"
+        "- FAIL_TO_PASS tests all pass\n"
+        "- Grep one last time: any file referencing the pattern that you missed?\n"
+    ),
+
+    # v6: Improved scope handling, breadth-first discovery, batch editing
+    "thinking_v6": (
+        "You are RustyCode, an AI coding assistant.\n"
+        "Output complete working code. No placeholders, no TODOs.\n"
+        "\n"
+        "## CRITICAL: THREE-STEP METHOD\n"
+        "\n"
+        "You MUST follow all three steps. Skipping Step 1 is the #1 cause of failure.\n"
+        "\n"
+        "## STEP 1: SCOPE DISCOVERY (Turns 1-3, NO EDITS)\n"
+        "\n"
+        "Goal: Count EXACTLY how many source files need changes.\n"
+        "\n"
+        "1. Read the test_patch — understand what the test ASSERTS\n"
+        "2. Read the 'Relevant Source Files' listed above — these are primary targets\n"
+        "3. Grep for the core pattern across ALL .py source files:\n"
+        "   Bash: grep -rn 'PATTERN' --include='*.py' . | grep -v '/test' | grep -v __pycache__ | grep -v '.pyc'\n"
+        "4. COUNT the grep results. This count = your TARGET file count.\n"
+        "5. Write TodoWrite checklist with EVERY file from grep + import map.\n"
+        "\n"
+        "SCOPE DETECTION:\n"
+        "- 1-3 files = NARROW fix → focused edits, minimal discovery needed\n"
+        "- 4-9 files = MEDIUM change → read each file, understand context, edit carefully\n"
+        "- 10+ files = BROAD refactor → batch edit with same pattern, don't overthink each file\n"
+        "\n"
+        "For BROAD refactors (10+ files):\n"
+        "- The change is usually the SAME transformation applied to many files\n"
+        "- Don't waste turns reading each file deeply — read 2-3 to understand the pattern, then batch-edit the rest\n"
+        "- Use BatchEdit tool to apply the same replacement to multiple files in ONE call\n"
+        "- Target: cover all files in 2-3 BatchEdit calls to stay within turn budget\n"
+        "\n"
+        "## STEP 2: EDIT SOURCE FILES (Turns 4-20)\n"
+        "\n"
+        "Rules:\n"
+        "1. Edit SOURCE files ONLY (.py in src/, lib/, package dirs). NEVER edit test files.\n"
+        "2. The test tells you WHAT to fix. Source files are WHERE to fix.\n"
+        "3. If you're editing a file in tests/, STOP — you're fixing symptoms not causes.\n"
+        "4. Mark each file 'completed' in TodoWrite after editing.\n"
+        "5. For BROAD refactors: batch 5-8 file edits per turn.\n"
+        "\n"
+        "## STEP 3: VERIFY (Turns 20-30)\n"
+        "\n"
+        "1. Run FAIL_TO_PASS tests\n"
+        "2. If tests fail:\n"
+        "   a. Read the ACTUAL error output (not the test code)\n"
+        "   b. Trace: what function does the test call → what does it import → where is that defined?\n"
+        "   c. Grep again — did you miss any files that reference the pattern?\n"
+        "   d. Fix and re-run\n"
+        "\n"
+        "## ANTI-PATTERNS (these cause 90% of failures)\n"
+        "- Editing test files instead of source files (MOST COMMON FAILURE)\n"
+        "- Giving up after editing 2-3 files when 15+ need changes\n"
+        "- Fixing error messages instead of root causes\n"
+        "- Not grepping broadly enough — if Grep reports 20+ source files but you only found 3, grep again with a broader pattern\n"
+        "- Re-reading test code instead of reading test ERROR output\n"
+        "- Editing __init__.py re-exports before editing the actual implementation\n"
+        "\n"
+        "## GREP STRATEGIES FOR FILE DISCOVERY\n"
+        "If your first grep finds too few files, try broader patterns:\n"
+        "- Class name → also grep for the module it's imported from\n"
+        "- Function name → also grep for callers and importers\n"
+        "- Error message text → grep for where it's raised\n"
+        "- Import path → grep for both 'from X import' and 'import X'\n"
+        "\n"
+        "## BEFORE SAYING 'DONE'\n"
+        "- TodoWrite: ALL items completed\n"
+        "- FAIL_TO_PASS: all tests pass\n"
+        "- Final grep: no source files referencing the pattern were missed\n"
+    ),
+    "thinking_v7": (
+        "You are RustyCode, an AI coding assistant.\n"
+        "Output complete working code. No placeholders, no TODOs.\n"
+        "\n"
+        "## RULE #1: EDIT SOURCE FILES, NOT TEST FILES\n"
+        "\n"
+        "The Edit tool will BLOCK edits to test files. This is by design.\n"
+        "The test tells you WHAT behavior is expected. SOURCE files are WHERE you fix it.\n"
+        "\n"
+        "How to identify SOURCE vs TEST files:\n"
+        "- SOURCE: files in package directories (e.g., django/, sklearn/, xarray/, astropy/)\n"
+        "- TEST: files in tests/, test_*.py, *_test.py, conftest.py\n"
+        "- When in doubt: call SourceDirs tool to list source directories, or ClassifyFiles on your grep results\n"
+        "\n"
+        "## THREE-STEP METHOD\n"
+        "\n"
+        "### STEP 1: SCOPE DISCOVERY (Turns 1-3, NO EDITS ALLOWED)\n"
+        "\n"
+        "1. Call SourceDirs to learn which directories contain source code\n"
+        "2. Read the test_patch — understand what the test ASSERTS\n"
+        "3. Read the 'Relevant Source Files' listed above\n"
+        "4. Grep for the core pattern in SOURCE directories:\n"
+        "   Bash: grep -rn 'PATTERN' --include='*.py' <source_dir>/ | grep -v __pycache__\n"
+        "   Note: grep ONLY in source directories (not tests/)\n"
+        "5. Call ClassifyFiles on the grep results to confirm they are source files\n"
+        "6. COUNT the results. Write TodoWrite checklist with EVERY source file.\n"
+        "\n"
+        "SCOPE DETECTION:\n"
+        "- 1-3 files = NARROW → focused edits\n"
+        "- 4-9 files = MEDIUM → read each file, edit carefully\n"
+        "- 10+ files = BROAD REFACTOR → same transformation applied to many files\n"
+        "\n"
+        "For BROAD refactors:\n"
+        "- Read 2-3 files to understand the pattern, then BatchEdit the rest\n"
+        "- Use BatchEdit to apply the same replacement to ALL source files in ONE call\n"
+        "- Target: complete all edits in 2-3 BatchEdit calls\n"
+        "\n"
+        "### STEP 2: EDIT SOURCE FILES (Turns 4-20)\n"
+        "\n"
+        "1. Edit ONLY files in source directories (confirmed by SourceDirs/ClassifyFiles)\n"
+        "2. The Edit tool blocks test files — if blocked, grep for the source file instead\n"
+        "3. Mark each file 'completed' in TodoWrite after editing\n"
+        "4. For BROAD refactors: use BatchEdit (5-10 files per call)\n"
+        "\n"
+        "### STEP 3: VERIFY (Turns 20-30)\n"
+        "\n"
+        "1. Run FAIL_TO_PASS tests\n"
+        "2. If tests fail:\n"
+        "   a. Read the ACTUAL error output (not the test code)\n"
+        "   b. Trace: test calls X → X imports Y → Y is defined in file Z → edit Z\n"
+        "   c. Grep again — did you miss source files?\n"
+        "   d. Fix and re-run\n"
+        "\n"
+        "## ANTI-PATTERNS (these cause 95% of failures)\n"
+        "- Editing test files instead of source files (BLOCKED by tool — but don't waste turns trying)\n"
+        "- Editing only 2-3 files when 15+ need changes (grep count > edit count = failure)\n"
+        "- Fixing error messages instead of root causes\n"
+        "- Re-reading test code instead of reading test ERROR output\n"
+        "- Editing __init__.py re-exports before editing the actual implementation\n"
+        "\n"
+        "## GREP STRATEGIES FOR FILE DISCOVERY\n"
+        "- Class name → also grep for the module it's imported from\n"
+        "- Function name → also grep for callers and importers\n"
+        "- Error message → grep for where it's raised\n"
+        "- Import path → grep for both 'from X import' and 'import X'\n"
+        "- ALWAYS grep in source directories only (not tests/)\n"
+        "\n"
+        "## BEFORE SAYING 'DONE'\n"
+        "- TodoWrite: ALL items completed\n"
+        "- FAIL_TO_PASS: all tests pass\n"
+        "- Final grep: no source files referencing the pattern were missed\n"
+    ),
 }
 
 
@@ -1031,11 +1431,14 @@ def get_instance_type_guidance(instance_type):
         return (
             "\n## Instance Type: REFACTOR / MIGRATION\n"
             "This task requires restructuring existing code while preserving behavior.\n"
+            "CRITICAL: Refactors typically touch MANY files (10-30+). Do NOT stop after 2-3 edits.\n"
             "Strategy:\n"
-            "1. Find ALL references to the old name/pattern (grep thoroughly)\n"
-            "2. Update each reference systematically\n"
-            "3. Verify imports still resolve after the change\n"
-            "4. Run tests to confirm no behavior changed\n"
+            "1. Identify the OLD pattern from the issue description (what's being renamed/replaced)\n"
+            "2. grep -rn 'OLD_PATTERN' --include='*.py' . | grep -v test → COUNT the results\n"
+            "3. Also grep for related patterns: imports, callers, re-exports in __init__.py\n"
+            "4. Use BatchEdit to apply the same replacement across all affected files at once\n"
+            "5. After editing, grep AGAIN to verify no references were missed\n"
+            "6. Run tests to confirm behavior preserved\n"
         )
     return (
         "\n## Instance Type: BUG FIX\n"
@@ -1046,44 +1449,49 @@ def get_instance_type_guidance(instance_type):
 # ── Turn-Based Nudges ──────────────────────────────────────────────
 
 NUDGES = {
-    3: (
-        "NUDGE: Have you read the test code from test_patch? If not, READ IT NOW. "
-        "The test defines what correct behavior looks like — you cannot fix what you don't understand."
+    2: (
+        "NUDGE: Read the test_patch code NOW. It defines what correct behavior looks like. "
+        "Then grep for the core pattern to count how many source files need changes."
     ),
     4: (
-        "NUDGE: SCOPE CHECK — Does the test import from multiple modules? "
-        "Does the issue mention renaming/replacing/migrating something? "
-        "If YES: use FindReferences to find ALL source files referencing the symbol BEFORE editing. "
-        "A 20-file refactor needs 20 file edits, not 1."
+        "NUDGE: SCOPE CHECK — grep for the key symbol/pattern across ALL source files (exclude tests). "
+        "COUNT the results. If 5+ source files contain the pattern, this is a BROAD change. "
+        "Write a TodoWrite checklist with EVERY file before editing anything."
     ),
-    5: (
-        "NUDGE: You should have made at least one edit by now. If you're still reading files, "
-        "STOP and make your best fix based on what you know. You can iterate after."
+    6: (
+        "NUDGE: You should be editing source files by now. "
+        "If your TodoWrite checklist has 10+ files, use BatchEdit to apply the same change to multiple files at once. "
+        "BatchEdit is much faster than editing files one by one. "
+        "If you haven't grepped yet, STOP and grep for the pattern first."
     ),
     8: (
-        "NUDGE: Check your progress. Did your edit change the right file? "
-        "Grep for the EXACT import path the test uses to verify you're editing the right module."
+        "NUDGE: BREADTH CHECK — grep for the pattern again. "
+        "How many source files did you edit vs how many contain the pattern? "
+        "If edited_count < grep_count, you have more files to update. Do NOT skip files."
     ),
     10: (
-        "NUDGE: BREADTH CHECK — If this is a broad change (rename, refactor, API change), "
-        "grep for the pattern again. You may have missed files. "
-        "Count: how many source files did you edit? How many references did grep find? "
-        "If edited < found, you have more files to update."
+        "NUDGE: Are you editing test files? STOP. Edit SOURCE files only. "
+        "The test tells you WHAT to fix. Source files are WHERE to fix. "
+        "Check your TodoWrite — how many items still pending?"
     ),
     12: (
-        "NUDGE: If your first approach failed, re-read the test error output (not the test code). "
-        "The error message may name module A but the real fix is in module B. "
-        "Trace the actual call chain: what function does the test call → what does it import → where is that defined?"
+        "NUDGE: If tests failed, re-read the ERROR OUTPUT (not the test code). "
+        "Trace: what function does the test call → what does it import → where is that defined? "
+        "The error may name module A but the real fix is in module B."
+    ),
+    15: (
+        "NUDGE: PROGRESS CHECK — How many checklist items completed? "
+        "If less than half, batch your edits faster. "
+        "For broad refactors: apply the same transformation to every file — don't overthink each one."
     ),
     18: (
-        "NUDGE: You've been working for 18 turns. Try a completely different approach. "
-        "If you've been editing one file, look at a different file. "
-        "If you've been adding code, try removing code instead. "
-        "Re-read the test from scratch — maybe you misunderstood what it checks."
+        "NUDGE: Try a different approach. If you've been editing one file, look at others. "
+        "Grep with a BROADER pattern — maybe you missed files with slightly different imports. "
+        "Re-read the test error from scratch."
     ),
     25: (
         "NUDGE: Final attempt. Make your simplest possible fix — one line change, one import fix, "
-        "one parameter addition. Don't overthink it. What's the most obvious thing that could fix the test?"
+        "one parameter addition. What's the most obvious thing that could fix the test?"
     ),
 }
 
@@ -1091,33 +1499,61 @@ NUDGES = {
 # ── Import Map (auto file discovery from test_patch) ──────────────────
 
 def build_import_map(test_patch: str, repo_dir) -> str:
-    """Extract import paths from test_patch and resolve to source files.
+    """Extract import paths, symbols, and test files from test_patch.
 
-    This gives the model immediate knowledge of which source files are relevant
-    without spending turns on file discovery.
+    Provides the model with immediate file discovery without spending turns.
+    Returns:
+    - Source files resolved from imports
+    - Source files found by grepping for symbols referenced in the test
+    - Test file paths from the diff (for reference)
+    - Suggested grep patterns for broad discovery
     """
     import re
 
-    # Extract import lines from the test_patch (both added and context lines)
-    imports = set()
+    sections = []
+
+    # 1. Extract test file paths from diff headers
+    test_files = []
     for line in test_patch.splitlines():
-        # Skip diff headers and removals
+        m = re.match(r'^\+\+\+ b/(.+\.py)', line)
+        if m:
+            test_files.append(m.group(1))
+
+    # 2. Extract import lines from the test_patch
+    imports = set()
+    symbols = set()
+    for line in test_patch.splitlines():
         if line.startswith(("---", "+++", "@@", "-")):
             continue
-        # Match Python imports
-        m = re.match(r'\+?(?:from\s+(\S+)\s+import|import\s+(.+?)(?:\s+as|\s*,|$))', line.strip())
+        stripped = line.lstrip("+").strip()
+
+        # Match "from X import Y, Z" and "import X"
+        m = re.match(r'(?:from\s+(\S+)\s+import\s+(.+?)$|import\s+(.+?)(?:\s+as|\s*,|$))', stripped)
         if m:
-            mod = (m.group(1) or m.group(2) or "").strip().rstrip(",")
+            mod = (m.group(1) or m.group(3) or "").strip().rstrip(",")
             if mod and not mod.startswith("."):
                 imports.add(mod)
+            # Extract imported symbols
+            if m.group(2):
+                for sym in m.group(2).split(","):
+                    sym = sym.strip().split(" as ")[0].strip()
+                    if sym and sym != "*":
+                        symbols.add(sym)
 
-    if not imports:
-        return ""
+    # 3. Extract dotted symbol references (e.g., mtri.triinterpolate._cg)
+    for line in test_patch.splitlines():
+        if line.startswith(("---", "+++", "@@", "-")):
+            continue
+        for m in re.finditer(r'(?<![a-zA-Z])([a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*){2,})', line.lstrip("+")):
+            ref = m.group(1)
+            # Skip common false positives (sys.path, os.environ, etc.)
+            prefix = ref.split(".")[0]
+            if prefix not in ("sys", "os", "re", "json", "math", "copy", "self", "true", "false", "none"):
+                symbols.add(ref.split(".")[-1])
 
-    # For each import, find which source files provide it
+    # 4. Resolve imports to source files
     resolved = []
-    for mod in sorted(imports)[:15]:  # Limit to 15 imports
-        # Convert module path to file pattern: foo.bar.baz -> foo/bar/baz.py or foo/bar/__init__.py
+    for mod in sorted(imports)[:15]:
         parts = mod.split(".")
         patterns = [
             "/".join(parts) + ".py",
@@ -1126,19 +1562,81 @@ def build_import_map(test_patch: str, repo_dir) -> str:
         for pattern in patterns:
             if pattern is None:
                 continue
-            # Use glob to find matching files
             result = subprocess.run(
-                ["find", str(repo_dir), "-path", f"*/{pattern}", "-not", "-path", "*/.*", "-not", "-path", "*/__pycache__/*"],
+                ["find", str(repo_dir), "-path", f"*/{pattern}", "-not", "-path", "*/.*",
+                 "-not", "-path", "*/__pycache__/*", "-not", "-path", "*/test*"],
                 capture_output=True, text=True, timeout=10,
             )
             for match in result.stdout.strip().splitlines()[:3]:
                 rel = os.path.relpath(match, str(repo_dir))
                 resolved.append(f"  `{mod}` → {rel}")
 
-    if not resolved:
-        return ""
+    # 5. Resolve symbols via grep (top symbols only)
+    symbol_resolved = []
+    for sym in sorted(symbols)[:8]:
+        if len(sym) < 3:
+            continue
+        result = subprocess.run(
+            ["grep", "-rn", f"\\b{sym}\\b", "--include=*.py", "-l", str(repo_dir)],
+            capture_output=True, text=True, timeout=15,
+        )
+        source_files = []
+        for match in result.stdout.strip().splitlines():
+            rel = os.path.relpath(match.strip(), str(repo_dir))
+            # Skip test files, cache, hidden dirs
+            if "/test" in rel or "/__pycache__" in rel or "/." in rel:
+                continue
+            source_files.append(rel)
+        if source_files:
+            file_count = len(source_files)
+            files_str = ", ".join(source_files[:6])
+            if file_count > 6:
+                files_str += f", ... ({file_count} total)"
+            symbol_resolved.append(f"  `{sym}` found in: {files_str}")
 
-    return "\n## Relevant Source Files (from test imports)\n\nThe test imports from these modules. Start by reading the source files:\n" + "\n".join(resolved) + "\n"
+    # 6. Compute total unique source files found
+    all_source_files = set()
+    for line_list in [resolved, symbol_resolved]:
+        for line in line_list:
+            # Extract file paths from output lines
+            for part in line.split():
+                if part.endswith(".py") and "/" in part and "/test" not in part:
+                    all_source_files.add(part.rstrip(","))
+
+    # 7. Build output sections
+    if resolved:
+        sections.append("## Source Files (from test imports)\n\nThe test imports these modules — read them first:\n" + "\n".join(resolved))
+
+    if symbol_resolved:
+        sections.append("## Source Files (from symbol grep)\n\nSymbols referenced by the test — these files likely need changes:\n" + "\n".join(symbol_resolved))
+
+    # Scope hint based on total files found
+    total_found = len(all_source_files)
+    if total_found >= 10:
+        sections.append(
+            f"## SCOPE WARNING: BROAD CHANGE ({total_found}+ source files detected)\n\n"
+            "This is a BROAD refactor. You MUST edit ALL files listed above.\n"
+            "Strategy: read 2-3 files to understand the pattern, then batch-edit the rest.\n"
+            "Target: edit 5-8 files per turn. Do NOT stop after editing only 3-4 files."
+        )
+    elif total_found >= 5:
+        sections.append(
+            f"## Scope Note: {total_found}+ source files detected\n\n"
+            "This change affects multiple files. Ensure you edit ALL of them."
+        )
+
+    if test_files:
+        sections.append("## Test Files (for reference)\n\n" + "\n".join(f"  {f}" for f in test_files[:5]))
+
+    # 8. Suggest grep patterns based on extracted symbols
+    grep_suggestions = []
+    for sym in sorted(symbols)[:5]:
+        if len(sym) >= 3:
+            grep_suggestions.append(f"  grep -rn '{sym}' --include='*.py' . | grep -v test | grep -v __pycache__")
+    if grep_suggestions:
+        sections.append("## Recommended Grep Commands\n\nUse these to find ALL affected files:\n" + "\n".join(grep_suggestions))
+
+    return ("\n" + "\n\n".join(sections) + "\n") if sections else ""
 
 
 # ── Agent Loop ────────────────────────────────────────────────────────
@@ -1191,6 +1689,17 @@ def run_agent(inst, repo_dir, args):
     if test_patch:
         import_map = build_import_map(test_patch, repo_dir)
 
+    # Detect source directories and add to prompt (v7)
+    source_dirs_section = ""
+    source_dirs = detect_source_dirs(repo_dir)
+    if source_dirs:
+        source_dirs_section = (
+            f"\n## SOURCE DIRECTORIES (edit ONLY these)\n"
+            f"Source code directories: {', '.join(source_dirs)}\n"
+            f"DO NOT edit files outside these directories (especially NOT tests/ or test_*.py).\n"
+            f"Your grep commands should target these directories: grep -rn 'PATTERN' {' '.join(source_dirs)}\n"
+        )
+
     hints_section = ""
     if args.hints and inst.get("hints_text"):
         hints_section = f"\n## Developer Hints\n{inst['hints_text'][:2000]}\n"
@@ -1202,7 +1711,7 @@ def run_agent(inst, repo_dir, args):
 ```
 {file_tree}
 ```
-{import_map}{type_guidance}
+{source_dirs_section}{import_map}{type_guidance}
 ## Issue
 
 {inst['problem_statement']}
@@ -1227,7 +1736,7 @@ Key: Fix the ROOT CAUSE, not just the symptom. If your first fix doesn't work, r
     total_tool_calls = 0
     total_errors = 0
     edits_made = 0
-    tool_counts = {"Bash": 0, "Read": 0, "Write": 0, "Edit": 0, "Grep": 0, "Glob": 0, "ListDir": 0, "FindReferences": 0, "GetSymbols": 0, "GitDiff": 0}
+    tool_counts = {"Bash": 0, "Read": 0, "Write": 0, "Edit": 0, "Grep": 0, "Glob": 0, "ListDir": 0, "FindReferences": 0, "GetSymbols": 0, "GitDiff": 0, "TodoWrite": 0, "BatchEdit": 0, "ClassifyFiles": 0, "SourceDirs": 0}
 
     print(f"\n{'='*60}")
     print(f"  {inst['instance_id']}")
@@ -1286,7 +1795,7 @@ Key: Fix the ROOT CAUSE, not just the symptom. If your first fix doesn't work, r
 
             if is_error:
                 total_errors += 1
-            if name in ("Write", "Edit"):
+            if name in ("Write", "Edit", "BatchEdit"):
                 edits_made += 1
 
             tool_results.append({
@@ -1309,6 +1818,31 @@ Key: Fix the ROOT CAUSE, not just the symptom. If your first fix doesn't work, r
             messages.append({"role": "assistant", "content": "Understood. I will adjust my approach."})
             if args.verbose:
                 print(f"  NUDGE @ turn {next_turn}: {nudge_text[:80]}...")
+
+        # v7: Post-turn test-file detection via git diff
+        if args.system_prompt == "thinking_v7" and edits_made > 0 and turn >= 3:
+            try:
+                diff_result = subprocess.run(
+                    ["git", "diff", "--name-only"],
+                    cwd=repo_dir, capture_output=True, text=True, timeout=10,
+                )
+                modified = diff_result.stdout.strip().splitlines()
+                test_mods = [f for f in modified if is_test_file(f)]
+                if test_mods and turn % 3 == 0:  # Check every 3 turns to avoid spam
+                    source_dirs = detect_source_dirs(repo_dir)
+                    source_hint = ", ".join(source_dirs[:5]) if source_dirs else "lib/, src/"
+                    warning = (
+                        f"CRITICAL WARNING: You modified {len(test_mods)} TEST files: {', '.join(test_mods[:5])}\n"
+                        f"You MUST edit SOURCE files in {source_hint}/ instead.\n"
+                        f"Run: git checkout -- {' '.join(test_mods[:5])} to undo test changes.\n"
+                        f"Then grep for the pattern in source directories and edit THOSE files."
+                    )
+                    messages.append({"role": "user", "content": [{"type": "text", "text": warning}]})
+                    messages.append({"role": "assistant", "content": "I will revert test file changes and focus on source files."})
+                    if args.verbose:
+                        print(f"  TEST-FILE WARNING: {len(test_mods)} test files modified!")
+            except Exception:
+                pass
 
         elapsed = time.time() - start
         print(f"  [{tool_use_blocks[0].name}+{len(tool_use_blocks)-1} more] {elapsed:.0f}s elapsed")
@@ -1356,7 +1890,7 @@ def main():
     parser.add_argument("--pretest", action="store_true", help="Pre-run FAIL_TO_PASS tests and include output in prompt")
     parser.add_argument("--hints", action="store_true", help="Include hints_text in prompt")
     parser.add_argument("--verbose", "-v", action="store_true", help="Show tool calls and output")
-    parser.add_argument("--system-prompt", choices=["minimal", "structured", "agentic", "enhanced", "thinking", "thinking_v2", "thinking_v3", "thinking_v4"], default="thinking_v3",
+    parser.add_argument("--system-prompt", choices=["minimal", "structured", "agentic", "enhanced", "thinking", "thinking_v2", "thinking_v3", "thinking_v4", "thinking_v5", "thinking_v6", "thinking_v7"], default="thinking_v7",
                         help="System prompt variant: minimal (identity only), structured (workflow+rules), agentic (full self-check), enhanced (full production prompt)")
     parser.add_argument("--work-dir", default="/tmp/swebench-experiment", help="Working directory")
     parser.add_argument("--output", help="Output predictions file")
@@ -1406,10 +1940,13 @@ def main():
                 "model_patch": "",
             })
 
+        # Incremental save after each instance
+        if args.output:
+            with open(args.output, "w") as f:
+                json.dump(predictions, f, indent=2)
+
     # Save results
     if args.output:
-        with open(args.output, "w") as f:
-            json.dump(predictions, f, indent=2)
         print(f"\nSaved to {args.output}")
 
     print(f"\n{'='*60}")

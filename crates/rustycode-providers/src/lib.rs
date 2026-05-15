@@ -56,6 +56,7 @@
 //! ```
 
 mod cost_tracker;
+pub mod model_catalog;
 mod models;
 mod pricing;
 mod registry;

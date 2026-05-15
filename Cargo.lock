@@ -6254,6 +6254,7 @@ dependencies = [
  "rustycode-executable",
  "rustycode-litert",
  "rustycode-protocol",
+ "rustycode-providers",
  "rustycode-tool-integration",
  "rustycode-tools",
  "rustycode-tools-api",

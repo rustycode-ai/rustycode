@@ -188,225 +188,101 @@ impl ProviderMetadataRegistry {
         registry
     }
 
-    /// Register all built-in providers
+    /// Register all built-in providers from the model catalog
     fn register_all_providers(&mut self) {
-        // Anthropic
-        self.register_provider(ProviderMetadata {
-            id: "anthropic".to_string(),
-            name: "Anthropic".to_string(),
-            description: "Claude models".to_string(),
-            api_url: "https://api.anthropic.com".to_string(),
-            api_key_env: "ANTHROPIC_API_KEY".to_string(),
-            models: vec![
-                ModelInfo {
-                    id: "claude-opus-4-7".to_string(),
-                    name: "Claude Opus 4.7".to_string(),
-                    description: "Current flagship with 1M context and adaptive thinking"
-                        .to_string(),
-                    context_window: 1_000_000,
-                    supports_vision: true,
-                    supports_tools: true,
-                    cost_per_1m_input: 5.0,
-                    cost_per_1m_output: 25.0,
-                    release_date: "2026-01-01".to_string(),
-                    tier: ModelTier::Premium,
-                },
-                ModelInfo {
-                    id: "claude-sonnet-4-6".to_string(),
-                    name: "Claude Sonnet 4.6".to_string(),
-                    description: "Best coding model with 1M context and adaptive thinking"
-                        .to_string(),
-                    context_window: 1_000_000,
-                    supports_vision: true,
-                    supports_tools: true,
-                    cost_per_1m_input: 3.0,
-                    cost_per_1m_output: 15.0,
-                    release_date: "2026-01-01".to_string(),
-                    tier: ModelTier::Balanced,
-                },
-                ModelInfo {
-                    id: "claude-haiku-4-5-20251001".to_string(),
-                    name: "Claude Haiku 4.5".to_string(),
-                    description: "Fast and cheap with best speed/cost ratio".to_string(),
-                    context_window: 200_000,
-                    supports_vision: true,
-                    supports_tools: true,
-                    cost_per_1m_input: 1.0,
-                    cost_per_1m_output: 5.0,
-                    release_date: "2025-10-15".to_string(),
-                    tier: ModelTier::Budget,
-                },
-            ],
-            default_model: "claude-sonnet-4-6".to_string(),
-            supports_streaming: true,
-            supports_tools: true,
-            rate_limit_rpm: Some(50),
-        });
+        fn tier_for(output_cost_per_1m: f64) -> ModelTier {
+            if output_cost_per_1m <= 1.0 {
+                ModelTier::Budget
+            } else if output_cost_per_1m <= 10.0 {
+                ModelTier::Balanced
+            } else {
+                ModelTier::Premium
+            }
+        }
 
-        // OpenAI
-        self.register_provider(ProviderMetadata {
-            id: "openai".to_string(),
-            name: "OpenAI".to_string(),
-            description: "GPT models".to_string(),
-            api_url: "https://api.openai.com".to_string(),
-            api_key_env: "OPENAI_API_KEY".to_string(),
-            models: vec![
-                ModelInfo {
-                    id: "gpt-5.5".to_string(),
-                    name: "GPT-5.5".to_string(),
-                    description: "Newest flagship for complex reasoning and coding".to_string(),
-                    context_window: 1_000_000,
-                    supports_vision: true,
-                    supports_tools: true,
-                    cost_per_1m_input: 5.0,
-                    cost_per_1m_output: 30.0,
-                    release_date: "2026-05-01".to_string(),
-                    tier: ModelTier::Premium,
-                },
-                ModelInfo {
-                    id: "gpt-5.4".to_string(),
-                    name: "GPT-5.4".to_string(),
-                    description: "Affordable coding and professional work model".to_string(),
-                    context_window: 1_000_000,
-                    supports_vision: true,
-                    supports_tools: true,
-                    cost_per_1m_input: 2.50,
-                    cost_per_1m_output: 15.0,
-                    release_date: "2026-03-01".to_string(),
-                    tier: ModelTier::Balanced,
-                },
-                ModelInfo {
-                    id: "gpt-5.4-mini".to_string(),
-                    name: "GPT-5.4 mini".to_string(),
-                    description: "Strongest mini model for coding and subagents".to_string(),
-                    context_window: 400_000,
-                    supports_vision: true,
-                    supports_tools: true,
-                    cost_per_1m_input: 0.75,
-                    cost_per_1m_output: 4.50,
-                    release_date: "2026-03-01".to_string(),
-                    tier: ModelTier::Budget,
-                },
-                ModelInfo {
-                    id: "gpt-4.1".to_string(),
-                    name: "GPT-4.1".to_string(),
-                    description: "Flagship GPT-4 with 1M context".to_string(),
-                    context_window: 1_047_576,
-                    supports_vision: true,
-                    supports_tools: true,
-                    cost_per_1m_input: 2.0,
-                    cost_per_1m_output: 8.0,
-                    release_date: "2025-04-14".to_string(),
-                    tier: ModelTier::Balanced,
-                },
-                ModelInfo {
-                    id: "o4-mini".to_string(),
-                    name: "o4-mini".to_string(),
-                    description: "Reasoning model with vision and agentic tool use".to_string(),
-                    context_window: 200_000,
-                    supports_vision: true,
-                    supports_tools: true,
-                    cost_per_1m_input: 1.10,
-                    cost_per_1m_output: 4.40,
-                    release_date: "2025-04-16".to_string(),
-                    tier: ModelTier::Balanced,
-                },
-            ],
-            default_model: "gpt-5.4".to_string(),
-            supports_streaming: true,
-            supports_tools: true,
-            rate_limit_rpm: Some(90),
-        });
+        // (registry_id, catalog_provider_id, display_name, api_url, api_key_env, default_model, streaming, tools, rpm)
+        let configs: &[(&str, &str, &str, &str, &str, &str, bool, bool, Option<u32>)] = &[
+            (
+                "anthropic",
+                "anthropic",
+                "Anthropic",
+                "https://api.anthropic.com",
+                "ANTHROPIC_API_KEY",
+                "claude-sonnet-4-6",
+                true,
+                true,
+                Some(50),
+            ),
+            (
+                "openai",
+                "openai",
+                "OpenAI",
+                "https://api.openai.com",
+                "OPENAI_API_KEY",
+                "gpt-5.4",
+                true,
+                true,
+                Some(90),
+            ),
+            (
+                "google",
+                "gemini",
+                "Google Gemini",
+                "https://generativelanguage.googleapis.com",
+                "GOOGLE_API_KEY",
+                "gemini-2.5-flash",
+                true,
+                true,
+                Some(60),
+            ),
+            (
+                "ollama",
+                "ollama",
+                "Ollama",
+                "http://localhost:11434",
+                "OLLAMA_API_KEY",
+                "qwen2.5-coder",
+                true,
+                false,
+                None,
+            ),
+        ];
 
-        // Google Gemini
-        self.register_provider(ProviderMetadata {
-            id: "google".to_string(),
-            name: "Google Gemini".to_string(),
-            description: "Gemini models".to_string(),
-            api_url: "https://generativelanguage.googleapis.com".to_string(),
-            api_key_env: "GOOGLE_API_KEY".to_string(),
-            models: vec![
-                ModelInfo {
-                    id: "gemini-2.5-pro".to_string(),
-                    name: "Gemini 2.5 Pro".to_string(),
-                    description: "Advanced reasoning with 1M context".to_string(),
-                    context_window: 1_048_576,
-                    supports_vision: true,
-                    supports_tools: true,
-                    cost_per_1m_input: 1.25,
-                    cost_per_1m_output: 10.0,
-                    release_date: "2025-03-01".to_string(),
-                    tier: ModelTier::Premium,
-                },
-                ModelInfo {
-                    id: "gemini-2.5-flash".to_string(),
-                    name: "Gemini 2.5 Flash".to_string(),
-                    description: "Best for high-volume, low-latency agentic tasks".to_string(),
-                    context_window: 1_048_576,
-                    supports_vision: true,
-                    supports_tools: true,
-                    cost_per_1m_input: 0.30,
-                    cost_per_1m_output: 2.50,
-                    release_date: "2025-03-01".to_string(),
-                    tier: ModelTier::Balanced,
-                },
-                ModelInfo {
-                    id: "gemini-2.5-flash-lite".to_string(),
-                    name: "Gemini 2.5 Flash-Lite".to_string(),
-                    description: "Fastest and cheapest Gemini 2.5 model".to_string(),
-                    context_window: 1_048_576,
-                    supports_vision: true,
-                    supports_tools: true,
-                    cost_per_1m_input: 0.10,
-                    cost_per_1m_output: 0.40,
-                    release_date: "2025-06-01".to_string(),
-                    tier: ModelTier::Budget,
-                },
-            ],
-            default_model: "gemini-2.5-flash".to_string(),
-            supports_streaming: true,
-            supports_tools: true,
-            rate_limit_rpm: Some(60),
-        });
+        for &(id, catalog_id, name, api_url, api_key_env, default_model, streaming, tools, rpm) in
+            configs
+        {
+            let models: Vec<ModelInfo> =
+                rustycode_providers::model_catalog::models_for_provider(catalog_id)
+                    .iter()
+                    .map(|e| ModelInfo {
+                        id: e.id.to_string(),
+                        name: e.id.to_string(),
+                        description: String::new(),
+                        context_window: e.context_window,
+                        supports_vision: e.supports_vision,
+                        supports_tools: e.supports_tools,
+                        cost_per_1m_input: e.input_cost_per_1m,
+                        cost_per_1m_output: e.output_cost_per_1m,
+                        release_date: String::new(),
+                        tier: tier_for(e.output_cost_per_1m),
+                    })
+                    .collect();
 
-        // Ollama (local)
-        self.register_provider(ProviderMetadata {
-            id: "ollama".to_string(),
-            name: "Ollama".to_string(),
-            description: "Local models via Ollama".to_string(),
-            api_url: "http://localhost:11434".to_string(),
-            api_key_env: "OLLAMA_API_KEY".to_string(),
-            models: vec![
-                ModelInfo {
-                    id: "llama3".to_string(),
-                    name: "Llama 3".to_string(),
-                    description: "Meta's Llama 3".to_string(),
-                    context_window: 8192,
-                    supports_vision: false,
-                    supports_tools: false,
-                    cost_per_1m_input: 0.0,
-                    cost_per_1m_output: 0.0,
-                    release_date: "2024-04-18".to_string(),
-                    tier: ModelTier::Budget,
-                },
-                ModelInfo {
-                    id: "qwen2.5-coder".to_string(),
-                    name: "Qwen 2.5 Coder".to_string(),
-                    description: "Code-specialized model".to_string(),
-                    context_window: 32768,
-                    supports_vision: false,
-                    supports_tools: false,
-                    cost_per_1m_input: 0.0,
-                    cost_per_1m_output: 0.0,
-                    release_date: "2024-11-01".to_string(),
-                    tier: ModelTier::Balanced,
-                },
-            ],
-            default_model: "qwen2.5-coder".to_string(),
-            supports_streaming: true,
-            supports_tools: false,
-            rate_limit_rpm: None,
-        });
+            if !models.is_empty() {
+                self.register_provider(ProviderMetadata {
+                    id: id.to_string(),
+                    name: name.to_string(),
+                    description: String::new(),
+                    api_url: api_url.to_string(),
+                    api_key_env: api_key_env.to_string(),
+                    models,
+                    default_model: default_model.to_string(),
+                    supports_streaming: streaming,
+                    supports_tools: tools,
+                    rate_limit_rpm: rpm,
+                });
+            }
+        }
     }
 
     /// Register a provider
