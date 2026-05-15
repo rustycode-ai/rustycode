@@ -460,4 +460,120 @@ mod tests {
             "feature 'b' should have been called"
         );
     }
+
+    // ── Plugin Manager integration tests ──────────────────────────────
+
+    #[test]
+    fn plugin_manager_feature_can_be_registered() {
+        use crate::app::features::plugin_manager::PluginManagerState;
+        use std::sync::{Arc, RwLock};
+
+        let mut shell = AppShell::new(default_theme());
+
+        let manager = Arc::new(RwLock::new(crate::plugin::PluginManager::default()));
+        let feature = PluginManagerState::new(manager);
+
+        shell.register_feature(Box::new(feature));
+
+        // Plugin Manager should be registered with its surface.
+        assert_eq!(
+            shell
+                .registry()
+                .surface_feature(SurfaceId::new("plugin-manager")),
+            Some("plugin-manager")
+        );
+    }
+
+    #[test]
+    fn plugin_manager_escape_key_hides_manager() {
+        use crate::app::features::plugin_manager::PluginManagerState;
+        use crate::theme::ThemeColors;
+        use ratatui::style::Color;
+        use std::sync::{Arc, RwLock};
+
+        let manager = Arc::new(RwLock::new(crate::plugin::PluginManager::default()));
+        let mut feature = PluginManagerState::new(manager);
+
+        // Show the plugin manager.
+        feature.show();
+        assert!(feature.is_visible());
+
+        // Create a dummy theme for context.
+        let theme_colors = ThemeColors {
+            background: Color::Black,
+            foreground: Color::White,
+            primary: Color::Blue,
+            secondary: Color::Cyan,
+            accent: Color::Yellow,
+            success: Color::Green,
+            warning: Color::Yellow,
+            error: Color::Red,
+            muted: Color::DarkGray,
+        };
+
+        // Escape key should be handled (in TuiFeature::update).
+        let mut ctx = UpdateCtx {
+            has_focus: true,
+            focused_surface: Some(SurfaceId::new("plugin-manager")),
+            is_streaming: false,
+            pending_tools: 0,
+            plan_mode_active: false,
+            auto_continue_enabled: false,
+            theme_colors: &theme_colors,
+            navigate: &mut |_| {},
+            dispatch_command: &mut |_| {},
+            approve_tool: &mut |_, _| {},
+        };
+
+        let escape_event = TuiEvent::Key(crossterm::event::KeyEvent::new(
+            crossterm::event::KeyCode::Esc,
+            crossterm::event::KeyModifiers::NONE,
+        ));
+
+        let actions = feature.update(&escape_event, &mut ctx);
+
+        // Should return MarkDirty action (and hide internally).
+        assert!(!feature.is_visible());
+        assert!(actions.iter().any(|a| matches!(a, TuiAction::MarkDirty)));
+    }
+
+    #[test]
+    fn plugin_manager_multiple_features_coexist() {
+        use crate::app::features::plugin_manager::PluginManagerState;
+        use std::sync::{Arc, RwLock};
+
+        let mut shell = AppShell::new(default_theme());
+
+        // Register a dummy feature.
+        let dummy = DummyFeature::new("chat", SurfaceId::new("chat"), RouteId::new("chat"));
+        shell.register_feature(Box::new(dummy));
+
+        // Register Plugin Manager feature.
+        let manager = Arc::new(RwLock::new(crate::plugin::PluginManager::default()));
+        let plugin_feature = PluginManagerState::new(manager);
+        shell.register_feature(Box::new(plugin_feature));
+
+        // Both should be registered.
+        assert_eq!(shell.registry().surfaces().count(), 2);
+        assert_eq!(shell.registry().routes().count(), 1);
+        assert_eq!(shell.focus().len(), 2);
+    }
+
+    #[test]
+    fn plugin_manager_surfaces_separated_from_main_features() {
+        use crate::app::features::plugin_manager::PluginManagerState;
+        use std::sync::{Arc, RwLock};
+
+        let mut shell = AppShell::new(default_theme());
+
+        let manager = Arc::new(RwLock::new(crate::plugin::PluginManager::default()));
+        let feature = PluginManagerState::new(manager);
+
+        shell.register_feature(Box::new(feature));
+
+        // Plugin Manager surface should be distinct from other surfaces.
+        let all_surfaces: Vec<SurfaceId> = shell.registry().surfaces().collect();
+        assert!(all_surfaces.contains(&SurfaceId::new("plugin-manager")));
+        assert_eq!(all_surfaces.len(), 1);
+    }
 }

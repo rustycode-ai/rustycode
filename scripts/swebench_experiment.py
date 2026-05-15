@@ -594,9 +594,14 @@ def load_instance(instance_id, instances_file="/tmp/swe-bench-verified.json"):
 
 
 def setup_repo(inst, work_dir="/tmp/swebench-experiment"):
-    """Clone and checkout the instance's repo. Returns repo path."""
+    """Clone and checkout the instance's repo. Returns (repo_path, venv_python)."""
+    import shutil
     inst_dir = Path(work_dir) / inst["instance_id"]
     clone_dir = inst_dir / "repo"
+    venv_dir = inst_dir / "venv"
+
+    # Use Python 3.11 for compatibility with older packages
+    base_python = shutil.which("python3.11") or shutil.which("python3.12") or "python3"
 
     if clone_dir.joinpath(".git").exists():
         # Reset to clean state
@@ -632,7 +637,30 @@ def setup_repo(inst, work_dir="/tmp/swebench-experiment"):
         if r.returncode != 0:
             print(f"  Warning: test_patch failed to apply: {r.stderr[:200]}")
 
-    return clone_dir
+    # Create venv with compatible Python if not exists
+    venv_python = venv_dir / "bin" / "python"
+    if not venv_python.exists():
+        print(f"  Creating venv with {base_python}...")
+        subprocess.run(
+            [base_python, "-m", "venv", str(venv_dir)],
+            capture_output=True, timeout=60,
+        )
+        # Install base deps
+        subprocess.run(
+            [str(venv_python), "-m", "pip", "install", "--quiet", "pip", "pytest"],
+            capture_output=True, timeout=120,
+        )
+        # Install package in development mode if setup.py/pyproject.toml exists
+        if (clone_dir / "setup.py").exists() or (clone_dir / "pyproject.toml").exists():
+            print(f"  Installing package...")
+            r = subprocess.run(
+                [str(venv_python), "-m", "pip", "install", "--quiet", "-e", str(clone_dir)],
+                capture_output=True, timeout=300,
+            )
+            if r.returncode != 0:
+                print(f"  Warning: pip install failed: {r.stderr[:200]}")
+
+    return clone_dir, str(venv_python)
 
 
 def build_file_tree(repo_dir, max_depth=3):
@@ -672,6 +700,10 @@ def run_tests(repo_dir, test_names):
     if not test_names:
         return True, "(no tests)"
 
+    # Use Python 3.11 for compatibility with older packages
+    import shutil
+    python = shutil.which("python3.11") or shutil.which("python3.12") or "python3"
+
     # Detect test runner
     has_pytest = (repo_dir / "pytest.ini").exists() or (repo_dir / "pyproject.toml").exists()
     has_django = (repo_dir / "tests" / "runtests.py").exists()
@@ -682,9 +714,14 @@ def run_tests(repo_dir, test_names):
         if has_django:
             # Extract module from Django test format
             module = test.split("(")[0].rsplit(".", 1)[0] if "(" in test else test
-            cmd = f"python3 tests/runtests.py {module} --verbosity=2"
+            cmd = f"{python} tests/runtests.py {module} --verbosity=2 2>&1"
         else:
-            cmd = f"python3 -m pytest {test} -x --tb=short --no-header -q 2>&1"
+            # Install package if needed, then run test
+            cmd = (
+                f"cd {repo_dir} && "
+                f"PYTHONPATH={repo_dir}:/tmp/swebench-experiment "
+                f"{python} -m pytest {test} -x --tb=short --no-header -q 2>&1"
+            )
 
         result = subprocess.run(
             cmd, shell=True, cwd=repo_dir, capture_output=True, text=True, timeout=120,
@@ -693,7 +730,8 @@ def run_tests(repo_dir, test_names):
         all_passed = all_passed and passed
         results.append(f"{'PASS' if passed else 'FAIL'}: {test}")
         if not passed:
-            results.append(result.stdout[-2000:] if result.stdout else result.stderr[-2000:])
+            output = result.stdout or result.stderr
+            results.append(output[-2000:] if output else "(no output)")
 
     return all_passed, "\n".join(results)
 
