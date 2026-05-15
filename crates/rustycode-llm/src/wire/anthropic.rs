@@ -444,6 +444,24 @@ impl Protocol for AnthropicProtocol {
                         .and_then(|i| i.as_u64())
                         .unwrap_or(0);
 
+                    // Anthropic message_delta usage includes cache_read_input_tokens
+                    // and cache_creation_input_tokens (unlike message_start).
+                    let cache_read = usage_val
+                        .get("cache_read_input_tokens")
+                        .and_then(|i| i.as_u64())
+                        .unwrap_or(0);
+                    let cache_creation = usage_val
+                        .get("cache_creation_input_tokens")
+                        .and_then(|i| i.as_u64())
+                        .unwrap_or(0);
+
+                    if cache_read > 0 || cache_creation > 0 {
+                        events.push(StreamEvent::CacheUsage {
+                            cache_read_tokens: cache_read,
+                            cache_creation_tokens: cache_creation,
+                        });
+                    }
+
                     if input_tokens > 0 || output_tokens > 0 {
                         events.push(StreamEvent::TokenUsage {
                             input_tokens,
