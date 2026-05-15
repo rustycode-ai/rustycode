@@ -15,13 +15,16 @@
 //! - Features NEVER receive `&mut AppShell` (GUARDRAIL-AB-1).
 //! - Event routing: input events → focused feature only; service/stream/tick → all features.
 
+pub mod command_dispatch;
 pub mod focus;
+pub mod render_dispatch;
 
 use crate::app::features::{
     FeatureRegistry, ModalId, RenderCtx, RouteId, SurfaceId, TuiAction, TuiEvent, TuiFeature,
     UpdateCtx,
 };
 use crate::app::shell::focus::FocusRing;
+use crate::app::shell::render_dispatch::RenderDispatch;
 use crate::theme::{Theme, ThemeColors};
 use ratatui::Frame;
 use std::collections::HashMap;
@@ -150,24 +153,23 @@ impl AppShell {
         }
     }
 
-    /// Render all features onto the given frame.
+    /// Render all features onto the given frame using RenderDispatch.
+    ///
+    /// Uses RenderDispatch to orchestrate surface allocation and feature rendering.
+    /// This decouples feature rendering from direct feature iteration.
     pub fn render_frame(&self, frame: &mut Frame) {
         let focused_surface = self.focus.focused();
         let frame_area = frame.area();
 
-        for (feature_id, feature) in &self.features {
-            // Render each surface owned by this feature.
-            for surface in self.registry.surfaces() {
-                if self.registry.surface_feature(surface) == Some(feature_id) {
-                    let ctx = RenderCtx {
-                        frame_area,
-                        focused_surface,
-                        theme_colors: &self.theme_colors,
-                    };
-                    feature.render(surface, frame, &ctx);
-                }
-            }
-        }
+        let mut dispatcher = RenderDispatch::new();
+        dispatcher.dispatch_all(
+            &self.features,
+            &self.registry,
+            focused_surface,
+            &self.theme_colors,
+            frame_area,
+            frame,
+        );
     }
 
     /// Process actions returned by features.
@@ -230,6 +232,24 @@ impl AppShell {
     /// Get the active modal ID, if any.
     pub fn active_modal(&self) -> Option<&'static str> {
         self.active_modal
+    }
+
+    /// Route a command invocation through the unified dispatch system.
+    ///
+    /// This checks whether a command is registered (feature-based or built-in)
+    /// and returns the routing result.
+    pub fn route_command(&self, name: &str) -> command_dispatch::RoutingResult {
+        let invocation = command_dispatch::CommandInvocation {
+            name: name.to_string(),
+            args: Vec::new(),
+            source: command_dispatch::CommandSource::SlashCommand,
+        };
+        command_dispatch::CommandDispatch::route(&invocation, &self.registry)
+    }
+
+    /// Check if a command is registered (feature-based or built-in).
+    pub fn is_command_registered(&self, name: &str) -> bool {
+        command_dispatch::CommandDispatch::is_registered(name, &self.registry)
     }
 }
 
@@ -465,13 +485,13 @@ mod tests {
 
     #[test]
     fn plugin_manager_feature_can_be_registered() {
-        use crate::app::features::plugin_manager::PluginManagerState;
+        use crate::app::features::plugin_manager::PluginManagerFeature;
         use std::sync::{Arc, RwLock};
 
         let mut shell = AppShell::new(default_theme());
 
         let manager = Arc::new(RwLock::new(crate::plugin::PluginManager::default()));
-        let feature = PluginManagerState::new(manager);
+        let feature = PluginManagerFeature::new(manager);
 
         shell.register_feature(Box::new(feature));
 
@@ -479,20 +499,20 @@ mod tests {
         assert_eq!(
             shell
                 .registry()
-                .surface_feature(SurfaceId::new("plugin-manager")),
-            Some("plugin-manager")
+                .surface_feature(SurfaceId::new("plugin_manager")),
+            Some("plugin_manager")
         );
     }
 
     #[test]
     fn plugin_manager_escape_key_hides_manager() {
-        use crate::app::features::plugin_manager::PluginManagerState;
+        use crate::app::features::plugin_manager::PluginManagerFeature;
         use crate::theme::ThemeColors;
         use ratatui::style::Color;
         use std::sync::{Arc, RwLock};
 
         let manager = Arc::new(RwLock::new(crate::plugin::PluginManager::default()));
-        let mut feature = PluginManagerState::new(manager);
+        let mut feature = PluginManagerFeature::new(manager);
 
         // Show the plugin manager.
         feature.show();
@@ -514,7 +534,7 @@ mod tests {
         // Escape key should be handled (in TuiFeature::update).
         let mut ctx = UpdateCtx {
             has_focus: true,
-            focused_surface: Some(SurfaceId::new("plugin-manager")),
+            focused_surface: Some(SurfaceId::new("plugin_manager")),
             is_streaming: false,
             pending_tools: 0,
             plan_mode_active: false,
@@ -532,14 +552,13 @@ mod tests {
 
         let actions = feature.update(&escape_event, &mut ctx);
 
-        // Should return MarkDirty action (and hide internally).
         assert!(!feature.is_visible());
-        assert!(actions.iter().any(|a| matches!(a, TuiAction::MarkDirty)));
+        assert!(actions.iter().any(|a| matches!(a, TuiAction::CloseModal)));
     }
 
     #[test]
     fn plugin_manager_multiple_features_coexist() {
-        use crate::app::features::plugin_manager::PluginManagerState;
+        use crate::app::features::plugin_manager::PluginManagerFeature;
         use std::sync::{Arc, RwLock};
 
         let mut shell = AppShell::new(default_theme());
@@ -550,30 +569,30 @@ mod tests {
 
         // Register Plugin Manager feature.
         let manager = Arc::new(RwLock::new(crate::plugin::PluginManager::default()));
-        let plugin_feature = PluginManagerState::new(manager);
+        let plugin_feature = PluginManagerFeature::new(manager);
         shell.register_feature(Box::new(plugin_feature));
 
         // Both should be registered.
         assert_eq!(shell.registry().surfaces().count(), 2);
-        assert_eq!(shell.registry().routes().count(), 1);
+        assert_eq!(shell.registry().routes().count(), 2);
         assert_eq!(shell.focus().len(), 2);
     }
 
     #[test]
     fn plugin_manager_surfaces_separated_from_main_features() {
-        use crate::app::features::plugin_manager::PluginManagerState;
+        use crate::app::features::plugin_manager::PluginManagerFeature;
         use std::sync::{Arc, RwLock};
 
         let mut shell = AppShell::new(default_theme());
 
         let manager = Arc::new(RwLock::new(crate::plugin::PluginManager::default()));
-        let feature = PluginManagerState::new(manager);
+        let feature = PluginManagerFeature::new(manager);
 
         shell.register_feature(Box::new(feature));
 
         // Plugin Manager surface should be distinct from other surfaces.
         let all_surfaces: Vec<SurfaceId> = shell.registry().surfaces().collect();
-        assert!(all_surfaces.contains(&SurfaceId::new("plugin-manager")));
+        assert!(all_surfaces.contains(&SurfaceId::new("plugin_manager")));
         assert_eq!(all_surfaces.len(), 1);
     }
 }

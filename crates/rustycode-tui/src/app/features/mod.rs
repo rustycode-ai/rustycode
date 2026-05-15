@@ -15,7 +15,9 @@
 
 // ── Feature implementations ──────────────────────────────────────────────
 pub mod plugin_manager;
+pub mod session;
 pub mod session_streaming;
+pub mod tool_panel;
 
 use crate::app::async_::StreamChunk;
 use ratatui::Frame;

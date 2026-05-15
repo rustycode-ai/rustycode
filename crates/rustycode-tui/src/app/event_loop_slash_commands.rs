@@ -118,6 +118,12 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
                     .to_string(),
             );
         }
+        CommandEffect::ToolApproved { tool_id } => {
+            self.integration.services.send_approval_response(tool_id, true);
+        }
+        CommandEffect::ToolRejected { tool_id } => {
+            self.integration.services.send_approval_response(tool_id, false);
+        }
     }
 
     Ok(())

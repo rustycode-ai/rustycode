@@ -262,7 +262,7 @@ def detect_source_dirs(repo_dir) -> list[str]:
     return source_dirs
 
 
-def run_tool(name, input_args, repo_dir, verbose=False, system_prompt="thinking_v7"):
+def run_tool(name, input_args, repo_dir, verbose=False, system_prompt="thinking_v7", venv_python="python3"):
     """Execute a tool call and return the result string."""
     if name == "Bash":
         cmd = input_args["command"]
@@ -294,9 +294,16 @@ def run_tool(name, input_args, repo_dir, verbose=False, system_prompt="thinking_
                         f"The test tells you WHAT to fix. Source files are WHERE to fix."
                     )
         try:
+            # Inject venv into environment for Bash commands
+            env = os.environ.copy()
+            env["PYTHONPATH"] = str(repo_dir)
+            venv_bin = str(Path(venv_python).parent)
+            if venv_bin and venv_bin != ".":
+                env["PATH"] = venv_bin + ":" + env.get("PATH", "")
             result = subprocess.run(
                 cmd, shell=True, cwd=repo_dir,
                 capture_output=True, text=True, timeout=timeout,
+                env=env,
             )
             output = result.stdout
             if result.stderr and result.returncode != 0:
@@ -604,15 +611,15 @@ def setup_repo(inst, work_dir="/tmp/swebench-experiment"):
     base_python = shutil.which("python3.11") or shutil.which("python3.12") or "python3"
 
     if clone_dir.joinpath(".git").exists():
-        # Reset to clean state
-        subprocess.run(["git", "checkout", "--quiet", "."], cwd=clone_dir, capture_output=True)
+        # Reset to clean state (including staged changes from prior runs)
+        subprocess.run(["git", "reset", "--hard", "HEAD"], cwd=clone_dir, capture_output=True)
         subprocess.run(["git", "clean", "-fdq"], cwd=clone_dir, capture_output=True)
     else:
         inst_dir.mkdir(parents=True, exist_ok=True)
         repo_url = f"https://github.com/{inst['repo']}.git"
         print(f"  Cloning {inst['repo']}...")
         subprocess.run(
-            ["git", "clone", "--quiet", repo_url, str(clone_dir)],
+            ["git", "clone", "--quiet", "--depth", "1", "--no-tags", repo_url, str(clone_dir)],
             cwd=inst_dir, check=True, capture_output=True,
         )
 
@@ -655,12 +662,44 @@ def setup_repo(inst, work_dir="/tmp/swebench-experiment"):
             print(f"  Installing package...")
             r = subprocess.run(
                 [str(venv_python), "-m", "pip", "install", "--quiet", "-e", str(clone_dir)],
-                capture_output=True, timeout=300,
+                capture_output=True, timeout=600,
             )
             if r.returncode != 0:
                 print(f"  Warning: pip install failed: {r.stderr[:200]}")
 
     return clone_dir, str(venv_python)
+
+
+def resolve_test_names(test_names, test_patch):
+    """Resolve bare test function names to file::function format using test_patch.
+
+    SWE-bench FAIL_TO_PASS entries are often bare names like 'test_args'.
+    The test_patch diff header tells us which test file was modified.
+    """
+    if not test_patch or not test_names:
+        return test_names
+
+    # Extract test file path from diff header (--- a/path or +++ b/path)
+    import re
+    test_file = None
+    for line in test_patch.split('\n'):
+        m = re.match(r'--- a/(.+\.py)', line) or re.match(r'\+\+\+ b/(.+\.py)', line)
+        if m:
+            test_file = m.group(1)
+            break
+
+    if not test_file:
+        return test_names
+
+    resolved = []
+    for name in test_names:
+        # Already a full path
+        if '::' in name or '/' in name or name.endswith('.py'):
+            resolved.append(name)
+        else:
+            # Bare function name — prefix with test file
+            resolved.append(f"{test_file}::{name}")
+    return resolved
 
 
 def build_file_tree(repo_dir, max_depth=3):
@@ -695,14 +734,12 @@ def capture_diff(repo_dir):
     return result.stdout
 
 
-def run_tests(repo_dir, test_names):
+def run_tests(repo_dir, test_names, venv_python="python3"):
     """Run specific test names and return (passed, output)."""
     if not test_names:
         return True, "(no tests)"
 
-    # Use Python 3.11 for compatibility with older packages
-    import shutil
-    python = shutil.which("python3.11") or shutil.which("python3.12") or "python3"
+    python = venv_python
 
     # Detect test runner
     has_pytest = (repo_dir / "pytest.ini").exists() or (repo_dir / "pyproject.toml").exists()
@@ -716,7 +753,7 @@ def run_tests(repo_dir, test_names):
             module = test.split("(")[0].rsplit(".", 1)[0] if "(" in test else test
             cmd = f"{python} tests/runtests.py {module} --verbosity=2 2>&1"
         else:
-            # Install package if needed, then run test
+            # Use venv python with PYTHONPATH set
             cmd = (
                 f"cd {repo_dir} && "
                 f"PYTHONPATH={repo_dir}:/tmp/swebench-experiment "
@@ -1700,7 +1737,43 @@ SYSTEM_PROMPTS = {
         "\n"
         "- Make MULTIPLE tool calls per turn when possible (read several files, grep with multiple patterns).\n"
         "- Don't re-read files you've already seen.\n"
-        "- Run the failing test as soon as you've made edits — don't wait.\n"
+            ),
+    "thinking_v10": (
+        "You are an expert software engineer fixing a specific bug. Your ONLY job is to make "
+        "source code edits that cause the failing tests to pass.\n"
+        "\n"
+        "## STRUCTURED APPROACH (follow this exactly)\n"
+        "\n"
+        "**Turn 1-2: UNDERSTAND**\n"
+        "- Read the error output and problem statement. What function/class/behavior is wrong?\n"
+        "- Use Grep to find where the failing symbol is DEFINED: `grep -rn 'def FUNC' --include='*.py' . | grep -v test | grep -v __pycache__`\n"
+        "- Read the source file that defines it. Understand the current behavior.\n"
+        "\n"
+        "**Turn 3-4: EDIT**\n"
+        "- You MUST make your first edit by turn 4 at the latest.\n"
+        "- Make the MINIMAL change that fixes the behavior. One line > ten lines.\n"
+        "- Use Edit tool for precise changes. Do NOT rewrite entire functions.\n"
+        "\n"
+        "**Turn 5+: VERIFY AND FIX**\n"
+        "- Run the failing test immediately after editing.\n"
+        "- If it passes: STOP. Do not make additional changes.\n"
+        "- If it fails: read the NEW error carefully, then edit again.\n"
+        "- If same approach fails 3 times: you're editing the wrong file or wrong function. Re-trace.\n"
+        "\n"
+        "## ABSOLUTE RULES\n"
+        "\n"
+        "- NEVER edit test files. Tests REPORT bugs; source code CAUSES bugs.\n"
+        "- NEVER explore git history (git log, git blame, git show). You have the code — read it.\n"
+        "- NEVER rewrite entire files. Use Edit for targeted changes.\n"
+        "- If you haven't edited by turn 5: STOP READING AND EDIT NOW with your best guess.\n"
+        "- Run the test after EVERY edit. Don't batch edits without testing.\n"
+        "\n"
+        "## TOOLS\n"
+        "\n"
+        "- Bash: run tests, grep, find\n"
+        "- Read: read source files (not test files)\n"
+        "- Edit: make precise changes to source code\n"
+        "- Grep: find where symbols are defined or referenced\n"
     ),
 }
 
@@ -1881,7 +1954,31 @@ NUDGES_BY_VERSION = {
             "one parameter addition. Re-read the original error from scratch."
         ),
     },
+    "thinking_v10": {
+        2: (
+            "EDIT NOW: You should have found the source file. Make your first edit this turn. "
+            "Use Edit tool to change the source file. Do NOT read more files — act on what you know."
+        ),
+        5: (
+            "CRITICAL: If you haven't edited yet, STOP EXPLORING. Use Edit tool NOW with your best guess. "
+            "Running the test will tell you if it's wrong. An imperfect edit > no edit."
+        ),
+        8: (
+            "TEST: Run the failing test. If it passes, you're DONE — do not edit further. "
+            "If it fails, read the error output carefully and fix the specific issue it reports."
+        ),
+        14: (
+            "RE-TRACE: If tests still fail, you may be editing the wrong location. "
+            "Use grep to find ALL definitions of the symbol, not just the first one. "
+            "Check imports — maybe the function is defined in a parent class or utility module."
+        ),
+        22: (
+            "LAST ATTEMPT: What is the SIMPLEST possible fix? One line, one import, one parameter. "
+            "Re-read the original error from scratch. Forget your current approach."
+        ),
+    },
 }
+
 
 
 # ── Import Map (auto file discovery from test_patch) ──────────────────
@@ -2029,7 +2126,7 @@ def build_import_map(test_patch: str, repo_dir) -> str:
 
 # ── Agent Loop ────────────────────────────────────────────────────────
 
-def run_agent(inst, repo_dir, args):
+def run_agent(inst, repo_dir, args, venv_python="python3"):
     """Run the agent loop on a single instance. Returns patch string."""
     client = anthropic.Anthropic()
 
@@ -2040,11 +2137,16 @@ def run_agent(inst, repo_dir, args):
     ptp_raw = inst.get("PASS_TO_PASS", inst.get("pass_to_pass", []))
     ptp_tests = json.loads(ptp_raw) if isinstance(ptp_raw, str) else ptp_raw
 
+    # Resolve bare test function names using test_patch file path
+    test_patch = inst.get("test_patch", "")
+    ftp_tests = resolve_test_names(ftp_tests, test_patch)
+    ptp_tests = resolve_test_names(ptp_tests, test_patch)
+
     # Pre-run FAIL_TO_PASS tests to get error output upfront
     pretest_output = ""
     if ftp_tests and args.pretest:
         print(f"  Pre-running FAIL_TO_PASS tests...")
-        _, pretest_result = run_tests(repo_dir, ftp_tests)
+        _, pretest_result = run_tests(repo_dir, ftp_tests, venv_python)
         pretest_output = f"\n## FAIL_TO_PASS Test Output (pre-run)\n\n```\n{pretest_result[:3000]}\n```\n"
         print(f"  Pre-test done ({len(pretest_result)} chars)")
 
@@ -2180,7 +2282,7 @@ Key: Fix the ROOT CAUSE, not just the symptom. If your first fix doesn't work, r
                 print(f"  TOOL: {name}")
             tool_counts[name] = tool_counts.get(name, 0) + 1
 
-            result_text = run_tool(name, input_args, repo_dir, args.verbose, args.system_prompt)
+            result_text = run_tool(name, input_args, repo_dir, args.verbose, args.system_prompt, venv_python)
             is_error = result_text.startswith("ERROR:")
 
             if is_error:
@@ -2264,7 +2366,7 @@ Key: Fix the ROOT CAUSE, not just the symptom. If your first fix doesn't work, r
     test_output = None
     if patch and ftp_tests:
         print(f"\n  Running FAIL_TO_PASS tests...")
-        test_passed, test_output = run_tests(repo_dir, ftp_tests)
+        test_passed, test_output = run_tests(repo_dir, ftp_tests, venv_python)
         print(f"  Tests: {'PASS' if test_passed else 'FAIL'}")
         if not test_passed and args.verbose:
             print(f"  Output: {test_output[:500]}")
@@ -2288,7 +2390,7 @@ def main():
     parser.add_argument("--hints", action="store_true", default=True, help="Include hints_text in prompt (default: True)")
     parser.add_argument("--no-hints", dest="hints", action="store_false", help="Disable hints")
     parser.add_argument("--verbose", "-v", action="store_true", help="Show tool calls and output")
-    parser.add_argument("--system-prompt", choices=["minimal", "structured", "agentic", "enhanced", "thinking", "thinking_v2", "thinking_v3", "thinking_v4", "thinking_v5", "thinking_v6", "thinking_v7", "thinking_v8", "thinking_v8.2", "thinking_v9"], default="thinking_v9",
+    parser.add_argument("--system-prompt", choices=["minimal", "structured", "agentic", "enhanced", "thinking", "thinking_v2", "thinking_v3", "thinking_v4", "thinking_v5", "thinking_v6", "thinking_v7", "thinking_v8", "thinking_v8.2", "thinking_v9", "thinking_v10"], default="thinking_v10",
                         help="System prompt variant: minimal (identity only), structured (workflow+rules), agentic (full self-check), enhanced (full production prompt)")
     parser.add_argument("--work-dir", default="/tmp/swebench-experiment", help="Working directory")
     parser.add_argument("--output", help="Output predictions file")
@@ -2318,8 +2420,8 @@ def main():
     for i, inst in enumerate(instances):
         print(f"\n[{i+1}/{len(instances)}] {inst['instance_id']}")
         try:
-            repo_dir = setup_repo(inst, args.work_dir)
-            patch, test_passed, test_output, tool_counts = run_agent(inst, repo_dir, args)
+            repo_dir, venv_python = setup_repo(inst, args.work_dir)
+            patch, test_passed, test_output, tool_counts = run_agent(inst, repo_dir, args, venv_python)
             if patch:
                 patches += 1
             if test_passed:

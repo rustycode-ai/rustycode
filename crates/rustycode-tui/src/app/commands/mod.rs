@@ -126,6 +126,10 @@ pub enum CommandEffect {
     SetBudget { limit: Option<f64> },
     /// Retry the last user message
     RetryLastMessage,
+    /// Approve a pending tool execution
+    ToolApproved { tool_id: String },
+    /// Reject a pending tool execution
+    ToolRejected { tool_id: String },
     /// No output needed
     None,
     /// Switch to MCP Mode UI
