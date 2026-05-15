@@ -291,7 +291,7 @@ impl BrutalistRenderer<'_> {
                 crate::ui::message::MessageRole::User | crate::ui::message::MessageRole::Assistant
             )
         });
-        if !has_conversation && !self.is_streaming {
+        if !has_conversation {
             self.render_welcome(frame, area, colors);
             return;
         }
@@ -358,7 +358,7 @@ impl BrutalistRenderer<'_> {
                 let wrapped_rows = if line_width == 0 {
                     1u16
                 } else {
-                    (line_width.div_ceil(content_width) as u16).max(1)
+                    u16::try_from(line_width.div_ceil(content_width)).unwrap_or(u16::MAX).max(1)
                 };
 
                 if remaining_skip_rows >= wrapped_rows {
@@ -409,7 +409,10 @@ impl BrutalistRenderer<'_> {
                 effective_offset,
                 if effective_offset != 1 { "s" } else { "" }
             );
-            let padded = format!("{:<width$}", above_text, width = area.width as usize);
+            let text_width =
+                <str as unicode_width::UnicodeWidthStr>::width(above_text.as_str());
+            let pad = (area.width as usize).saturating_sub(text_width);
+            let padded = format!("{}{}", above_text, " ".repeat(pad));
             let indicator = Paragraph::new(Line::from(vec![Span::styled(
                 padded,
                 Style::default()
@@ -440,7 +443,10 @@ impl BrutalistRenderer<'_> {
                 messages_below,
                 if messages_below != 1 { "s" } else { "" }
             );
-            let padded = format!("{:<width$}", below_text, width = area.width as usize);
+            let text_width =
+                <str as unicode_width::UnicodeWidthStr>::width(below_text.as_str());
+            let pad = (area.width as usize).saturating_sub(text_width);
+            let padded = format!("{}{}", below_text, " ".repeat(pad));
             let indicator = Paragraph::new(Line::from(vec![Span::styled(
                 padded,
                 Style::default().fg(pulse_color).add_modifier(Modifier::DIM),
