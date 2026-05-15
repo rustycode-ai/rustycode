@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.5] - 2026-05-15
+
+### Features
+
+- **llm**: Emit CacheUsage stream events from Anthropic message_delta
+- **bench**: Add import analysis and debugging prompts to SWE-bench
+
+### Bug Fixes
+
+- Correct doctest assertion, add missing Fatal category, hoist regexes to LazyLock statics
+
+### Performance
+
+- **tui**: Cache layout chunks to avoid recomputation on every frame
+
 ## [0.5.4] - 2026-05-15
 
 ### Features
@@ -48,6 +63,7 @@ All notable changes to this project will be documented in this file.
 - Unify all crate versions to 0.5.3
 - Add SWE-bench experiment scripts, evaluation tools, and benchmark docs
 - **tui**: Cargo fmt fixup
+- Bump version to 0.5.4
 
 ## [0.5.3] - 2026-05-14
 
