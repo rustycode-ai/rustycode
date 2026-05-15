@@ -212,8 +212,17 @@ pub fn execute_tool(
                     }
                 }
                 if Instant::now() >= deadline {
-                    tracing::error!("Tool execution timeout after 120s");
-                    return Err(());
+                    tracing::warn!("Tool execution exceeded 120s budget, waiting for completion");
+                    match handle.join() {
+                        Ok(result) => {
+                            tracing::warn!("Slow tool finally completed after timeout");
+                            return Ok(result);
+                        }
+                        Err(_) => {
+                            tracing::error!("Tool execution thread panicked after timeout");
+                            return Err(());
+                        }
+                    }
                 }
                 std::thread::sleep(Duration::from_millis(100));
             }
