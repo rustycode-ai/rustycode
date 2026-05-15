@@ -59,9 +59,9 @@ impl ContextZone for StringZone {
     }
 }
 
-/// Assembles four context zones into a single XML-wrapped block.
+/// Assembles five context zones into a single XML-wrapped block.
 ///
-/// On the first call to [`render`](Self::render), all four zones are rendered
+/// On the first call to [`render`](Self::render), all five zones are rendered
 /// and the result is cached. Subsequent calls return the cached string until
 /// [`invalidate`](Self::invalidate) is called.
 ///
@@ -81,6 +81,9 @@ impl ContextZone for StringZone {
 /// <zone name="multi-agent">
 /// {multi_agent.render()}
 /// </zone>
+/// <zone name="source-context">
+/// {source_context.render()}
+/// </zone>
 /// </always-present-context>
 /// ```
 pub struct SessionContextBlock {
@@ -88,6 +91,7 @@ pub struct SessionContextBlock {
     session_state: Box<dyn ContextZone>,
     tools: Box<dyn ContextZone>,
     multi_agent: Box<dyn ContextZone>,
+    source_context: Box<dyn ContextZone>,
     cached_render: Option<String>,
     token_count: usize,
 }
@@ -104,6 +108,26 @@ impl SessionContextBlock {
             session_state,
             tools,
             multi_agent,
+            source_context: Box::new(super::source_context::SourceContextZone::empty()),
+            cached_render: None,
+            token_count: 0,
+        }
+    }
+
+    /// Create a context block with all five zones including source context.
+    pub fn with_source_context(
+        environment: Box<dyn ContextZone>,
+        session_state: Box<dyn ContextZone>,
+        tools: Box<dyn ContextZone>,
+        multi_agent: Box<dyn ContextZone>,
+        source_context: Box<dyn ContextZone>,
+    ) -> Self {
+        Self {
+            environment,
+            session_state,
+            tools,
+            multi_agent,
+            source_context,
             cached_render: None,
             token_count: 0,
         }
@@ -132,6 +156,9 @@ impl SessionContextBlock {
              <zone name=\"{}\">\n\
              {}\n\
              </zone>\n\
+             <zone name=\"{}\">\n\
+             {}\n\
+             </zone>\n\
              </always-present-context>",
             self.environment.name(),
             self.environment.render(),
@@ -141,6 +168,8 @@ impl SessionContextBlock {
             self.tools.render(),
             self.multi_agent.name(),
             self.multi_agent.render(),
+            self.source_context.name(),
+            self.source_context.render(),
         );
 
         self.token_count = rustycode_protocol::estimate_tokens(&rendered);
@@ -196,6 +225,7 @@ mod tests {
         assert!(output.contains(r#"<zone name="session-state">"#));
         assert!(output.contains(r#"<zone name="tools">"#));
         assert!(output.contains(r#"<zone name="multi-agent">"#));
+        assert!(output.contains(r#"<zone name="source-context">"#));
         assert!(output.contains("os=linux"));
         assert!(output.contains("turn=5"));
         assert!(output.contains("bash,read,write"));
@@ -248,6 +278,21 @@ mod tests {
     fn zone_stale_until_rendered() {
         let zone = StringZone::new("test", "content");
         assert!(!zone.is_stale(), "StringZone should never report stale");
+    }
+
+    #[test]
+    fn with_source_context_includes_fifth_zone() {
+        let mut block = SessionContextBlock::with_source_context(
+            test_zone("environment", "os=linux"),
+            test_zone("session-state", "turn=1"),
+            test_zone("tools", "bash,read"),
+            test_zone("multi-agent", "agents=1"),
+            test_zone("source-context", "src/main.rs: fn main() {}"),
+        );
+        let output = block.render();
+
+        assert!(output.contains(r#"<zone name="source-context">"#));
+        assert!(output.contains("src/main.rs"));
     }
 
     #[test]
