@@ -31,7 +31,7 @@ impl FrameLayoutSnapshot {
         if sidebar_visible && message_area.width > 100 {
             let sidebar_width = (message_area.width / 3).clamp(24, 34);
             if message_area.width > sidebar_width {
-                let content_width = message_area.width - sidebar_width;
+                let content_width = message_area.width.saturating_sub(sidebar_width);
                 message_area.width = content_width;
                 sidebar_area = Some(Rect {
                     x: message_area.x + content_width,

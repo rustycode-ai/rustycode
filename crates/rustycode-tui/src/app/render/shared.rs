@@ -108,7 +108,10 @@ pub fn shorten_path(path: &str) -> String {
     use std::path::Path;
 
     let display = match std::env::var("HOME") {
-        Ok(home) if path.starts_with(&home) => format!("~{}", &path[home.len()..]),
+        Ok(home) if path.starts_with(&home) => {
+            let offset = path.floor_char_boundary(home.len());
+            format!("~{}", &path[offset..])
+        }
         _ => path.to_string(),
     };
 

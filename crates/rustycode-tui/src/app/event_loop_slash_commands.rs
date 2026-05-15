@@ -61,6 +61,7 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
                 }
                 self.session.streaming.stream_cancelled = true;
             }
+            self.integration.services.drain_stream();
             self.reset_conversation_state();
             self.session.messages = messages;
             self.sys.compaction.context_monitor.update(&self.session.messages);

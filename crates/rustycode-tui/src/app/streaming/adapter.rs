@@ -47,9 +47,8 @@ impl StreamEventAdapter {
     }
 
     pub fn emit(&self, chunk: StreamChunk) {
-        // Blocking send: never drop chunks (fixes missing final text after tool calls)
-        if let Err(_e) = self.stream_tx.send(chunk) {
-            tracing::debug!("Stream channel closed during send");
+        if self.stream_tx.try_send(chunk).is_err() {
+            tracing::debug!("Stream channel full or closed during send");
         }
     }
 

@@ -595,7 +595,7 @@ impl MarketplaceBrowser {
                     .border_style(Style::default().fg(Color::Cyan)),
             )
             .wrap(Wrap { trim: false })
-            .scroll((self.scroll_offset as u16, 0));
+            .scroll((self.scroll_offset.min(u16::MAX as usize) as u16, 0));
 
         frame.render_widget(paragraph, area);
     }

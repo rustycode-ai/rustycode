@@ -1,28 +1,38 @@
 use std::collections::HashMap;
 use std::sync::{mpsc, LazyLock, Mutex};
+use std::time::Instant;
 
-static GLOBAL_CONFIRMATIONS: LazyLock<Mutex<HashMap<String, mpsc::Sender<bool>>>> =
+struct PendingEntry {
+    sender: mpsc::Sender<bool>,
+    created_at: Instant,
+}
+
+static GLOBAL_CONFIRMATIONS: LazyLock<Mutex<HashMap<String, PendingEntry>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
-/// Register a new confirmation request. Returns a blocking `Receiver<bool>` that
-/// the caller can `recv()` on (use `spawn_blocking` if calling from async).
+const STALE_THRESHOLD_SECS: u64 = 300;
+
 pub fn register(request_id: String) -> mpsc::Receiver<bool> {
     let (tx, rx) = mpsc::channel();
     let mut map = GLOBAL_CONFIRMATIONS
         .lock()
         .unwrap_or_else(|e| e.into_inner());
-    map.insert(request_id, tx);
+    map.insert(
+        request_id,
+        PendingEntry {
+            sender: tx,
+            created_at: Instant::now(),
+        },
+    );
     rx
 }
 
-/// Deliver a boolean decision for a pending request. Returns true if the
-/// decision was delivered, false if no pending request matched the id.
 pub fn deliver(request_id: &str, decision: bool) -> bool {
     let mut map = GLOBAL_CONFIRMATIONS
         .lock()
         .unwrap_or_else(|e| e.into_inner());
-    if let Some(tx) = map.remove(request_id) {
-        if tx.send(decision).is_err() {
+    if let Some(entry) = map.remove(request_id) {
+        if entry.sender.send(decision).is_err() {
             tracing::debug!(request_id = %request_id, "confirmation receiver dropped before delivery");
             false
         } else {
@@ -34,6 +44,7 @@ pub fn deliver(request_id: &str, decision: bool) -> bool {
 }
 
 pub fn pending_list() -> Vec<String> {
+    prune_stale();
     let map = GLOBAL_CONFIRMATIONS
         .lock()
         .unwrap_or_else(|e| e.into_inner());
@@ -41,10 +52,30 @@ pub fn pending_list() -> Vec<String> {
 }
 
 pub fn pending_count() -> usize {
+    prune_stale();
     let map = GLOBAL_CONFIRMATIONS
         .lock()
         .unwrap_or_else(|e| e.into_inner());
     map.len()
+}
+
+pub fn prune_stale() {
+    let mut map = GLOBAL_CONFIRMATIONS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    let before = map.len();
+    map.retain(|id, entry| {
+        if entry.created_at.elapsed().as_secs() > STALE_THRESHOLD_SECS {
+            tracing::debug!(request_id = %id, "pruning stale confirmation entry");
+            false
+        } else {
+            true
+        }
+    });
+    let pruned = before - map.len();
+    if pruned > 0 {
+        tracing::debug!(count = pruned, "pruned stale confirmation entries");
+    }
 }
 
 #[cfg(test)]
@@ -77,7 +108,6 @@ mod tests {
         let pending = pending_list();
         assert!(pending.contains(&"list-a".to_string()));
         assert!(pending.contains(&"list-b".to_string()));
-        // Clean up
         deliver("list-a", true);
         deliver("list-b", true);
     }
@@ -87,10 +117,8 @@ mod tests {
         let before = pending_count();
         let _rx = register("count-test".to_string());
         let after = pending_count();
-        // Registration must increase the count
         assert!(after > before);
         deliver("count-test", true);
-        // Delivery must decrease the count from the post-register snapshot
         assert!(pending_count() < after);
     }
 }

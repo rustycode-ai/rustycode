@@ -255,6 +255,7 @@ pub fn run_with_shell(cwd: PathBuf, _reconfigure: bool, _resume: bool) -> Result
                 crossterm::terminal::LeaveAlternateScreen,
                 crossterm::event::DisableBracketedPaste,
                 crossterm::event::DisableMouseCapture,
+                crossterm::cursor::Show,
             );
         }
     }

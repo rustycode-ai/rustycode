@@ -181,7 +181,12 @@ impl PipelineCronScheduler {
         drop(handles);
 
         for handle in drained {
-            let _ = handle.join();
+            if let Err(payload) = handle.join() {
+                tracing::warn!(
+                    "Scheduler timer thread panicked during shutdown: {:?}",
+                    payload
+                );
+            }
         }
 
         let _ = self.tx.send(ScheduledPhaseEvent::SchedulerStopped);
@@ -194,7 +199,7 @@ impl PipelineCronScheduler {
         let running = self.running.clone();
 
         let handle = thread::spawn(move || loop {
-            if !running.load(Ordering::Relaxed) {
+            if !running.load(Ordering::Acquire) {
                 break;
             }
 
@@ -210,14 +215,14 @@ impl PipelineCronScheduler {
                     if !total_sleep.is_zero() {
                         let check_interval = Duration::from_secs(1);
                         let mut remaining = total_sleep;
-                        while !remaining.is_zero() && running.load(Ordering::Relaxed) {
+                        while !remaining.is_zero() && running.load(Ordering::Acquire) {
                             let sleep_time = remaining.min(check_interval);
                             thread::sleep(sleep_time);
                             remaining = remaining.saturating_sub(check_interval);
                         }
                     }
 
-                    if !running.load(Ordering::Relaxed) {
+                    if !running.load(Ordering::Acquire) {
                         break;
                     }
 

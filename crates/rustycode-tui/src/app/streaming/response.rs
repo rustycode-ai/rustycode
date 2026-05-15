@@ -369,7 +369,7 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
 
     if stop_signal
         .as_ref()
-        .is_some_and(|flag| flag.load(std::sync::atomic::Ordering::Relaxed))
+        .is_some_and(|flag| flag.load(std::sync::atomic::Ordering::Acquire))
     {
         return Ok(());
     }
@@ -513,7 +513,7 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
                 }).context("AgentSession streaming failed"),
                 _ = async {
                     loop {
-                        if stop_flag.load(std::sync::atomic::Ordering::Relaxed) {
+                        if stop_flag.load(std::sync::atomic::Ordering::Acquire) {
                             // Phase 1C: Dispatch StopStream Op to the core
                             let _ = op_tx.send(rustycode_protocol::Op::StopStream);
                             break;

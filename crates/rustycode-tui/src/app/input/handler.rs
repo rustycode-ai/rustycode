@@ -569,8 +569,10 @@ impl TUI {
             }
             Ok(_other) => {}
             Err(e) => {
-                tracing::error!("Failed to read event: {}", e);
-                return Err(e.into());
+                // Crossterm errors are often transient (EINTR from signals,
+                // spurious wakeups). Log and continue rather than terminating
+                // the entire TUI session.
+                tracing::warn!("Transient error reading terminal event (continuing): {}", e);
             }
         }
 
@@ -759,7 +761,10 @@ impl TUI {
             crossterm::event::EnableBracketedPaste,
             crossterm::event::EnableMouseCapture,
         );
-        let _ = crossterm::terminal::enable_raw_mode();
+        let _ = crossterm::terminal::enable_raw_mode().map_err(|e| {
+            tracing::warn!("Failed to re-enable raw mode after editor: {e}");
+            e
+        });
         // Clear the screen to invalidate ratatui's stale back-buffer.
         // Without this, differential rendering skips cells that haven't
         // changed vs the old buffer, even though the alternate screen is blank.

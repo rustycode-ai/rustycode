@@ -1960,6 +1960,9 @@ impl TUI {
         };
 
         let size = frame.area();
+        if size.width < 10 || size.height < 5 {
+            return;
+        }
         let header_rows: u16 = if self.ui.status_bar_collapsed { 0 } else { 1 };
         let footer_rows: u16 = if self.ui.footer_collapsed { 0 } else { 1 };
         let fixed_rows = header_rows + footer_rows + input_rows;

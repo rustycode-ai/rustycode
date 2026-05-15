@@ -553,8 +553,8 @@ impl FileFinderRenderer {
         let height = (area.height * 60) / 100;
 
         // Center the modal
-        let x = area.x + (area.width - width) / 2;
-        let y = area.y + (area.height - height) / 2;
+        let x = area.x + area.width.saturating_sub(width) / 2;
+        let y = area.y + area.height.saturating_sub(height) / 2;
         let modal_area = Rect::new(x, y, width, height);
 
         f.render_widget(Clear, area);

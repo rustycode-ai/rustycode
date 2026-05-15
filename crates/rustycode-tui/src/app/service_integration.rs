@@ -85,10 +85,9 @@ pub struct ServiceManager {
     pub polling_registry: BackgroundServiceRegistry,
 
     /// Channel for approval responses (TUI → streaming thread)
-    approval_tx: Option<std::sync::mpsc::Sender<(String, bool)>>,
+    approval_tx: Option<std::sync::mpsc::SyncSender<(String, bool)>>,
 
-    /// Channel for question responses (TUI → streaming thread)
-    question_tx: Option<std::sync::mpsc::Sender<String>>,
+    question_tx: Option<std::sync::mpsc::SyncSender<String>>,
 
     ai_mode: Arc<StdMutex<AiMode>>,
 
@@ -103,6 +102,9 @@ pub struct ServiceManager {
 
     /// Signal to stop the persistent forwarding thread (used when updating model/pipeline)
     forwarding_thread_stop: Arc<AtomicBool>,
+
+    /// Handle to the current forwarding thread so we can join it before spawning a replacement
+    forwarding_thread_handle: Option<std::thread::JoinHandle<()>>,
 
     /// File read deduplication cache
     file_read_cache: Arc<StdMutex<FileReadCache>>,
@@ -184,6 +186,7 @@ impl ServiceManager {
             cwd,
             stream_stop_requested: Arc::new(AtomicBool::new(false)),
             forwarding_thread_stop: Arc::new(AtomicBool::new(false)),
+            forwarding_thread_handle: None,
             file_read_cache: Arc::new(StdMutex::new(FileReadCache::new())),
             error_tracker: Arc::new(StdMutex::new(ErrorTracker::new())),
             query_guard: QueryGuard::new(),
@@ -329,21 +332,21 @@ impl ServiceManager {
                 .unwrap_or(0)
         );
 
-        // Signal any existing forwarding thread to stop
         self.forwarding_thread_stop.store(true, Ordering::SeqCst);
+        if let Some(handle) = self.forwarding_thread_handle.take() {
+            let _ = handle.join();
+        }
+
         let stop_flag = Arc::new(AtomicBool::new(false));
         self.forwarding_thread_stop = Arc::clone(&stop_flag);
 
-        // Spawn persistent orchestration event forwarding thread (single instance)
         let mut rx = bus.subscribe();
-        thread::spawn(move || {
+        let handle = thread::spawn(move || {
             rustycode_shared_runtime::block_on_shared(async {
                 let mut adapter =
                     crate::app::streaming::adapter::StreamEventAdapter::new(stream_tx);
                 loop {
                     if stop_flag.load(Ordering::SeqCst) {
-                        // Drain remaining events before exiting to prevent
-                        // chunk loss during state transitions.
                         while let Ok(event) = rx.try_recv() {
                             adapter.on_orchestration_event(event);
                         }
@@ -362,13 +365,12 @@ impl ServiceManager {
                             tracing::info!("Orchestration bus closed, exiting forwarding thread");
                             break;
                         }
-                        Err(_) => {
-                            // Timeout reached, just loop and check stop_flag
-                        }
+                        Err(_) => {}
                     }
                 }
             });
         });
+        self.forwarding_thread_handle = Some(handle);
 
         Ok(())
     }
@@ -506,8 +508,8 @@ impl ServiceManager {
             .unwrap_or_default();
 
         // 4. Thread Context Preparation
-        let (approval_tx, approval_rx) = std::sync::mpsc::channel();
-        let (question_tx, question_rx) = std::sync::mpsc::channel();
+        let (approval_tx, approval_rx) = std::sync::mpsc::sync_channel(64);
+        let (question_tx, question_rx) = std::sync::mpsc::sync_channel(64);
         self.approval_tx = Some(approval_tx);
         self.question_tx = Some(question_tx);
         self.stream_stop_requested = Arc::new(AtomicBool::new(false));
@@ -850,7 +852,7 @@ impl ServiceManager {
                     );
                 }
             })
-            .expect("failed to spawn workspace-loader thread");
+            .with_context(|| "failed to spawn workspace-loader thread")?;
 
         self.polling_registry.workspace_channel = Some(workspace_channel);
 
@@ -876,6 +878,12 @@ impl ServiceManager {
                 Ok(true)
             }
             None => Ok(false),
+        }
+    }
+
+    pub fn drain_stream(&mut self) {
+        if let Some(channel) = self.polling_registry.stream_channel.as_mut() {
+            while channel.try_recv().is_some() {}
         }
     }
 

@@ -122,13 +122,16 @@ impl MessageRenderer {
         let content_area = Rect {
             x: area.x,
             y: current_y,
-            width: area.width,
-            height: (area.bottom() - current_y).max(1),
+            width: area.width.max(1),
+            height: area.bottom().saturating_sub(current_y).max(1),
         };
         self.render_content(f, content_area, message, pipe_char, pipe_color, theme)?;
 
         // Update current_y after content
-        current_y += self.calculate_content_height(message, area.width as usize) as u16;
+        current_y = current_y.saturating_add(
+            self.calculate_content_height(message, area.width as usize)
+                .min(u16::MAX as usize) as u16,
+        );
 
         // If assistant message has tools, render inline summary
         if message.has_tools() && self.show_tools && current_y < area.bottom() {

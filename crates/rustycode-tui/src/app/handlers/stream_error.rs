@@ -119,7 +119,7 @@ pub(super) fn handle_error_chunk(tui: &mut TUI, err: StreamError) {
     ));
 
     // Store the message index for updating countdown
-    tui.integration.rate_limit.message_index = Some(tui.session.messages.len() - 1);
+    tui.integration.rate_limit.message_index = Some(tui.session.messages.len().saturating_sub(1));
 
     // Reset auto-retry cancellation flag for new error
     tui.integration.rate_limit.auto_retry_cancelled = false;
