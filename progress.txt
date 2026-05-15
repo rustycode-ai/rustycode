@@ -1,0 +1,35 @@
+Progress: Structured Thinking + Nudge Patterns in Production System Prompt
+===========================================================================
+
+## US-001: Verification goals pattern (PASSES)
+- Added "## Before saying 'done'" section to system_prompt.rs
+- 4 items: run failing test, full suite, check imports, root cause check
+- Test updated: asserts "## Before saying 'done'" and "root cause"
+
+## US-002: Escalation awareness (PASSES)
+- Added "## When stuck" section
+- 1 line: "Same approach failing 5+ turns → read different files, check git blame, look at tests for API contracts, or simplify the fix"
+- Test updated: asserts "## When stuck"
+
+## US-003: Progress self-assessment nudge (PASSES)
+- Added to complex task workflow: "After each step: which step am I on? How many remain? Does the next step still make sense?"
+- Integrated into existing workflow section (not new top-level section)
+- Test updated: asserts "which step am I on"
+
+## US-004: SWE-bench validation (PASSES)
+- django__django-11066: PATCH RATE 100% (1/1 non-empty patches)
+- scikit-learn__scikit-learn-10297: PATCH RATE 100% (1/1 non-empty patches)
+- Both runs used --system-prompt structured --max-turns 15
+- Predictions saved to predictions_django_11066.json and predictions_sklearn_10297.json
+
+## Files changed
+- crates/rustycode-tui/src/app/streaming/system_prompt.rs (prompt additions + test updates)
+- crates/rustycode-tui/src/app/streaming/response.rs (wired to use system_prompt module)
+- crates/rustycode-tui/src/app/streaming/mod.rs (added pub mod system_prompt)
+
+## Learnings
+- A/B experiment proved minimal > agentic (100% vs 0% patch rate)
+- Key insight: bake structured thinking patterns into concise prompt TEXT, not tools
+- Verification goals, escalation, progress nudges all fit in <10 lines total
+- Decision shortcuts + regression detection from prior iteration also working well
+- Structured prompt maintains 100% patch rate (matching minimal prompt baseline)

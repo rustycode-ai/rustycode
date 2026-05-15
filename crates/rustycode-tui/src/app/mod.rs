@@ -97,6 +97,7 @@ pub mod state;
 
 // ── Feature decomposition (new architecture) ─────────────────────────
 pub mod features;
+pub mod shell;
 
 // ── Async & event loop (core runtime) ─────────────────────────
 pub mod async_;

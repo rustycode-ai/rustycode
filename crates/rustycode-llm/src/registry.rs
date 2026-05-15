@@ -257,7 +257,7 @@ impl ProviderMetadataRegistry {
                     .map(|e| ModelInfo {
                         id: e.id.to_string(),
                         name: e.id.to_string(),
-                        description: String::new(),
+                        description: format!("{} model", e.id),
                         context_window: e.context_window,
                         supports_vision: e.supports_vision,
                         supports_tools: e.supports_tools,

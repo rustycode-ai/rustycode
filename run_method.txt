@@ -1,0 +1,201 @@
+548:    async fn run(
+549-        &mut self,
+550-        instruction: &str,
+551-        env: &mut dyn BenchEnvironment,
+552-    ) -> anyhow::Result<()> {
+553-        // Reset token counters for this run
+554-        self.input_tokens = 0;
+555-        self.output_tokens = 0;
+556-
+557-        let cwd = env
+558-            .workspace_path()
+559-            .context("workspace_path required for CodeAgent — use native runner")?;
+560-
+561-        let ctx = ToolContext::new(&cwd);
+562-        let registry = build_bench_registry();
+563-        let tools = Self::build_tool_schemas();
+564-
+565-        let task_prompt = format!(
+566-            "You have {} turns total. Use them wisely.\n\n\
+567-             CRITICAL RULES — you will be stopped if you violate these:\n\
+568-             1. Read files to understand the issue, then make the MINIMAL fix.\n\
+569-             2. You get at most 4 file edits total. Use them carefully.\n\
+570-             3. Do NOT add tests, docs, or unrelated changes.\n\
+571-             4. Do NOT re-read or re-check files after editing.\n\
+572-             5. NEVER edit the same file more than twice.\n\
+573-             6. After your last edit, respond with text only — no more tool calls.\n\n\
+574-             {instruction}",
+575-            self.config.max_turns
+576-        );
+577-        let mut messages = vec![rustycode_llm::ChatMessage::user(task_prompt)];
+578-
+579-        // Classify intent to steer the conversation frame
+580-        let intent = classify_intent(instruction);
+581-        let system_prompt = format!(
+582-            "You are an expert programmer. Read the relevant files, understand the bug, \
+583-             apply the smallest possible fix, and stop. Do not verify your fix. \
+584-             Do not run tests. Just fix it and respond with a brief summary.\n\n{}",
+585-            intent.prompt_suffix()
+586-        );
+587-        tracing::info!("[code] Intent: {:?} → frame applied", intent);
+588-
+589-        let mut conversation_trace = format!(
+590-            "# Conversation Trace\n\n## Instruction\n{instruction}\n## Intent: {:?}\n",
+591-            intent
+592-        );
+593-
+594-        let mut made_edits = false;
+595-        let mut turns_since_edit = 0usize;
+596-        let mut total_edits = 0usize;
+597-        let mut consecutive_error_turns = 0usize;
+598-        let mut file_edit_counts: std::collections::HashMap<String, usize> =
+599-            std::collections::HashMap::new();
+600-
+601-        for turn in 0..self.config.max_turns {
+602-            Self::prune_messages(&mut messages, self.config.max_context_chars);
+603-
+604-            let request =
+605-                rustycode_llm::CompletionRequest::new(&self.config.model, messages.clone())
+606-                    .with_system_prompt(system_prompt.clone())
+607-                    .with_max_tokens(self.config.max_tokens)
+608-                    .with_temperature(0.2)
+609-                    .with_tools(tools.clone())
+610-                    .with_tool_choice(serde_json::json!("auto"));
+611-
+612-            tracing::info!(
+613-                "[code] Turn {}/{} (provider: {})",
+614-                turn + 1,
+615-                self.config.max_turns,
+616-                self.provider.name()
+617-            );
+618-
+619-            let response = rustycode_llm::LLMProvider::complete(&*self.provider, request).await?;
+620-
+621-            // Accumulate token usage across turns
+622-            if let Some(usage) = &response.usage {
+623-                self.input_tokens += u64::from(usage.input_tokens);
+624-                self.output_tokens += u64::from(usage.output_tokens);
+625-            }
+626-
+627-            // Handle max_tokens truncation
+628-            if response.stop_reason.as_deref() == Some("max_tokens")
+629-                && turn < self.config.max_turns - 1
+630-            {
+631-                tracing::info!("[code] Model hit max_tokens, injecting continuation");
+632-                let text = Self::extract_text(&response.content);
+633-                if !text.is_empty() {
+634-                    messages.push(rustycode_llm::ChatMessage {
+635-                        role: MessageRole::Assistant,
+636-                        content: MessageContent::Simple(text),
+637-                    });
+638-                }
+639-                messages.push(rustycode_llm::ChatMessage::user("Continue.".to_string()));
+640-                continue;
+641-            }
+642-
+643-            let text = Self::extract_text(&response.content);
+644-
+645-            // Always log the full raw response content for debugging
+646-            conversation_trace.push_str(&format!(
+647-                "\n--- Turn {} — Raw Response ---\n{}\n",
+648-                turn + 1,
+649-                truncate(&response.content, 4000)
+650-            ));
+651-
+652-            if !text.is_empty() {
+653-                tracing::info!("[code] LLM: {}", truncate(&text, 200));
+654-            }
+655-
+656-            let tool_uses = Self::parse_tool_uses(&response.content);
+657-            if !tool_uses.is_empty() {
+658-                conversation_trace.push_str(&format!(
+659-                    "\n--- Turn {} — Tool Calls ({} total) ---",
+660-                    turn + 1,
+661-                    tool_uses.len()
+662-                ));
+663-                for (i, tu) in tool_uses.iter().enumerate() {
+664-                    let input_preview = match tu.name.as_str() {
+665-                        tn::BASH => tu
+666-                            .input
+667-                            .get("command")
+668-                            .and_then(|v| v.as_str())
+669-                            .map(|s| truncate(s, 500))
+670-                            .unwrap_or_default(),
+671-                        tn::WRITE | tn::READ | tn::EDIT => {
+672-                            let p = tu
+673-                                .input
+674-                                .get("path")
+675-                                .or(tu.input.get("file_path"))
+676-                                .and_then(|v| v.as_str())
+677-                                .unwrap_or("?");
+678-                            format!("path={p}")
+679-                        }
+680-                        _ => serde_json::to_string(&tu.input).unwrap_or_default(),
+681-                    };
+682-                    conversation_trace.push_str(&format!(
+683-                        "\n  [{}] {} | {}",
+684-                        i + 1,
+685-                        tu.name,
+686-                        input_preview
+687-                    ));
+688-                }
+689-                conversation_trace.push('\n');
+690-            }
+691-
+692-            if tool_uses.is_empty() {
+693-                tracing::info!("[code] No more tool calls — agent finished");
+694-                break;
+695-            }
+696-
+697-            // Build assistant message with ContentBlocks
+698-            let mut blocks: Vec<ContentBlock> = Vec::new();
+699-            if !text.is_empty() {
+700-                blocks.push(ContentBlock::text(text));
+701-            }
+702-            for tool_use in &tool_uses {
+703-                blocks.push(ContentBlock::tool_use(
+704-                    &tool_use.id,
+705-                    &tool_use.name,
+706-                    tool_use.input.clone(),
+707-                ));
+708-            }
+709-            messages.push(rustycode_llm::ChatMessage {
+710-                role: MessageRole::Assistant,
+711-                content: MessageContent::Blocks(blocks),
+712-            });
+713-
+714-            // Execute all tool calls sequentially via the registry.
+715-            let raw_outputs: Vec<String> = tool_uses
+716-                .iter()
+717-                .map(|t| Self::execute_tool(&registry, t, &ctx))
+718-                .collect();
+719-
+720-            // Track edit/write operations for early-stop detection.
+721-            let edited_files: Vec<String> = tool_uses
+722-                .iter()
+723-                .filter(|t| t.name == tn::WRITE || t.name == tn::EDIT)
+724-                .filter_map(|t| {
+725-                    t.input
+726-                        .get("path")
+727-                        .or(t.input.get("file_path"))
+728-                        .and_then(|v| v.as_str())
+729-                        .map(|s| s.to_string())
+730-                })
+731-                .collect();
+732-
+733-            if !edited_files.is_empty() {
+734-                made_edits = true;
+735-                turns_since_edit = 0;
+736-                total_edits += edited_files.len();
+737-                for f in &edited_files {
+738-                    *file_edit_counts.entry(f.clone()).or_insert(0) += 1;
+739-                }
+740-            } else if made_edits {
+741-                turns_since_edit += 1;
+742-            }
+743-
+744-            // Early-stop: model has applied its fix and is now wasting turns.
+745-            // 1) No edits for 2+ turns after making at least one edit.
+746-            // 2) Same file edited 3+ times → thrashing.
+747-            // 3) 4+ total edits across all files → scope creep.
+748-            if made_edits && turns_since_edit >= 2 {

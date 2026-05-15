@@ -1,0 +1,622 @@
+{
+  "timestamp": "2026-05-14T12:59:59.571340",
+  "elapsed_seconds": 338.8064742088318,
+  "total_tests": 30,
+  "results": [
+    {
+      "model": "glm-5.1",
+      "strategy": "soft",
+      "tool_called": true,
+      "response_chars": 0,
+      "quality": {
+        "file_paths": true,
+        "security_fix": true,
+        "refactor_plan": true,
+        "goal_captured": true,
+        "next_step_specific": true
+      },
+      "tokens": {
+        "prompt": 990,
+        "completion": 235
+      },
+      "error": null,
+      "summary_preview": {
+        "goal": "Refactor a monolithic 812-line src/auth/mod.rs into separate",
+        "next_step": "Write tests for jwt.rs rotation logic, then extract session.",
+        "decisions_count": 3,
+        "files": [
+          "src/auth/jwt.rs",
+          "src/auth/mod.rs"
+        ]
+      },
+      "conversation": "standard"
+    },
+    {
+      "model": "glm-5.1",
+      "strategy": "refined",
+      "tool_called": true,
+      "response_chars": 643,
+      "quality": {
+        "file_paths": true,
+        "security_fix": true,
+        "refactor_plan": true,
+        "goal_captured": true,
+        "next_step_specific": true
+      },
+      "tokens": {
+        "prompt": 1001,
+        "completion": 475
+      },
+      "error": null,
+      "summary_preview": {
+        "goal": "Refactor auth module: split 800-line src/auth/mod.rs into se",
+        "next_step": "Write JWT tests in jwt.rs and extract session.rs from mod.rs",
+        "decisions_count": 3,
+        "files": [
+          "src/auth/jwt.rs",
+          "src/auth/mod.rs"
+        ]
+      },
+      "conversation": "standard"
+    },
+    {
+      "model": "glm-5.1",
+      "strategy": "explicit",
+      "tool_called": false,
+      "response_chars": 616,
+      "quality": {},
+      "tokens": {
+        "prompt": 1047,
+        "completion": 254
+      },
+      "error": null,
+      "summary_preview": null,
+      "conversation": "standard"
+    },
+    {
+      "model": "glm-5.1",
+      "strategy": "mandatory",
+      "tool_called": true,
+      "response_chars": 62,
+      "quality": {
+        "file_paths": true,
+        "security_fix": true,
+        "refactor_plan": true,
+        "goal_captured": true,
+        "next_step_specific": true
+      },
+      "tokens": {
+        "prompt": 1025,
+        "completion": 314
+      },
+      "error": null,
+      "summary_preview": {
+        "goal": "Refactor monolithic src/auth/mod.rs (812 lines) into separat",
+        "next_step": "Write jwt.rs tests, then extract session.rs (lines 181-320) ",
+        "decisions_count": 3,
+        "files": [
+          "src/auth/jwt.rs",
+          "src/auth/mod.rs"
+        ]
+      },
+      "conversation": "standard"
+    },
+    {
+      "model": "glm-5.1",
+      "strategy": "explicit_short",
+      "tool_called": false,
+      "response_chars": 447,
+      "quality": {},
+      "tokens": {
+        "prompt": 508,
+        "completion": 126
+      },
+      "error": null,
+      "summary_preview": null,
+      "conversation": "short"
+    },
+    {
+      "model": "glm-5.1",
+      "strategy": "explicit_tools",
+      "conversation": "with_tools",
+      "tool_called": false,
+      "error": "HTTP 429: {\"error\":{\"code\":\"1313\",\"message\":\"Your account's current usage pattern does not comply with the Fair Usage Policy, and your request frequency has been limited. For details, please refer to "
+    },
+    {
+      "model": "glm-5.1",
+      "strategy": "explicit_i18n",
+      "tool_called": true,
+      "response_chars": 33,
+      "quality": {
+        "file_paths": true,
+        "security_fix": true,
+        "refactor_plan": false,
+        "goal_captured": true,
+        "next_step_specific": true
+      },
+      "tokens": {
+        "prompt": 642,
+        "completion": 232
+      },
+      "error": null,
+      "summary_preview": {
+        "goal": "\u4fee\u590d Rust \u9879\u76ee\u4e2d JWT \u5237\u65b0\u903b\u8f91\u7684\u5b89\u5168\u6f0f\u6d1e\uff1a\u65e7 refresh token \u672a\u64a4\u9500\u3001refresh token ",
+        "next_step": "\u8bfb\u53d6 src/auth/jwt.rs \u6587\u4ef6\u5185\u5bb9\uff0c\u7406\u89e3\u5f53\u524d\u5b9e\u73b0\u540e\u8fdb\u884c\u4fee\u6539",
+        "decisions_count": 3,
+        "files": [
+          "src/auth/jwt.rs"
+        ]
+      },
+      "conversation": "non_english"
+    },
+    {
+      "model": "glm-5.1",
+      "strategy": "mandatory_short",
+      "tool_called": true,
+      "response_chars": 71,
+      "quality": {
+        "file_paths": false,
+        "security_fix": false,
+        "refactor_plan": false,
+        "goal_captured": true,
+        "next_step_specific": true
+      },
+      "tokens": {
+        "prompt": 486,
+        "completion": 115
+      },
+      "error": null,
+      "summary_preview": {
+        "goal": "Fix a typo in the README.md file",
+        "next_step": "Read README.md to find the typo, then fix it.",
+        "decisions_count": 0,
+        "files": []
+      },
+      "conversation": "short"
+    },
+    {
+      "model": "glm-5.1",
+      "strategy": "mandatory_tools",
+      "tool_called": true,
+      "response_chars": 197,
+      "quality": {
+        "file_paths": false,
+        "security_fix": false,
+        "refactor_plan": false,
+        "goal_captured": true,
+        "next_step_specific": true
+      },
+      "tokens": {
+        "prompt": 576,
+        "completion": 192
+      },
+      "error": null,
+      "summary_preview": {
+        "goal": "Fix TODO comments in lib.rs and understand the codebase",
+        "next_step": "Read lib.rs and search for TODO comments across the codebase",
+        "decisions_count": 0,
+        "files": [
+          "src/lib.rs"
+        ]
+      },
+      "conversation": "with_tools"
+    },
+    {
+      "model": "glm-5.1",
+      "strategy": "mandatory_i18n",
+      "tool_called": true,
+      "response_chars": 17,
+      "quality": {
+        "file_paths": true,
+        "security_fix": true,
+        "refactor_plan": false,
+        "goal_captured": true,
+        "next_step_specific": true
+      },
+      "tokens": {
+        "prompt": 620,
+        "completion": 316
+      },
+      "error": null,
+      "summary_preview": {
+        "goal": "\u4fee\u590d Rust \u9879\u76ee src/auth/jwt.rs \u4e2d\u7684 JWT \u5237\u65b0\u903b\u8f91\u5b89\u5168\u6f0f\u6d1e\uff1a\u65e7 refresh token \u672a",
+        "next_step": "\u8bfb\u53d6 src/auth/jwt.rs \u6587\u4ef6\u4e86\u89e3\u5f53\u524d\u5b9e\u73b0",
+        "decisions_count": 4,
+        "files": [
+          "src/auth/jwt.rs"
+        ]
+      },
+      "conversation": "non_english"
+    },
+    {
+      "model": "glm-4.7",
+      "strategy": "soft",
+      "tool_called": true,
+      "response_chars": 0,
+      "quality": {
+        "file_paths": true,
+        "security_fix": true,
+        "refactor_plan": true,
+        "goal_captured": true,
+        "next_step_specific": true
+      },
+      "tokens": {
+        "prompt": 995,
+        "completion": 199
+      },
+      "error": null,
+      "summary_preview": {
+        "goal": "Refactor auth module in Rust: split 812-line file into jwt.r",
+        "next_step": "Write JWT tests, then extract session.rs after checking if O",
+        "decisions_count": 0,
+        "files": [
+          "src/auth/mod.rs",
+          "src/auth/jwt.rs"
+        ]
+      },
+      "conversation": "standard"
+    },
+    {
+      "model": "glm-4.7",
+      "strategy": "refined",
+      "tool_called": true,
+      "response_chars": 0,
+      "quality": {
+        "file_paths": true,
+        "security_fix": true,
+        "refactor_plan": true,
+        "goal_captured": true,
+        "next_step_specific": true
+      },
+      "tokens": {
+        "prompt": 1006,
+        "completion": 192
+      },
+      "error": null,
+      "summary_preview": {
+        "goal": "Split monolithic auth module into separate modules: jwt.rs, ",
+        "next_step": "Write JWT tests in src/auth/jwt.rs covering rotation and reu",
+        "decisions_count": 0,
+        "files": [
+          "src/auth/mod.rs",
+          "src/auth/jwt.rs"
+        ]
+      },
+      "conversation": "standard"
+    },
+    {
+      "model": "glm-4.7",
+      "strategy": "explicit",
+      "tool_called": true,
+      "response_chars": 0,
+      "quality": {
+        "file_paths": true,
+        "security_fix": true,
+        "refactor_plan": true,
+        "goal_captured": true,
+        "next_step_specific": true
+      },
+      "tokens": {
+        "prompt": 1052,
+        "completion": 201
+      },
+      "error": null,
+      "summary_preview": {
+        "goal": "Refactor a monolithic 812-line auth module (src/auth/mod.rs)",
+        "next_step": "Write unit tests for jwt.rs covering token generation, valid",
+        "decisions_count": 0,
+        "files": []
+      },
+      "conversation": "standard"
+    },
+    {
+      "model": "glm-4.7",
+      "strategy": "mandatory",
+      "tool_called": true,
+      "response_chars": 0,
+      "quality": {
+        "file_paths": true,
+        "security_fix": true,
+        "refactor_plan": true,
+        "goal_captured": true,
+        "next_step_specific": true
+      },
+      "tokens": {
+        "prompt": 1030,
+        "completion": 239
+      },
+      "error": null,
+      "summary_preview": {
+        "goal": "Refactor the auth module by splitting JWT handling, session ",
+        "next_step": "Write JWT tests and extract session.rs module",
+        "decisions_count": 3,
+        "files": [
+          "src/auth/mod.rs",
+          "src/auth/jwt.rs"
+        ]
+      },
+      "conversation": "standard"
+    },
+    {
+      "model": "glm-4.7",
+      "strategy": "explicit_short",
+      "tool_called": true,
+      "response_chars": 0,
+      "quality": {
+        "file_paths": false,
+        "security_fix": false,
+        "refactor_plan": false,
+        "goal_captured": true,
+        "next_step_specific": true
+      },
+      "tokens": {
+        "prompt": 513,
+        "completion": 80
+      },
+      "error": null,
+      "summary_preview": {
+        "goal": "Fix a typo in the README.md file",
+        "next_step": "Read README.md to locate the typo",
+        "decisions_count": 0,
+        "files": []
+      },
+      "conversation": "short"
+    },
+    {
+      "model": "glm-4.7",
+      "strategy": "explicit_tools",
+      "tool_called": false,
+      "response_chars": 0,
+      "quality": {},
+      "tokens": {
+        "prompt": 603,
+        "completion": 52
+      },
+      "error": null,
+      "summary_preview": null,
+      "conversation": "with_tools"
+    },
+    {
+      "model": "glm-4.7",
+      "strategy": "explicit_i18n",
+      "tool_called": true,
+      "response_chars": 31,
+      "quality": {
+        "file_paths": true,
+        "security_fix": true,
+        "refactor_plan": false,
+        "goal_captured": true,
+        "next_step_specific": true
+      },
+      "tokens": {
+        "prompt": 647,
+        "completion": 254
+      },
+      "error": null,
+      "summary_preview": {
+        "goal": "\u4fee\u590d Rust \u8ba4\u8bc1\u6a21\u5757\u4e2d JWT \u5237\u65b0\u903b\u8f91\u7684\u5b89\u5168\u6f0f\u6d1e",
+        "next_step": "\u8bfb\u53d6 src/auth/jwt.rs \u6587\u4ef6\uff0c\u5206\u6790\u5f53\u524d JWT \u5237\u65b0\u903b\u8f91\u7684\u5b9e\u73b0",
+        "decisions_count": 0,
+        "files": [
+          "src/auth/jwt.rs"
+        ]
+      },
+      "conversation": "non_english"
+    },
+    {
+      "model": "glm-4.7",
+      "strategy": "mandatory_short",
+      "tool_called": true,
+      "response_chars": 0,
+      "quality": {
+        "file_paths": false,
+        "security_fix": false,
+        "refactor_plan": false,
+        "goal_captured": true,
+        "next_step_specific": true
+      },
+      "tokens": {
+        "prompt": 491,
+        "completion": 54
+      },
+      "error": null,
+      "summary_preview": {
+        "goal": "Fix the typo in the README.md file",
+        "next_step": "Read README.md to identify and fix the typo.",
+        "decisions_count": 0,
+        "files": []
+      },
+      "conversation": "short"
+    },
+    {
+      "model": "glm-4.7",
+      "strategy": "mandatory_tools",
+      "tool_called": true,
+      "response_chars": 0,
+      "quality": {
+        "file_paths": false,
+        "security_fix": false,
+        "refactor_plan": true,
+        "goal_captured": true,
+        "next_step_specific": true
+      },
+      "tokens": {
+        "prompt": 581,
+        "completion": 180
+      },
+      "error": null,
+      "summary_preview": {
+        "goal": "The user wants to examine and work with the Rust codebase in",
+        "next_step": "Fix the two TODO comments in lib.rs: add proper error handli",
+        "decisions_count": 0,
+        "files": []
+      },
+      "conversation": "with_tools"
+    },
+    {
+      "model": "glm-4.7",
+      "strategy": "mandatory_i18n",
+      "tool_called": true,
+      "response_chars": 0,
+      "quality": {
+        "file_paths": true,
+        "security_fix": true,
+        "refactor_plan": false,
+        "goal_captured": true,
+        "next_step_specific": true
+      },
+      "tokens": {
+        "prompt": 625,
+        "completion": 157
+      },
+      "error": null,
+      "summary_preview": {
+        "goal": "\u4fee\u590dRust JWT\u5237\u65b0\u903b\u8f91\u7684\u5b89\u5168\u6f0f\u6d1e\uff1a\u5b9e\u73b0token rotation\u3001\u64a4\u9500\u65e7refresh token\u3001\u5206\u79bbacce",
+        "next_step": "\u4fee\u6539 src/auth/jwt.rs\uff0c\u6dfb\u52a0 TokenFamily \u7ed3\u6784\u3001blacklist \u5b58\u50a8\u548c\u5b89\u5168\u7684\u5237\u65b0\u903b\u8f91",
+        "decisions_count": 81,
+        "files": []
+      },
+      "conversation": "non_english"
+    },
+    {
+      "model": "glm-4.5-air",
+      "strategy": "soft",
+      "tool_called": false,
+      "response_chars": 1,
+      "quality": {},
+      "tokens": {
+        "prompt": 1020,
+        "completion": 1897
+      },
+      "error": null,
+      "summary_preview": null,
+      "conversation": "standard"
+    },
+    {
+      "model": "glm-4.5-air",
+      "strategy": "refined",
+      "tool_called": false,
+      "response_chars": 92,
+      "quality": {},
+      "tokens": {
+        "prompt": 1031,
+        "completion": 1302
+      },
+      "error": null,
+      "summary_preview": null,
+      "conversation": "standard"
+    },
+    {
+      "model": "glm-4.5-air",
+      "strategy": "explicit",
+      "tool_called": false,
+      "response_chars": 145,
+      "quality": {},
+      "tokens": {
+        "prompt": 1077,
+        "completion": 134
+      },
+      "error": null,
+      "summary_preview": null,
+      "conversation": "standard"
+    },
+    {
+      "model": "glm-4.5-air",
+      "strategy": "mandatory",
+      "tool_called": false,
+      "response_chars": 1,
+      "quality": {},
+      "tokens": {
+        "prompt": 1055,
+        "completion": 121
+      },
+      "error": null,
+      "summary_preview": null,
+      "conversation": "standard"
+    },
+    {
+      "model": "glm-4.5-air",
+      "strategy": "explicit_short",
+      "tool_called": false,
+      "response_chars": 343,
+      "quality": {},
+      "tokens": {
+        "prompt": 522,
+        "completion": 239
+      },
+      "error": null,
+      "summary_preview": null,
+      "conversation": "short"
+    },
+    {
+      "model": "glm-4.5-air",
+      "strategy": "explicit_tools",
+      "tool_called": false,
+      "response_chars": 1,
+      "quality": {},
+      "tokens": {
+        "prompt": 626,
+        "completion": 59
+      },
+      "error": null,
+      "summary_preview": null,
+      "conversation": "with_tools"
+    },
+    {
+      "model": "glm-4.5-air",
+      "strategy": "explicit_i18n",
+      "tool_called": false,
+      "response_chars": 54,
+      "quality": {},
+      "tokens": {
+        "prompt": 664,
+        "completion": 119
+      },
+      "error": null,
+      "summary_preview": null,
+      "conversation": "non_english"
+    },
+    {
+      "model": "glm-4.5-air",
+      "strategy": "mandatory_short",
+      "tool_called": false,
+      "response_chars": 121,
+      "quality": {},
+      "tokens": {
+        "prompt": 500,
+        "completion": 126
+      },
+      "error": null,
+      "summary_preview": null,
+      "conversation": "short"
+    },
+    {
+      "model": "glm-4.5-air",
+      "strategy": "mandatory_tools",
+      "tool_called": false,
+      "response_chars": 1,
+      "quality": {},
+      "tokens": {
+        "prompt": 604,
+        "completion": 64
+      },
+      "error": null,
+      "summary_preview": null,
+      "conversation": "with_tools"
+    },
+    {
+      "model": "glm-4.5-air",
+      "strategy": "mandatory_i18n",
+      "tool_called": false,
+      "response_chars": 37,
+      "quality": {},
+      "tokens": {
+        "prompt": 642,
+        "completion": 163
+      },
+      "error": null,
+      "summary_preview": null,
+      "conversation": "non_english"
+    }
+  ]
+}

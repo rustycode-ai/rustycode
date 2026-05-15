@@ -257,7 +257,7 @@ static KNOWN_MODELS: Lazy<HashMap<&'static str, ModelInfo>> = Lazy::new(|| {
             streaming: true,
             vision: entry.supports_vision,
             cache_control: entry.supports_caching,
-            json_mode: entry.supports_tools,
+            json_mode: true,
         };
 
         m.entry(entry.id).or_insert_with(|| ModelInfo {
