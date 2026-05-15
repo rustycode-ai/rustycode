@@ -37,23 +37,23 @@ impl SearchFeature {
     }
 
     pub fn show(&self) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.lock_state();
         state.visible = true;
         state.search.visible = true;
     }
 
     pub fn hide(&self) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.lock_state();
         state.visible = false;
         state.search.visible = false;
     }
 
     pub fn is_visible(&self) -> bool {
-        self.state.lock().unwrap().visible
+        self.lock_state().visible
     }
 
     pub fn search_state(&self) -> SearchState {
-        self.state.lock().unwrap().search.clone()
+        self.lock_state().search.clone()
     }
 
     pub fn handle_command(&mut self, command: &str) -> Vec<TuiAction> {
@@ -63,6 +63,16 @@ impl SearchFeature {
                 vec![TuiAction::MarkDirty]
             }
             _ => Vec::new(),
+        }
+    }
+
+    fn lock_state(&self) -> std::sync::MutexGuard<'_, SearchFeatureState> {
+        match self.state.lock() {
+            Ok(guard) => guard,
+            Err(e) => {
+                tracing::warn!("search feature lock poisoned: {e}");
+                e.into_inner()
+            }
         }
     }
 }
@@ -81,7 +91,7 @@ impl TuiFeature for SearchFeature {
 
     fn update(&mut self, event: &TuiEvent, _ctx: &mut UpdateCtx) -> Vec<TuiAction> {
         if let TuiEvent::Key(key) = event {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.lock_state();
             if !state.visible {
                 return Vec::new();
             }
@@ -149,7 +159,7 @@ impl TuiFeature for SearchFeature {
         if surface != Self::SURFACE {
             return;
         }
-        let state = self.state.lock().unwrap();
+        let state = self.lock_state();
         if !state.visible {
             return;
         }
