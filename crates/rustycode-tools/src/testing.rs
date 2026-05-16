@@ -129,9 +129,7 @@ pub struct CoverageParams {
     pub filter: Option<String>,
 }
 
-fn default_true() -> bool {
-    true
-}
+use rustycode_protocol::default_true;
 
 // TEST EXECUTION
 

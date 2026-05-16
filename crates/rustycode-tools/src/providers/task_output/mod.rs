@@ -19,9 +19,7 @@ pub struct TaskOutputParams {
     pub timeout: u64,
 }
 
-pub(crate) fn default_true() -> bool {
-    true
-}
+use rustycode_protocol::default_true;
 
 pub(crate) fn default_timeout() -> u64 {
     30000

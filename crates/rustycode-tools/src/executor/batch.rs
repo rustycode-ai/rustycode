@@ -34,9 +34,7 @@ pub struct BatchParams {
     pub continue_on_error: bool,
 }
 
-fn default_true() -> bool {
-    true
-}
+use rustycode_protocol::default_true;
 
 rustycode_tools_api::define_tool! {
     pub struct BatchTool;

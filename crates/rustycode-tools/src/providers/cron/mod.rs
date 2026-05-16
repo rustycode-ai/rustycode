@@ -27,9 +27,7 @@ pub struct CronCreateParams {
     pub durable: bool,
 }
 
-pub(crate) fn default_true() -> bool {
-    true
-}
+use rustycode_protocol::default_true;
 
 #[derive(serde::Deserialize, JsonSchema)]
 pub struct CronDeleteParams {

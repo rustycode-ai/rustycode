@@ -107,7 +107,7 @@ impl ToolInspector for SecurityInspector {
                 inspector_name: "security".to_string(),
                 finding_id: Some(format!("SEC-{}", top_threat.threat.name.to_uppercase())),
             },
-            Some(crate::security_patterns::RiskLevel::Low) | None => InspectionResult {
+            Some(crate::security_patterns::RiskLevel::Low | _) | None => InspectionResult {
                 request_id: call.id.clone(),
                 action: InspectionAction::Allow,
                 reason: format!("Low-risk pattern: {}", top_threat.threat.description),

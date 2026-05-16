@@ -79,9 +79,7 @@ pub struct DockerRunParams {
     pub cpu_limit: Option<String>,
 }
 
-fn default_true() -> bool {
-    true
-}
+use rustycode_protocol::default_true;
 
 #[derive(serde::Deserialize, JsonSchema)]
 pub struct DockerPsParams {
