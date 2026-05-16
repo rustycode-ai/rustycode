@@ -1,42 +1,8 @@
-use crate::indexing::CodeIndex;
-use anyhow::{anyhow, Context, Result};
+use crate::providers::code_index_cache::build_code_index;
 use rustycode_protocol::code_symbol::CodeSymbol;
 use rustycode_tools_api::{define_tool, ToolOutput, ToolPermission, ToolTag};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::sync::{Arc, Mutex, OnceLock};
-
-static CODE_INDEX_CACHE: OnceLock<Mutex<HashMap<PathBuf, Arc<CodeIndex>>>> = OnceLock::new();
-
-fn code_indexes() -> &'static Mutex<HashMap<PathBuf, Arc<CodeIndex>>> {
-    CODE_INDEX_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
-}
-
-fn workspace_root(ctx: &crate::ToolContext) -> PathBuf {
-    std::fs::canonicalize(&ctx.cwd).unwrap_or_else(|_| ctx.cwd.clone())
-}
-
-pub(super) fn build_code_index(ctx: &crate::ToolContext) -> Result<Arc<CodeIndex>> {
-    let root = workspace_root(ctx);
-    let mut guard = code_indexes()
-        .lock()
-        .map_err(|_| anyhow!("failed to lock symbol index cache"))?;
-
-    if let Some(index) = guard.get(&root) {
-        return Ok(Arc::clone(index));
-    }
-
-    let mut index = CodeIndex::new(root.clone());
-    index
-        .build()
-        .with_context(|| format!("failed to build code index for {}", root.display()))?;
-
-    let index = Arc::new(index);
-    guard.insert(root, Arc::clone(&index));
-    Ok(index)
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct FindSymbolParams {

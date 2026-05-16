@@ -191,8 +191,7 @@ pub async fn deny_if_malicious_cmd_args(cmd: &str, args: &[String]) -> Result<()
             OsvChecker::new().map_err(|e| anyhow::anyhow!("OSV checker init failed: {e}"))?;
         checker
             .deny_if_malicious(&name, ecosystem, version.as_deref())
-            .await
-            .map_err(|e| anyhow::anyhow!("{e}"))?;
+            .await?;
     } else {
         tracing::debug!("No package token found for '{cmd}'; skipping OSV check");
     }

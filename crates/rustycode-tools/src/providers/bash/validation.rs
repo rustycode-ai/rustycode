@@ -1,11 +1,11 @@
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use std::fs;
 use std::path::{Path, PathBuf};
 
 /// Extract the binary name from a shell command (first token, without path)
 pub fn extract_binary_name(command: &str) -> anyhow::Result<String> {
     use shell_words::split;
-    let tokens = split(command).map_err(|e| anyhow::anyhow!("invalid command syntax: {e}"))?;
+    let tokens = split(command).context("parsing command for binary extraction")?;
     if tokens.is_empty() {
         return Err(anyhow::anyhow!("empty command"));
     }

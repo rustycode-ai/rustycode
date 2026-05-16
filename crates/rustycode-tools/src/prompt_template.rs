@@ -3,6 +3,7 @@
 //! Handlebars-powered prompt templates with context injection.
 //! Inspired by forgecode's `Template<T>` pattern.
 
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -76,7 +77,7 @@ impl PromptTemplateEngine {
     pub fn register_template(&mut self, name: &str, template: &str) -> anyhow::Result<()> {
         self.registry
             .register_template_string(name, template)
-            .map_err(|e| anyhow::anyhow!("Failed to register template '{name}': {e}"))?;
+            .with_context(|| format!("Failed to register template '{name}'"))?;
         Ok(())
     }
 
@@ -89,7 +90,7 @@ impl PromptTemplateEngine {
         let content = self
             .registry
             .render(template_name, context)
-            .map_err(|e| anyhow::anyhow!("Failed to render template '{template_name}': {e}"))?;
+            .with_context(|| format!("Failed to render template '{template_name}'"))?;
         let token_estimate = rustycode_protocol::estimate_tokens(&content);
         Ok(RenderedPrompt {
             content,
@@ -102,7 +103,7 @@ impl PromptTemplateEngine {
     pub fn render_string(&self, template: &str, context: &PromptContext) -> anyhow::Result<String> {
         self.registry
             .render_template(template, context)
-            .map_err(|e| anyhow::anyhow!("Failed to render template string: {e}"))
+            .context("Failed to render template string")
     }
 }
 

@@ -9,6 +9,7 @@ mod tests;
 use crate::line_endings::generate_diff;
 use crate::security::{create_file_symlink_safe, open_file_symlink_safe, validate_write_path};
 use crate::{ToolOutput, ToolPermission, ToolTag};
+use anyhow::Context;
 use diff_output::{format_edit_output, suggest_similar_files};
 use matching::{
     try_exact_match, try_normalized_match, try_quote_normalized_match, try_trimmed_match,
@@ -214,7 +215,7 @@ rustycode_tools_api::define_tool! {
         let _ = fs::remove_file(&tmp_path);
 
         let mut file = create_file_symlink_safe(&tmp_path)
-            .map_err(|e| anyhow::anyhow!("Failed to create temp file: {e}"))?;
+            .context("creating temp file for atomic write")?;
         file.write_all(new_content.as_bytes()).map_err(|e| {
             let _ = fs::remove_file(&tmp_path);
             anyhow::anyhow!("Failed to write file: {e}")

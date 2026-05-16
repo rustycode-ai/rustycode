@@ -1,46 +1,12 @@
-use crate::indexing::CodeIndex;
+use crate::providers::code_index_cache::build_code_index;
 use crate::{ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Context, Result};
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::Arc;
 use rustycode_protocol::code_symbol::SymbolKind;
-
-static CODE_INDEX_CACHE: OnceLock<Mutex<HashMap<PathBuf, Arc<CodeIndex>>>> = OnceLock::new();
-
-fn code_indexes() -> &'static Mutex<HashMap<PathBuf, Arc<CodeIndex>>> {
-    CODE_INDEX_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
-}
-
-fn workspace_root(ctx: &ToolContext) -> PathBuf {
-    std::fs::canonicalize(&ctx.cwd).unwrap_or_else(|_| ctx.cwd.clone())
-}
-
-fn build_code_index(ctx: &ToolContext) -> Result<Arc<CodeIndex>> {
-    let root = workspace_root(ctx);
-    let mut guard = code_indexes()
-        .lock()
-        .map_err(|_| anyhow!("failed to lock exploration index cache"))?;
-
-    if let Some(index) = guard.get(&root) {
-        return Ok(Arc::clone(index));
-    }
-
-    let mut index = CodeIndex::new(root.clone(), crate::indexing::code_index::IndexTier::Balanced);
-    index.build().with_context(|| {
-        format!(
-            "failed to build exploration code index for {}",
-            root.display()
-        )
-    })?;
-
-    let index = Arc::new(index);
-    guard.insert(root, Arc::clone(&index));
-    Ok(index)
-}
 
 fn rel_path_string(path: &Path, cwd: &Path) -> String {
     path.strip_prefix(cwd)

@@ -142,7 +142,7 @@ impl SemanticIndex {
         let mut embedder = self
             .embedder
             .lock()
-            .map_err(|e| anyhow::anyhow!("Lock poisoned: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("locking embedder: {e}"))?;
         let query_embedding = embedder
             .embed(vec![query.to_string()], None)
             .context("Failed to compute query embedding")?
@@ -212,7 +212,7 @@ impl SemanticIndex {
         let mut embedder = self
             .embedder
             .lock()
-            .map_err(|e| anyhow::anyhow!("Lock poisoned: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("locking embedder: {e}"))?;
         let embeddings = embedder
             .embed(vec![text.to_string()], None)
             .context("Failed to compute embedding")?;

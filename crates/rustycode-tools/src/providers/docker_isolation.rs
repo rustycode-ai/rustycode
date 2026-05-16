@@ -16,6 +16,7 @@
 //!
 //! Falls back to normal bash execution if Docker is unavailable.
 
+use anyhow::Context;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -193,7 +194,7 @@ impl DockerIsolation {
         });
 
         let output = match rx.recv_timeout(timeout) {
-            Ok(result) => result.map_err(|e| anyhow::anyhow!("failed to execute docker: {e}"))?,
+            Ok(result) => result.context("executing docker command")?,
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
                 // Try to stop the container to clean up
                 let _ = Command::new("docker")
@@ -233,7 +234,7 @@ impl DockerIsolation {
         let status = Command::new("docker")
             .args(["stop", container_id])
             .status()
-            .map_err(|e| anyhow::anyhow!("failed to stop container {container_id}: {e}"))?;
+            .context(format!("stopping container {container_id}"))?;
 
         if status.success() {
             Ok(())

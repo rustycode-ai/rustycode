@@ -6,6 +6,7 @@
 //! Inspired by forgecode's `fs_undo` and snapshot repository.
 
 use crate::create_file_symlink_safe;
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -204,8 +205,8 @@ fn restore_snapshots_impl(snapshots: &[FileSnapshot]) -> (Vec<PathBuf>, Vec<(Pat
 fn restore_single_snapshot(snapshot: &FileSnapshot) -> anyhow::Result<()> {
     if let Some(content) = &snapshot.content {
         // Restore file to previous state using symlink-safe write
-        let mut file = create_file_symlink_safe(&snapshot.path)
-            .map_err(|e| anyhow::anyhow!("Failed to create file for restore: {e}"))?;
+        let mut file =
+            create_file_symlink_safe(&snapshot.path).context("creating file for restore")?;
         file.write_all(content.as_bytes())?;
         file.sync_all()?;
     } else {

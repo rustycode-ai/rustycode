@@ -1,4 +1,4 @@
-use crate::providers::symbol_tools::find_symbol::build_code_index;
+use crate::providers::code_index_cache::build_code_index;
 use anyhow::Context;
 use rustycode_tools_api::{define_tool, ToolOutput, ToolPermission, ToolTag};
 use schemars::JsonSchema;

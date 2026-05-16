@@ -33,7 +33,7 @@
 //! ```
 
 use crate::ToolRegistry;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -144,14 +144,14 @@ impl PluginManager {
 
         // Validate capabilities
         let capabilities = plugin.capabilities();
-        capabilities.validate(&self.max_capabilities).map_err(|e| {
-            anyhow::anyhow!("Plugin '{plugin_name}' capability validation failed: {e}")
-        })?;
+        capabilities
+            .validate(&self.max_capabilities)
+            .with_context(|| format!("Plugin '{plugin_name}' capability validation failed"))?;
 
         // Initialize the plugin
         let state = plugin
             .init()
-            .map_err(|e| anyhow::anyhow!("Plugin '{plugin_name}' initialization failed: {e}"))?;
+            .with_context(|| format!("Plugin '{plugin_name}' initialization failed"))?;
 
         // Get tools from the plugin
         let tools = plugin.tools();
@@ -220,13 +220,13 @@ impl PluginManager {
         loaded
             .plugin
             .on_unload()
-            .map_err(|e| anyhow::anyhow!("Plugin '{name}' unload failed: {e}"))?;
+            .with_context(|| format!("Plugin '{name}' unload failed"))?;
 
         // Cleanup state
         if let Some(mut state) = loaded.state.take() {
             state
                 .cleanup()
-                .map_err(|e| anyhow::anyhow!("Plugin '{name}' state cleanup failed: {e}"))?;
+                .with_context(|| format!("Plugin '{name}' state cleanup failed"))?;
         }
 
         loaded.active = false;

@@ -9,6 +9,7 @@ pub mod brief;
 pub mod builtin;
 pub mod check_integration;
 pub mod cmd;
+pub mod code_index_cache;
 pub mod codesearch;
 pub mod cron;
 pub mod decompose;
