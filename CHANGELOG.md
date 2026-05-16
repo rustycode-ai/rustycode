@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.7] - 2026-05-16
+
+### Bug Fixes
+
+- Remove dead code in llm utils and compaction
+
+### Refactor
+
+- Clean up protocol, bench, skill, storage, acp, mcp
+- **tools**: Consolidate security patterns, clean up tool providers
+- **tui**: DirtyFlags bitfield, handler cleanup, memory auto improvements
+
+### Chores
+
+- Remove rustycode-web crate (22k LOC)
+- Remove rustycode-search and rustycode-semantic-search crates
+
 ## [0.5.6] - 2026-05-16
 
 ### Features
@@ -16,6 +33,10 @@ All notable changes to this project will be documented in this file.
 
 - **protocol**: Move RetryState and ErrorCategory from orchestration
 - **tools**: Deduplicate code_context, explore, find_symbol implementations
+
+### Chores
+
+- Bump version to 0.5.6
 
 ## [0.5.5] - 2026-05-15
 
