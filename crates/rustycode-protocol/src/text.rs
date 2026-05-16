@@ -101,6 +101,14 @@ pub fn strip_ansi_escapes(s: &str) -> String {
     result
 }
 
+pub const fn default_true() -> bool {
+    true
+}
+
+pub const fn default_false() -> bool {
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

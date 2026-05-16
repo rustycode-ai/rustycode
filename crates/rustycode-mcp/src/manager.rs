@@ -115,9 +115,7 @@ pub struct ServerConfig {
     pub tags: Vec<String>,
 }
 
-const fn default_true() -> bool {
-    true
-}
+use rustycode_protocol::default_true;
 
 fn resolve_transport_type(config: &ServerConfig) -> McpResult<McpTransportType> {
     if let Some(transport_type) = &config.transport_type {

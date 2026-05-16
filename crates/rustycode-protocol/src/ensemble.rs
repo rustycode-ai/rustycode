@@ -43,32 +43,7 @@ pub struct TaskProfile {
     pub signals: Vec<ProfileSignal>,
 }
 
-/// How much damage would a mistake cause?
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
-#[serde(rename_all = "snake_case")]
-#[non_exhaustive]
-pub enum RiskLevel {
-    /// Typos, comments, docs. Getting it wrong is harmless.
-    #[default]
-    Low,
-    /// Feature code with tests. Mistakes are caught by CI.
-    Moderate,
-    /// Core logic, shared modules. Bugs affect many consumers.
-    High,
-    /// Auth, security, data integrity, production infra.
-    Critical,
-}
-
-impl RiskLevel {
-    pub fn as_f64(&self) -> f64 {
-        match self {
-            Self::Low => 0.0,
-            Self::Moderate => 0.33,
-            Self::High => 0.66,
-            Self::Critical => 1.0,
-        }
-    }
-}
+pub use crate::team::RiskLevel;
 
 /// How many files/systems does this touch?
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]

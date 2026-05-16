@@ -120,6 +120,8 @@ pub struct SkillMetadata {
     pub categories: Vec<String>,
 }
 
+pub(crate) use rustycode_protocol::default_true;
+
 const fn default_priority() -> u8 {
     5
 }
@@ -130,10 +132,6 @@ pub enum EffortLevel {
     Low,
     Medium,
     High,
-}
-
-const fn default_true() -> bool {
-    true
 }
 
 /// Cache entry with expiration tracking

@@ -564,9 +564,7 @@ pub struct MessageMetadata {
     pub relevance_score: Option<f32>,
 }
 
-fn default_true() -> bool {
-    true
-}
+use crate::default_true;
 
 impl Default for MessageMetadata {
     fn default() -> Self {

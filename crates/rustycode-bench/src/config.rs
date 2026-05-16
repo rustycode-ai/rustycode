@@ -166,9 +166,7 @@ fn default_concurrent() -> usize {
     1
 }
 
-fn default_true() -> bool {
-    true
-}
+use rustycode_protocol::default_true;
 
 fn default_output() -> String {
     "pretty".to_string()

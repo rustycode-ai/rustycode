@@ -43,9 +43,7 @@ pub struct ToolAnnotations {
     pub open_world_hint: bool,
 }
 
-fn default_true() -> bool {
-    true
-}
+use rustycode_protocol::default_true;
 
 /// Tool execution result
 #[derive(Debug, Clone, Deserialize, Serialize)]

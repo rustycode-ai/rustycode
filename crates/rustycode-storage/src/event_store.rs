@@ -93,7 +93,7 @@ impl EventStore {
     /// Run database migrations for the event store.
     #[instrument(skip(self))]
     fn migrate(&self) -> Result<()> {
-        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock poisoned: {}", e))?;
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS sync_events (
                 id TEXT PRIMARY KEY,
@@ -121,7 +121,7 @@ impl EventStore {
             .context("failed to serialize event payload")?;
         let kind = event_kind(&event.payload);
 
-        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock poisoned: {}", e))?;
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         conn.execute(
             "INSERT INTO sync_events (id, session_id, sequence, at, kind, payload)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)
@@ -147,7 +147,7 @@ impl EventStore {
     /// This is more efficient than calling `insert_event` in a loop.
     #[instrument(skip(self, events), fields(count = events.len()))]
     pub fn insert_events(&self, events: &[SyncEvent]) -> Result<()> {
-        let mut conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock poisoned: {}", e))?;
+        let mut conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let tx = conn.transaction()?;
 
         for event in events {
@@ -188,7 +188,7 @@ impl EventStore {
         config: Option<EventLoadConfig>,
     ) -> Result<Vec<SyncEvent>> {
         let config = config.unwrap_or_default();
-        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock poisoned: {}", e))?;
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
 
         let mut query = "SELECT id, session_id, sequence, at, kind, payload FROM sync_events WHERE session_id = ?1".to_string();
         let mut param_idx = 2u32;
@@ -234,7 +234,7 @@ impl EventStore {
     /// Returns `Ok(None)` if no events exist for the session.
     #[instrument(skip(self), fields(session_id = %session_id))]
     pub fn latest_sequence(&self, session_id: &SessionId) -> Result<Option<u64>> {
-        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock poisoned: {}", e))?;
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let seq: Option<i64> = conn.query_row(
             "SELECT MAX(sequence) FROM sync_events WHERE session_id = ?1",
             params![session_id.to_string()],
@@ -246,7 +246,7 @@ impl EventStore {
     /// Get the last (highest sequence) event for a session.
     #[instrument(skip(self), fields(session_id = %session_id))]
     pub fn last_event(&self, session_id: &SessionId) -> Result<Option<SyncEvent>> {
-        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock poisoned: {}", e))?;
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let mut stmt = conn.prepare(
             "SELECT id, session_id, sequence, at, kind, payload 
              FROM sync_events 
@@ -261,7 +261,7 @@ impl EventStore {
     /// Count events for a session.
     #[instrument(skip(self), fields(session_id = %session_id))]
     pub fn event_count(&self, session_id: &SessionId) -> Result<usize> {
-        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock poisoned: {}", e))?;
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let count: i64 = conn.query_row(
             "SELECT COUNT(*) FROM sync_events WHERE session_id = ?1",
             params![session_id.to_string()],
@@ -273,7 +273,7 @@ impl EventStore {
     /// List all session IDs that have events in the store.
     #[instrument(skip(self))]
     pub fn list_sessions(&self) -> Result<Vec<SessionId>> {
-        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock poisoned: {}", e))?;
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let mut stmt = conn.prepare(
             "SELECT DISTINCT session_id FROM sync_events ORDER BY MIN(sequence)",
         )?;
@@ -291,7 +291,7 @@ impl EventStore {
     /// Delete all events for a session.
     #[instrument(skip(self), fields(session_id = %session_id))]
     pub fn clear_session_events(&self, session_id: &SessionId) -> Result<()> {
-        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock poisoned: {}", e))?;
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         conn.execute(
             "DELETE FROM sync_events WHERE session_id = ?1",
             params![session_id.to_string()],
@@ -321,7 +321,7 @@ impl EventStore {
     /// Delete all events older than the given timestamp.
     #[instrument(skip(self))]
     pub fn prune_events_before(&self, cutoff: DateTime<Utc>) -> Result<usize> {
-        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock poisoned: {}", e))?;
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let deleted = conn.execute(
             "DELETE FROM sync_events WHERE at < ?1",
             params![cutoff.to_rfc3339()],

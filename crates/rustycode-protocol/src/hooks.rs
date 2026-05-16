@@ -455,9 +455,7 @@ pub struct HookOutput {
     pub hook_specific_output: Option<HookSpecificOutput>,
 }
 
-const fn default_true() -> bool {
-    true
-}
+use crate::default_true;
 
 /// Decision returned by hooks.
 ///

@@ -248,7 +248,10 @@ pub mod frontmatter;
 
 // Shared text processing utilities
 pub mod text;
-pub use text::{estimate_tokens, strip_ansi_escapes, truncate_tool_output, truncate_with_ellipsis};
+pub use text::{
+    default_false, default_true, estimate_tokens, strip_ansi_escapes, truncate_tool_output,
+    truncate_with_ellipsis,
+};
 
 // Retry state types (moved from orchestration for cross-crate sharing)
 pub mod retry_state;

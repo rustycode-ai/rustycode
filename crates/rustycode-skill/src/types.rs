@@ -208,9 +208,7 @@ impl Default for SkillQuality {
     }
 }
 
-const fn default_true() -> bool {
-    true
-}
+use crate::default_true;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkillDefinition {
