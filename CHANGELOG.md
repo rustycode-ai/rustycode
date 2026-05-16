@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.6] - 2026-05-16
+
+### Features
+
+- **tui**: Improve message rendering with diff highlighting and expand state
+
+### Bug Fixes
+
+- **llm**: Handle Gemini thinking tokens in usage reporting
+
+### Refactor
+
+- **protocol**: Move RetryState and ErrorCategory from orchestration
+- **tools**: Deduplicate code_context, explore, find_symbol implementations
+
 ## [0.5.5] - 2026-05-15
 
 ### Features
@@ -16,6 +31,10 @@ All notable changes to this project will be documented in this file.
 ### Performance
 
 - **tui**: Cache layout chunks to avoid recomputation on every frame
+
+### Chores
+
+- Bump version to 0.5.5
 
 ## [0.5.4] - 2026-05-15
 
