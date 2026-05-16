@@ -210,11 +210,7 @@ impl Summary {
 }
 
 /// Token count estimator
-///
-/// Uses the canonical word-based heuristic from rustycode-protocol.
-pub fn estimate_tokens(text: &str) -> usize {
-    rustycode_protocol::estimate_tokens(text)
-}
+pub use rustycode_protocol::estimate_tokens;
 
 /// Chunk text into smaller pieces
 ///

@@ -1,6 +1,7 @@
 //! Token autocompaction for RustyCode TUI
 
 use crate::ui::message::{Message, MessageRole};
+use rustycode_protocol::estimate_tokens;
 use rustycode_protocol::tool_names as tn;
 use rustycode_providers::predefined;
 use std::time::Instant;
@@ -344,13 +345,6 @@ impl CompactionPreview {
 }
 
 // ── Token Estimation ─────────────────────────────────────────────────────────
-
-/// Approximate tokens from a string using word-boundary counting.
-///
-/// Delegates to the canonical implementation in `rustycode-protocol`.
-fn estimate_tokens(s: &str) -> usize {
-    rustycode_protocol::estimate_tokens(s)
-}
 
 // ── Tier 1: Tool Output Pruning ──────────────────────────────────────────────
 
