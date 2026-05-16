@@ -250,7 +250,11 @@ pub mod frontmatter;
 pub mod text;
 pub use text::{estimate_tokens, strip_ansi_escapes, truncate_tool_output, truncate_with_ellipsis};
 
+// Retry state types (moved from orchestration for cross-crate sharing)
+pub mod retry_state;
+
 // Task contract types
+pub use retry_state::{ErrorCategory, RetryState};
 pub use task_contract::{
     ContractViolation, RetryPolicy, RetryStrategy, TaskContract, TaskDescriptor, TaskRegistry,
     ValidatorFn, ViolationCode,
