@@ -261,9 +261,9 @@ fn aggregate_convergence(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rustycode_orchestration::agent_outcome::AgentOutcome;
     use rustycode_protocol::reasoning_summary::Insight;
     use rustycode_protocol::token_usage::TokenUsage;
+    use rustycode_protocol::AgentOutcome;
 
     fn make_team_ctx(team_id: &str, answer: &str, confidence: f64, converged: bool) -> TeamContext {
         let insights = if answer.is_empty() {

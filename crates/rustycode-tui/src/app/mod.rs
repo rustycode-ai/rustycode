@@ -120,6 +120,10 @@ pub use keyboard_shortcuts::{KeyboardAction, KeyboardShortcutHandler};
 use std::time::Duration;
 
 pub const FRAME_BUDGET_60FPS: Duration = Duration::from_millis(16);
+/// Idle frame budget — 10 FPS when no events and not dirty
+pub const FRAME_BUDGET_IDLE: Duration = Duration::from_millis(100);
+/// Consecutive idle frames before switching to idle budget
+pub const IDLE_THRESHOLD: u32 = 3;
 pub const MAX_INPUT_LATENCY: Duration = Duration::from_millis(50);
 /// Threshold for logging slow operations in debug builds
 pub const DEBUG_SLOW_THRESHOLD: Duration = Duration::from_millis(2);

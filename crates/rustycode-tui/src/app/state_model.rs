@@ -143,6 +143,19 @@ pub(crate) struct SystemState {
     pub(crate) cached_chunks: Option<std::rc::Rc<[ratatui::layout::Rect]>>,
     /// Inputs that produced cached_chunks: (width, height, status_collapsed, footer_collapsed).
     pub(crate) cached_layout_key: Option<(u16, u16, bool, bool)>,
+    /// Consecutive frames with no events and no dirty flag — used for adaptive tick rate
+    pub(crate) idle_ticks: u32,
+    /// Cache for rendered markdown content lines, keyed by message index.
+    /// Avoids re-parsing markdown for unchanged messages on every frame.
+    pub(crate) message_render_cache: std::collections::HashMap<usize, CachedMessageLines>,
+}
+
+/// Cached rendered lines for a single message.
+pub(crate) struct CachedMessageLines {
+    /// The pre-rendered styled lines (markdown output).
+    pub(crate) lines: Vec<ratatui::text::Line<'static>>,
+    /// Quick content fingerprint: length XOR first 8 bytes.
+    pub(crate) content_fingerprint: u64,
 }
 
 /// Overlay State sub-struct

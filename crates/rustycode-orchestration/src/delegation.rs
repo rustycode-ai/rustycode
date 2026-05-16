@@ -9,46 +9,10 @@ use crate::ensemble_strategy::{EnsembleStrategy, ParticipantSpec, StrategyKind};
 use crate::strategy_selector::StrategySelector;
 use crate::types::ExecutionTier;
 use rustycode_prompt::PromptResolver;
+pub use rustycode_protocol::retry_state::{ErrorCategory, RetryState};
 use rustycode_tools_api::tool_names as tn;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use std::time::SystemTime;
-
-// Error Classification
-
-/// Categorizes errors to determine retry vs. escalation behavior.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum ErrorCategory {
-    /// Transient: auto-retry with backoff.
-    RateLimit429,
-    /// Transient: auto-retry with backoff.
-    Timeout,
-    /// Transient: auto-retry with backoff.
-    ServerError5xx,
-    /// Persistent: escalate to parent for decision.
-    BadRequest400,
-    /// Persistent: escalate to parent for decision.
-    InvalidDelegation,
-    /// Persistent: escalate to parent for decision.
-    PermissionDenied,
-    /// Persistent: escalate to parent for decision.
-    ContextWindow,
-}
-
-impl ErrorCategory {
-    /// True if this error should trigger automatic retry with backoff.
-    pub fn is_transient(self) -> bool {
-        matches!(
-            self,
-            Self::RateLimit429 | Self::Timeout | Self::ServerError5xx
-        )
-    }
-
-    /// True if this error should escalate to parent conversation.
-    pub fn is_persistent(self) -> bool {
-        !self.is_transient()
-    }
-}
 
 // TaskRole
 
@@ -176,26 +140,6 @@ pub struct DelegationToken {
     pub max_retries_per_error: u32,
 }
 
-/// Mutable retry state for a delegated task execution.
-///
-/// Tracks current retry count, last error, and timing. Lives in ExecutionContext
-/// and is mutable across the lifetime of a task execution.
-#[derive(Debug, Clone)]
-pub struct RetryState {
-    /// Current retry count for the last error type.
-    pub current_error_retries: u32,
-    /// Category of the last error encountered (None if no error yet).
-    pub last_error: Option<ErrorCategory>,
-    /// Timestamp of the last error (used for retry backoff calculation).
-    pub last_error_at: Option<SystemTime>,
-}
-
-impl Default for RetryState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl DelegationToken {
     /// Create a root token for the originating agent.
     pub fn root(agent_id: impl Into<String>) -> Self {
@@ -230,110 +174,6 @@ impl DelegationToken {
     /// Check if delegation is allowed (depth + 1 < max_depth).
     pub fn can_delegate(&self) -> bool {
         self.depth + 1 < self.max_depth
-    }
-}
-
-impl RetryState {
-    /// Create a fresh retry state for a new task execution.
-    pub fn new() -> Self {
-        Self {
-            current_error_retries: 0,
-            last_error: None,
-            last_error_at: None,
-        }
-    }
-
-    /// Check if this error should be automatically retried.
-    ///
-    /// Requires the token to check max_retries_per_error limit.
-    /// Returns true if:
-    /// 1. Error is transient (429, timeout, 5xx)
-    /// 2. Retries haven't been exhausted yet
-    /// 3. Either it's a new error type, or same error with retries remaining
-    pub fn should_retry(&self, token: &DelegationToken, error: ErrorCategory) -> bool {
-        if !error.is_transient() {
-            return false;
-        }
-
-        match self.last_error {
-            None => true, // First error, try to retry
-            Some(last) if last == error => {
-                // Same error type, check retry count against token limit
-                self.current_error_retries < token.max_retries_per_error
-            }
-            Some(last) if last != error => {
-                // Different error type, reset retry counter
-                true
-            }
-            _ => false,
-        }
-    }
-
-    /// Check if this error should escalate to parent conversation.
-    ///
-    /// Requires the token to check max_retries_per_error limit.
-    /// Returns true if:
-    /// 1. Error is persistent (400, invalid delegation, etc)
-    /// 2. Error is transient but retries exhausted
-    pub fn should_escalate(&self, token: &DelegationToken, error: ErrorCategory) -> bool {
-        if error.is_persistent() {
-            return true;
-        }
-
-        if !error.is_transient() {
-            return false;
-        }
-
-        // Transient error: escalate if retries exhausted
-        match self.last_error {
-            Some(last) if last == error => {
-                self.current_error_retries >= token.max_retries_per_error
-            }
-            _ => false,
-        }
-    }
-
-    /// Calculate exponential backoff delay for the next retry (in milliseconds).
-    ///
-    /// Uses formula: 2^(retry_count - 1) * 1000ms, capped at 32s.
-    /// After the first error, retries=1, so backoff=2^0*1000ms=1000ms.
-    /// After the second error, retries=2, so backoff=2^1*1000ms=2000ms.
-    pub fn next_backoff_ms(&self) -> u64 {
-        if self.current_error_retries == 0 {
-            return 0; // No error yet, no backoff
-        }
-        let exponent = self.current_error_retries.saturating_sub(1);
-        let base_ms = 2_u64.saturating_pow(exponent);
-        (base_ms * 1000).min(32_000) // Cap at 32 seconds
-    }
-
-    /// Record that an error occurred and update retry state.
-    ///
-    /// If this is a different error type, resets the retry counter.
-    pub fn record_error(&mut self, error: ErrorCategory) {
-        match self.last_error {
-            Some(last) if last == error => {
-                // Same error, increment retry count
-                self.current_error_retries += 1;
-            }
-            _ => {
-                // New error type, reset counter
-                self.current_error_retries = 1;
-                self.last_error = Some(error);
-            }
-        }
-        self.last_error_at = Some(SystemTime::now());
-    }
-
-    /// Check if sufficient time has passed since last error for the next retry.
-    pub fn is_backoff_satisfied(&self) -> bool {
-        match self.last_error_at {
-            None => true,
-            Some(last_time) => {
-                let elapsed = last_time.elapsed().unwrap_or_default().as_millis() as u64;
-                elapsed >= self.next_backoff_ms()
-            }
-        }
     }
 }
 
@@ -709,6 +549,7 @@ fn contains_any(text: &str, keywords: &[&str]) -> bool {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+    use std::time::SystemTime;
 
     // ---- TaskRole::default_tier ----
 
@@ -1392,27 +1233,33 @@ mod tests {
     fn should_retry_transient_error_first_time() {
         let token = DelegationToken::root("agent");
         let state = RetryState::new();
-        assert!(state.should_retry(&token, ErrorCategory::RateLimit429));
-        assert!(state.should_retry(&token, ErrorCategory::Timeout));
-        assert!(state.should_retry(&token, ErrorCategory::ServerError5xx));
+        assert!(state.should_retry(token.max_retries_per_error, ErrorCategory::RateLimit429));
+        assert!(state.should_retry(token.max_retries_per_error, ErrorCategory::Timeout));
+        assert!(state.should_retry(token.max_retries_per_error, ErrorCategory::ServerError5xx));
     }
 
     #[test]
     fn should_not_retry_persistent_error() {
         let token = DelegationToken::root("agent");
         let state = RetryState::new();
-        assert!(!state.should_retry(&token, ErrorCategory::BadRequest400));
-        assert!(!state.should_retry(&token, ErrorCategory::InvalidDelegation));
-        assert!(!state.should_retry(&token, ErrorCategory::PermissionDenied));
+        assert!(!state.should_retry(token.max_retries_per_error, ErrorCategory::BadRequest400));
+        assert!(!state.should_retry(
+            token.max_retries_per_error,
+            ErrorCategory::InvalidDelegation
+        ));
+        assert!(!state.should_retry(token.max_retries_per_error, ErrorCategory::PermissionDenied));
     }
 
     #[test]
     fn should_escalate_persistent_error() {
         let token = DelegationToken::root("agent");
         let state = RetryState::new();
-        assert!(state.should_escalate(&token, ErrorCategory::BadRequest400));
-        assert!(state.should_escalate(&token, ErrorCategory::InvalidDelegation));
-        assert!(state.should_escalate(&token, ErrorCategory::ContextWindow));
+        assert!(state.should_escalate(token.max_retries_per_error, ErrorCategory::BadRequest400));
+        assert!(state.should_escalate(
+            token.max_retries_per_error,
+            ErrorCategory::InvalidDelegation
+        ));
+        assert!(state.should_escalate(token.max_retries_per_error, ErrorCategory::ContextWindow));
     }
 
     #[test]
@@ -1422,18 +1269,18 @@ mod tests {
         let mut state = RetryState::new();
 
         // First transient error: should retry
-        assert!(state.should_retry(&token, ErrorCategory::RateLimit429));
+        assert!(state.should_retry(token.max_retries_per_error, ErrorCategory::RateLimit429));
         state.record_error(ErrorCategory::RateLimit429);
         assert_eq!(state.current_error_retries, 1);
 
         // Same error again: should still retry
-        assert!(state.should_retry(&token, ErrorCategory::RateLimit429));
+        assert!(state.should_retry(token.max_retries_per_error, ErrorCategory::RateLimit429));
         state.record_error(ErrorCategory::RateLimit429);
         assert_eq!(state.current_error_retries, 2);
 
         // Third time: retries exhausted, should escalate
-        assert!(!state.should_retry(&token, ErrorCategory::RateLimit429));
-        assert!(state.should_escalate(&token, ErrorCategory::RateLimit429));
+        assert!(!state.should_retry(token.max_retries_per_error, ErrorCategory::RateLimit429));
+        assert!(state.should_escalate(token.max_retries_per_error, ErrorCategory::RateLimit429));
     }
 
     #[test]
@@ -1491,26 +1338,26 @@ mod tests {
         let mut state = RetryState::new();
 
         // Encounter first 429 error
-        assert!(state.should_retry(&token, ErrorCategory::RateLimit429));
+        assert!(state.should_retry(token.max_retries_per_error, ErrorCategory::RateLimit429));
         state.record_error(ErrorCategory::RateLimit429);
         assert_eq!(state.current_error_retries, 1);
         assert_eq!(state.next_backoff_ms(), 1000); // 2^(1-1) * 1000 = 1000ms
 
         // Same error again
-        assert!(state.should_retry(&token, ErrorCategory::RateLimit429));
+        assert!(state.should_retry(token.max_retries_per_error, ErrorCategory::RateLimit429));
         state.record_error(ErrorCategory::RateLimit429);
         assert_eq!(state.current_error_retries, 2);
         assert_eq!(state.next_backoff_ms(), 2000); // 2^(2-1) * 1000 = 2000ms
 
         // Still retrying
-        assert!(state.should_retry(&token, ErrorCategory::RateLimit429));
+        assert!(state.should_retry(token.max_retries_per_error, ErrorCategory::RateLimit429));
         state.record_error(ErrorCategory::RateLimit429);
         assert_eq!(state.current_error_retries, 3);
         assert_eq!(state.next_backoff_ms(), 4000); // 2^(3-1) * 1000 = 4000ms
 
         // Retries exhausted
-        assert!(!state.should_retry(&token, ErrorCategory::RateLimit429));
-        assert!(state.should_escalate(&token, ErrorCategory::RateLimit429));
+        assert!(!state.should_retry(token.max_retries_per_error, ErrorCategory::RateLimit429));
+        assert!(state.should_escalate(token.max_retries_per_error, ErrorCategory::RateLimit429));
     }
 
     #[test]

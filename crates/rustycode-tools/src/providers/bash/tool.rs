@@ -68,16 +68,7 @@ fn execute_in_docker(
     let output = if result.exit_code == 0 {
         truncated.output
     } else {
-        format!(
-            "Exit code: {}\n\n{}{}",
-            result.exit_code,
-            truncated.output,
-            if result.stderr.is_empty() {
-                String::new()
-            } else {
-                format!("\nStderr:\n{}", result.stderr)
-            }
-        )
+        format!("Exit code: {}\n\n{}", result.exit_code, truncated.output)
     };
 
     Ok(ToolOutput::text(output).with_metadata(ctx, || {
@@ -129,17 +120,12 @@ fn execute_in_os_sandbox(command: &str, ctx: &ToolContext) -> Result<ToolOutput>
         truncated.output
     } else {
         format!(
-            "Exit code: {}\n\n{}{}",
+            "Exit code: {}\n\n{}",
             sandbox_result
                 .exit_code
                 .map(|c| c.to_string())
                 .unwrap_or_else(|| "unknown".to_string()),
             truncated.output,
-            if sandbox_result.stderr.is_empty() {
-                String::new()
-            } else {
-                format!("\nStderr:\n{}", sandbox_result.stderr)
-            },
         )
     };
 

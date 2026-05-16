@@ -16,7 +16,7 @@ use crate::app::tool_panel_state::ToolPanelState;
 use crate::app::wizard_handler::WizardHandler;
 use crate::app::{
     service_integration::*, DEBUG_SLOW_THRESHOLD, EVENT_POLL_TIMEOUT, FRAME_BUDGET_60FPS,
-    REFRESH_COOLDOWN,
+    FRAME_BUDGET_IDLE, IDLE_THRESHOLD, REFRESH_COOLDOWN,
 };
 use crate::help::HelpState;
 use crate::memory::compaction::{CompactionConfig, ContextMonitor};
@@ -494,6 +494,8 @@ impl TUI {
                 renderer_mode,
                 cached_chunks: None,
                 cached_layout_key: None,
+                idle_ticks: 0,
+                message_render_cache: std::collections::HashMap::new(),
             },
             overlays: crate::app::state_model::OverlayState {
                 command_palette,
@@ -752,6 +754,8 @@ impl TUI {
                 renderer_mode,
                 cached_chunks: None,
                 cached_layout_key: None,
+                idle_ticks: 0,
+                message_render_cache: std::collections::HashMap::new(),
             },
             overlays: crate::app::state_model::OverlayState {
                 command_palette,
@@ -1491,13 +1495,20 @@ impl TUI {
             // Phase 3: Check frame budget
             let elapsed = frame_start.elapsed();
 
+            // Adaptive tick: use slow budget when idle for several consecutive frames
+            let frame_budget = if self.sys.idle_ticks >= IDLE_THRESHOLD {
+                FRAME_BUDGET_IDLE
+            } else {
+                FRAME_BUDGET_60FPS
+            };
+
             let mut rendered = false;
             let mut render_elapsed = Duration::ZERO;
             let mut input_handle_elapsed = Duration::ZERO;
             let mut input_polled = false;
             let mut input_handled = false;
 
-            let input_poll_elapsed = if elapsed < FRAME_BUDGET_60FPS {
+            let input_poll_elapsed = if elapsed < frame_budget {
                 // Phase 4: Render (only if dirty or layout changed)
                 let should_render = self.sys.dirty || self.sys.layout_dirty || frame_count < 3;
 
@@ -1522,7 +1533,7 @@ impl TUI {
                 // Phase 5: Handle input with remaining time
                 // poll() blocks for up to `timeout`, consuming the remaining budget.
                 // No additional sleep needed after this — poll handles the yield.
-                let timeout = FRAME_BUDGET_60FPS.saturating_sub(frame_start.elapsed());
+                let timeout = frame_budget.saturating_sub(frame_start.elapsed());
 
                 let input_poll_start = Instant::now();
                 if event::poll(timeout).context("failed to poll for input events")? {
@@ -1548,6 +1559,14 @@ impl TUI {
                 }
                 input_poll_start.elapsed()
             };
+
+            // Adaptive tick tracking: count consecutive idle frames
+            let was_active = input_handled || rendered;
+            if was_active {
+                self.sys.idle_ticks = 0;
+            } else {
+                self.sys.idle_ticks = self.sys.idle_ticks.saturating_add(1);
+            }
 
             let frame_elapsed = frame_start.elapsed();
             if debug_enabled

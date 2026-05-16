@@ -163,9 +163,7 @@ impl PermissionStore {
         level: PermissionLevel,
     ) -> Result<(), PermissionError> {
         {
-            let mut guard = self.data.lock().map_err(|_| {
-                PermissionError::LockError("Failed to acquire permission store lock".to_string())
-            })?;
+            let mut guard = self.data.lock().unwrap_or_else(|e| e.into_inner());
             guard
                 .entry(principal.to_string())
                 .or_default()
@@ -207,9 +205,7 @@ impl PermissionStore {
     /// Useful for cleaning up permissions when removing an extension.
     pub fn remove_by_prefix(&self, prefix: &str) -> Result<(), PermissionError> {
         {
-            let mut guard = self.data.lock().map_err(|_| {
-                PermissionError::LockError("Failed to acquire permission store lock".to_string())
-            })?;
+            let mut guard = self.data.lock().unwrap_or_else(|e| e.into_inner());
             for config in guard.values_mut() {
                 config.always_allow.retain(|t| !t.starts_with(prefix));
                 config.ask_before.retain(|t| !t.starts_with(prefix));
@@ -222,9 +218,7 @@ impl PermissionStore {
     /// Remove all entries for a specific tool across all principals.
     pub fn remove_tool(&self, tool_name: &str) -> Result<(), PermissionError> {
         {
-            let mut guard = self.data.lock().map_err(|_| {
-                PermissionError::LockError("Failed to acquire permission store lock".to_string())
-            })?;
+            let mut guard = self.data.lock().unwrap_or_else(|e| e.into_inner());
             for config in guard.values_mut() {
                 config.remove_tool(tool_name);
             }
@@ -235,9 +229,7 @@ impl PermissionStore {
     /// Clear all permission data.
     pub fn clear(&self) -> Result<(), PermissionError> {
         {
-            let mut guard = self.data.lock().map_err(|_| {
-                PermissionError::LockError("Failed to acquire permission store lock".to_string())
-            })?;
+            let mut guard = self.data.lock().unwrap_or_else(|e| e.into_inner());
             guard.clear();
         }
         self.persist()

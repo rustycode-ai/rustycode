@@ -561,6 +561,7 @@ impl TUI {
                     return Ok(());
                 }
                 self.ui.message_renderer.invalidate_cache();
+                self.sys.message_render_cache.clear();
                 // Don't reset scroll_offset_line to 0, let it stay where it was
                 // and it will be clamped during next render if necessary.
                 self.dismiss_any_overlay();

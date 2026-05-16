@@ -1,4 +1,4 @@
-use rustycode_orchestration::agent_outcome::AgentOutcome;
+use rustycode_protocol::AgentOutcome;
 use rustycode_protocol::{agent_protocol::FileChange, token_usage::TokenUsage};
 
 use crate::convergence::ConvergenceView;
@@ -33,8 +33,8 @@ impl TeamContext {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rustycode_orchestration::agent_outcome::AgentOutcome;
     use rustycode_protocol::reasoning_summary::ReasoningSummary;
+    use rustycode_protocol::AgentOutcome;
 
     #[test]
     fn empty_team_context() {

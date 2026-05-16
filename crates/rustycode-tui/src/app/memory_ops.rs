@@ -281,6 +281,9 @@ impl TUI {
 
                 self.session.messages = compacted;
 
+                // Invalidate render cache — message indices shifted after compaction
+                self.sys.message_render_cache.clear();
+
                 // Clamp scroll position to valid range after compaction
                 // (messages were removed, so indices may be stale)
                 if self.ui.view.selected_message >= self.session.messages.len() {

@@ -1,11 +1,21 @@
 /// Max display width for collapsed message first-line preview.
 const COLLAPSED_PREVIEW_MAX_WIDTH: usize = 60;
+/// Max entries in the message render cache before eviction.
+const MAX_RENDER_CACHE_ENTRIES: usize = 100;
 /// Max content lines for expanded thinking block display.
 const THINKING_MAX_DISPLAY_LINES: usize = 8;
 /// Max string length before treating as a likely file path.
 const PATH_DETECT_MAX_LEN: usize = 200;
 /// Border character repeat count for thinking/code block frames.
 const BLOCK_BORDER_WIDTH: usize = 30;
+
+/// Content fingerprint for cache invalidation using SipHash (DefaultHasher).
+fn content_fingerprint(s: &str) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    s.hash(&mut hasher);
+    hasher.finish()
+}
 
 impl PolishedRenderer {
     /// Render messages area with line-based auto-scrolling
@@ -19,6 +29,12 @@ impl PolishedRenderer {
 
         // Clear previous message areas for click detection
         tui.clear_message_areas();
+
+        // Evict oldest cache entries if over capacity
+        while tui.sys.message_render_cache.len() > MAX_RENDER_CACHE_ENTRIES {
+            let oldest_key = *tui.sys.message_render_cache.keys().next().unwrap_or(&0);
+            tui.sys.message_render_cache.remove(&oldest_key);
+        }
 
         // Calculate how many lines fit in viewport
         let viewport_height = area.height as usize;
@@ -267,18 +283,51 @@ impl PolishedRenderer {
                     matches!(msg.role, crate::ui::message::MessageRole::System),
                 ));
             } else {
-                // Render markdown content
-                let content_lines = tui.ui
-                    .message_renderer
-                    .render_markdown_content(&msg.content, &theme);
+                // Render markdown content (with caching to avoid re-parsing)
+                let fp = content_fingerprint(&msg.content);
+                let content_lines = if let Some(cached) = tui.sys.message_render_cache.get(&msg_idx) {
+                    if cached.content_fingerprint == fp {
+                        // Cache hit — reuse pre-rendered lines
+                        cached.lines.clone()
+                    } else {
+                        // Content changed — re-render and update cache
+                        let rendered = tui.ui
+                            .message_renderer
+                            .render_markdown_content(&msg.content, &theme);
+                        let lines: Vec<Line> = rendered
+                            .into_iter()
+                            .map(|l| Line::from(l.spans))
+                            .collect();
+                        tui.sys.message_render_cache.insert(
+                            msg_idx,
+                            crate::app::state_model::CachedMessageLines {
+                                lines: lines.clone(),
+                                content_fingerprint: fp,
+                            },
+                        );
+                        lines
+                    }
+                } else {
+                    // No cache entry — render and cache
+                    let rendered = tui.ui
+                        .message_renderer
+                        .render_markdown_content(&msg.content, &theme);
+                    let lines: Vec<Line> = rendered
+                        .into_iter()
+                        .map(|l| Line::from(l.spans))
+                        .collect();
+                    tui.sys.message_render_cache.insert(
+                        msg_idx,
+                        crate::app::state_model::CachedMessageLines {
+                            lines: lines.clone(),
+                            content_fingerprint: fp,
+                        },
+                    );
+                    lines
+                };
 
-                // Collect spans for this message with highlighting
-                let mut lines: Vec<Line> = content_lines
-                    .into_iter()
-                    .map(|l| Line::from(l.spans))
-                    .collect();
-
-                // Apply search highlighting if search is active
+                // Apply search highlighting if search is active (always fresh, not cached)
+                let mut lines = content_lines;
                 if !tui.search.search_state.query.is_empty() {
                     lines = apply_search_highlighting(tui, &lines, msg_idx);
                 }
