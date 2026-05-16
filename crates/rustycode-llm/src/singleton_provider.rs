@@ -7,7 +7,7 @@
 //! - Prevents exhausting API rate limits from creating too many connections
 //! - Improves performance by reusing established connections
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::sync::{Arc, Mutex};
 
 use crate::provider::ProviderConfig;
@@ -32,7 +32,7 @@ pub struct SharedLLMProvider {
 impl SharedLLMProvider {
     pub fn new(config: ProviderConfig, model: String) -> Result<Self> {
         let provider = AnthropicProvider::new(config.clone(), model.clone())
-            .map_err(|e| anyhow::anyhow!("Failed to create AnthropicProvider: {}", e))?;
+            .context("initializing shared LLM provider")?;
 
         Ok(Self {
             provider: Arc::new(provider),
@@ -70,7 +70,7 @@ impl SharedLLMProvider {
 pub fn initialize_provider(config: ProviderConfig, model: String) -> Result<()> {
     let mut provider_lock = SHARED_PROVIDER
         .lock()
-        .map_err(|e| anyhow::anyhow!("Provider mutex poisoned: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("locking provider: {e}"))?;
     *provider_lock = Some(Arc::new(SharedLLMProvider::new(config, model)?));
     Ok(())
 }
@@ -81,7 +81,7 @@ pub fn initialize_provider(config: ProviderConfig, model: String) -> Result<()> 
 pub fn provider() -> Result<Arc<SharedLLMProvider>> {
     let provider_lock = SHARED_PROVIDER
         .lock()
-        .map_err(|e| anyhow::anyhow!("Provider mutex poisoned: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("locking provider: {e}"))?;
     provider_lock.as_ref().map(Arc::clone).ok_or_else(|| {
         anyhow::anyhow!("Provider not initialized. Call initialize_provider() first.")
     })

@@ -25,7 +25,7 @@
 //! }
 //! ```
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -245,7 +245,7 @@ impl DownloadManager {
         if let Some(parent) = destination.parent() {
             tokio::fs::create_dir_all(parent)
                 .await
-                .map_err(|e| anyhow::anyhow!("Failed to create directory: {}", e))?;
+                .context("creating download directory")?;
         }
 
         let downloads = self.downloads.clone();

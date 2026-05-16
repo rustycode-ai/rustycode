@@ -5825,7 +5825,7 @@ checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 
 [[package]]
 name = "rustycode-acp"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5845,7 +5845,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-agent-runtime"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5863,7 +5863,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-agents"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5896,7 +5896,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-bench"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5935,7 +5935,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-bus"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5952,7 +5952,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-classification"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "regex",
@@ -5966,7 +5966,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-cli"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6010,7 +6010,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-config"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "criterion",
@@ -6040,7 +6040,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-core"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6111,7 +6111,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-execution"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6132,7 +6132,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-git"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "chrono",
@@ -6158,7 +6158,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-id"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "chrono",
  "getrandom 0.4.2",
@@ -6169,7 +6169,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-integration"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6205,7 +6205,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-learning"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "chrono",
  "regex",
@@ -6221,7 +6221,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-litert"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "dirs",
@@ -6238,7 +6238,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-llm"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6273,7 +6273,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-lsp"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "lsp-types",
@@ -6289,7 +6289,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-macros"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "proc-macro2",
@@ -6303,7 +6303,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-mcp"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6336,7 +6336,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-memory"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "chrono",
@@ -6353,7 +6353,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-observability"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "chrono",
@@ -6428,7 +6428,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-protocol"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6446,7 +6446,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-providers"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "serde",
  "serde_json",
@@ -6457,11 +6457,11 @@ dependencies = [
 
 [[package]]
 name = "rustycode-ringbuf"
-version = "0.5.4"
+version = "0.5.5"
 
 [[package]]
 name = "rustycode-runtime"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -6497,7 +6497,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-sandbox"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "landlock",
@@ -6510,7 +6510,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-server"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "dashmap",
@@ -6530,7 +6530,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-server-client"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6545,7 +6545,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-server-protocol"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "rustycode-protocol",
  "serde",
@@ -6554,7 +6554,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-session"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6586,7 +6586,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-skill"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "chrono",
@@ -6605,7 +6605,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-storage"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "chrono",
@@ -6624,7 +6624,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-tasks"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "chrono",
  "serde",
@@ -6635,7 +6635,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-team"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6666,7 +6666,7 @@ version = "0.5.3"
 
 [[package]]
 name = "rustycode-tool-integration"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "ahash",
  "anyhow",
@@ -6695,7 +6695,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-tools"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "ahash",
  "anyhow",
@@ -6786,7 +6786,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-tools-registry"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "rustycode-tools-api",
@@ -6799,7 +6799,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-tools-security"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "chrono",
@@ -6820,7 +6820,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-tui"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "arboard",
@@ -6893,7 +6893,7 @@ dependencies = [
 
 [[package]]
 name = "rustycode-ui-core"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "pulldown-cmark",
  "ratatui",

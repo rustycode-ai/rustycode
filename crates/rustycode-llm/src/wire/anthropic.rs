@@ -315,7 +315,7 @@ impl Protocol for AnthropicProtocol {
         let mut state = self
             .state
             .lock()
-            .map_err(|e| anyhow::anyhow!("Anthropic stream state lock poisoned: {e}"))?;
+            .map_err(|e| anyhow::anyhow!("locking stream state: {e}"))?;
 
         match event_type {
             Some("message_start") => Ok(vec![]),

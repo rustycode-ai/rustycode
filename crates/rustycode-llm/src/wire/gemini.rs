@@ -152,8 +152,12 @@ impl Protocol for GeminiProtocol {
                 .get("promptTokenCount")
                 .and_then(|v| v.as_u64())
                 .unwrap_or(0) as u32;
-            let output = u
+            let candidates = u
                 .get("candidatesTokenCount")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0) as u32;
+            let thoughts: u32 = u
+                .get("thoughtsTokenCount")
                 .and_then(|v| v.as_u64())
                 .unwrap_or(0) as u32;
             let cached = u
@@ -164,13 +168,16 @@ impl Protocol for GeminiProtocol {
                 .get("totalTokenCount")
                 .and_then(|v| v.as_u64())
                 .unwrap_or(0) as u32;
+            // candidatesTokenCount includes thinking tokens — subtract to get
+            // the actual output (visible response) token count.
+            let output = candidates.saturating_sub(thoughts);
             crate::types::streaming::Usage {
                 input_tokens: input,
                 output_tokens: output,
                 total_tokens: total,
                 cache_read_input_tokens: cached,
                 cache_creation_input_tokens: 0,
-                reasoning_tokens: None,
+                reasoning_tokens: if thoughts > 0 { Some(thoughts) } else { None },
             }
         });
 
@@ -212,6 +219,9 @@ impl Protocol for GeminiProtocol {
             }]);
         }
 
+        let mut events = Vec::new();
+
+        // Extract content/tool events from candidates
         if let Some(candidates) = val.get("candidates").and_then(|c| c.as_array()) {
             if let Some(candidate) = candidates.first() {
                 if let Some(parts) = candidate
@@ -222,17 +232,24 @@ impl Protocol for GeminiProtocol {
                     for part in parts {
                         if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
                             if !text.is_empty() {
-                                return Ok(vec![StreamEvent::TextDelta {
+                                events.push(StreamEvent::TextDelta {
                                     content: text.to_string(),
-                                }]);
+                                });
                             }
                         }
                         if let Some(fc) = part.get("functionCall") {
                             let name = fc.get("name").and_then(|n| n.as_str()).unwrap_or("unknown");
-                            return Ok(vec![StreamEvent::ToolCallStarted {
-                                id: format!("call_{}", name),
+                            let args = fc.get("args").cloned().unwrap_or(json!({}));
+                            let id = format!("call_{}", name);
+                            let args_str = serde_json::to_string(&args).unwrap_or_default();
+                            events.push(StreamEvent::ToolCallStarted {
+                                id: id.clone(),
                                 name: name.to_string(),
-                            }]);
+                            });
+                            events.push(StreamEvent::ToolInputDelta {
+                                id,
+                                chunk: args_str,
+                            });
                         }
                     }
                 }
@@ -244,41 +261,50 @@ impl Protocol for GeminiProtocol {
                         finish_reason,
                         "Gemini finishReason received"
                     );
-                    return Ok(vec![StreamEvent::TurnCompleted {
+                    events.push(StreamEvent::TurnCompleted {
                         stop_reason: finish_reason.to_string(),
-                    }]);
+                    });
                 }
             }
         }
 
+        // Always extract usageMetadata — Gemini sends it in the same chunk as finishReason
         if let Some(usage) = val.get("usageMetadata") {
             let input = usage
                 .get("promptTokenCount")
                 .and_then(|v| v.as_u64())
                 .unwrap_or(0);
-            let output = usage
+            let candidates = usage
                 .get("candidatesTokenCount")
                 .and_then(|v| v.as_u64())
                 .unwrap_or(0);
+            let thoughts: u64 = usage
+                .get("thoughtsTokenCount")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
+            let output = candidates.saturating_sub(thoughts);
             tracing::debug!(
                 target: "llm::gemini",
                 input_tokens = input,
                 output_tokens = output,
+                reasoning_tokens = thoughts,
                 "Gemini usageMetadata"
             );
-            return Ok(vec![StreamEvent::TokenUsage {
+            events.push(StreamEvent::TokenUsage {
                 input_tokens: input,
                 output_tokens: output,
-            }]);
+            });
         }
 
-        tracing::debug!(
-            target: "llm::gemini",
-            keys = ?val.as_object().map(|o| o.keys().collect::<Vec<_>>()),
-            "Gemini SSE event matched no handler → returning empty"
-        );
+        if events.is_empty() {
+            tracing::debug!(
+                target: "llm::gemini",
+                keys = ?val.as_object().map(|o| o.keys().collect::<Vec<_>>()),
+                "Gemini SSE event matched no handler → returning empty"
+            );
+        }
 
-        Ok(vec![])
+        Ok(events)
     }
 
     fn serialize_tools(&self, tools: &[ToolSchema]) -> Vec<Value> {
@@ -337,9 +363,10 @@ impl GeminiProtocol {
                                 content,
                                 ..
                             } => {
+                                let name = tool_use_id.strip_prefix("call_").unwrap_or(tool_use_id);
                                 parts.push(json!({
                                     "functionResponse": {
-                                        "name": tool_use_id, // Gemini expects the name used in functionCall
+                                        "name": name,
                                         "response": {"result": content}
                                     }
                                 }));
