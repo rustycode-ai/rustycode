@@ -92,6 +92,8 @@ pub struct CommandContext<'a> {
     pub session_start: std::time::Instant,
     /// Shared MCP server manager
     pub mcp_manager: std::sync::Arc<tokio::sync::RwLock<rustycode_mcp::McpServerManager>>,
+    /// Number of MCP servers with active proxy connections (from sidebar cache)
+    pub mcp_connected_count: usize,
 }
 
 /// Result of executing a command

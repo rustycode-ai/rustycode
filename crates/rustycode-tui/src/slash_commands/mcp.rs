@@ -10,6 +10,7 @@ const SWITCH_TO_MCP_MODE_SENTINEL: &str = "SWITCH_TO_MCP_MODE";
 pub async fn handle_mcp_command(
     input: &str,
     mcp_manager: &Arc<RwLock<rustycode_mcp::McpServerManager>>,
+    connected_count: usize,
 ) -> Result<Option<String>, String> {
     let parts: Vec<&str> = input.split_whitespace().collect();
 
@@ -22,7 +23,7 @@ pub async fn handle_mcp_command(
     match subcommand {
         "help" | "" => Ok(Some(mcp_help())),
         "list" => handle_mcp_list(mcp_manager).await,
-        "status" => handle_mcp_status(mcp_manager).await,
+        "status" => handle_mcp_status(mcp_manager, connected_count).await,
         "debug" => handle_mcp_debug(mcp_manager).await,
         "open" => Ok(Some(SWITCH_TO_MCP_MODE_SENTINEL.to_string())),
         "reload" => handle_mcp_reload(mcp_manager).await,
@@ -435,10 +436,11 @@ async fn handle_mcp_debug(
 /// Handle MCP status command using the shared manager
 async fn handle_mcp_status(
     mcp_manager: &Arc<RwLock<rustycode_mcp::McpServerManager>>,
+    connected_count: usize,
 ) -> Result<Option<String>, String> {
     use rustycode_mcp::McpConfigFile;
 
-    let servers = {
+    let _servers = {
         let manager = mcp_manager.read().await;
         manager.list_servers().await
     };
@@ -463,7 +465,7 @@ async fn handle_mcp_status(
     }
 
     let configured = configs.iter().map(|(_, c)| c.servers.len()).sum::<usize>();
-    let running = servers.len();
+    let running = connected_count;
 
     let mut output = format!(
         "MCP Status\n\n\
@@ -755,7 +757,7 @@ mod tests {
     #[tokio::test]
     async fn test_handle_mcp_command_help() {
         let manager = test_manager();
-        let result = handle_mcp_command("/mcp help", &manager).await.unwrap();
+        let result = handle_mcp_command("/mcp help", &manager, 0).await.unwrap();
         assert!(result.is_some());
         let output = result.unwrap();
         assert!(output.contains("MCP (Model Context Protocol)"));
@@ -764,7 +766,7 @@ mod tests {
     #[tokio::test]
     async fn test_handle_mcp_command_empty() {
         let manager = test_manager();
-        let result = handle_mcp_command("/mcp", &manager).await.unwrap();
+        let result = handle_mcp_command("/mcp", &manager, 0).await.unwrap();
         assert!(result.is_some());
         assert!(result.unwrap().contains("MCP (Model Context Protocol)"));
     }
@@ -772,7 +774,9 @@ mod tests {
     #[tokio::test]
     async fn test_handle_mcp_command_status() {
         let manager = test_manager();
-        let result = handle_mcp_command("/mcp status", &manager).await.unwrap();
+        let result = handle_mcp_command("/mcp status", &manager, 0)
+            .await
+            .unwrap();
         assert!(result.is_some());
         assert!(result.unwrap().contains("MCP Status"));
     }
@@ -780,7 +784,7 @@ mod tests {
     #[tokio::test]
     async fn test_handle_mcp_command_open() {
         let manager = test_manager();
-        let result = handle_mcp_command("/mcp open", &manager).await.unwrap();
+        let result = handle_mcp_command("/mcp open", &manager, 0).await.unwrap();
         assert!(result.is_some());
         assert_eq!(result.unwrap(), SWITCH_TO_MCP_MODE_SENTINEL);
     }
@@ -788,7 +792,7 @@ mod tests {
     #[tokio::test]
     async fn test_handle_mcp_command_unknown() {
         let manager = test_manager();
-        let result = handle_mcp_command("/mcp unknown_cmd", &manager).await;
+        let result = handle_mcp_command("/mcp unknown_cmd", &manager, 0).await;
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(err.contains("Unknown MCP command: 'unknown_cmd'"));
@@ -798,7 +802,9 @@ mod tests {
     #[tokio::test]
     async fn test_handle_mcp_command_enable_no_arg() {
         let manager = test_manager();
-        let result = handle_mcp_command("/mcp enable", &manager).await.unwrap();
+        let result = handle_mcp_command("/mcp enable", &manager, 0)
+            .await
+            .unwrap();
         assert!(result.is_some());
         assert!(result.unwrap().contains("Usage:"));
     }
@@ -806,7 +812,9 @@ mod tests {
     #[tokio::test]
     async fn test_handle_mcp_command_disable_no_arg() {
         let manager = test_manager();
-        let result = handle_mcp_command("/mcp disable", &manager).await.unwrap();
+        let result = handle_mcp_command("/mcp disable", &manager, 0)
+            .await
+            .unwrap();
         assert!(result.is_some());
         assert!(result.unwrap().contains("Usage:"));
     }
@@ -814,7 +822,9 @@ mod tests {
     #[tokio::test]
     async fn test_handle_mcp_command_toggle_no_arg() {
         let manager = test_manager();
-        let result = handle_mcp_command("/mcp toggle", &manager).await.unwrap();
+        let result = handle_mcp_command("/mcp toggle", &manager, 0)
+            .await
+            .unwrap();
         assert!(result.is_some());
         assert!(result.unwrap().contains("Usage:"));
     }
@@ -822,7 +832,7 @@ mod tests {
     #[tokio::test]
     async fn test_handle_mcp_list_no_config() {
         let manager = test_manager();
-        let result = handle_mcp_command("/mcp list", &manager).await.unwrap();
+        let result = handle_mcp_command("/mcp list", &manager, 0).await.unwrap();
         assert!(result.is_some());
         let output = result.unwrap();
         // Should either show servers or show "No MCP servers configured" message
@@ -832,7 +842,7 @@ mod tests {
     #[tokio::test]
     async fn test_handle_mcp_call_no_args() {
         let manager = test_manager();
-        let result = handle_mcp_command("/mcp call", &manager).await.unwrap();
+        let result = handle_mcp_command("/mcp call", &manager, 0).await.unwrap();
         assert!(result.is_some());
         assert!(result.unwrap().contains("Usage: /mcp call"));
     }
@@ -840,7 +850,7 @@ mod tests {
     #[tokio::test]
     async fn test_handle_mcp_call_missing_tool() {
         let manager = test_manager();
-        let result = handle_mcp_command("/mcp call myserver", &manager)
+        let result = handle_mcp_command("/mcp call myserver", &manager, 0)
             .await
             .unwrap();
         assert!(result.is_some());
@@ -850,7 +860,7 @@ mod tests {
     #[tokio::test]
     async fn test_handle_mcp_exec_alias() {
         let manager = test_manager();
-        let result = handle_mcp_command("/mcp exec", &manager).await.unwrap();
+        let result = handle_mcp_command("/mcp exec", &manager, 0).await.unwrap();
         assert!(result.is_some());
         assert!(result.unwrap().contains("Usage: /mcp call"));
     }

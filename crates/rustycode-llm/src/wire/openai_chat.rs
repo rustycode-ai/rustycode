@@ -46,10 +46,25 @@ impl Protocol for OpenAIChatProtocol {
         }
         messages.extend(self.convert_messages(&request.messages));
 
+        // Prefer explicit ToolSchema parameter; fall back to request.tools
+        // (canonical JSON set via CompletionRequest::with_tools). Providers
+        // pass `None` for the separate tools param, so request.tools is the
+        // primary path in practice.
+        let serialized = tools.map(|t| self.serialize_tools(t)).unwrap_or_default();
+        let wire_tools = if serialized.is_empty() {
+            request
+                .tools
+                .as_ref()
+                .map(|t| Self::canonical_to_openai_tools(t))
+                .unwrap_or_default()
+        } else {
+            serialized
+        };
+
         let body = self.build_request_body(
             request.model.clone(),
             messages,
-            tools.map(|t| self.serialize_tools(t)).unwrap_or_default(),
+            wire_tools,
             request.max_tokens,
             request.temperature,
             request
@@ -264,6 +279,31 @@ impl Protocol for OpenAIChatProtocol {
 }
 
 impl OpenAIChatProtocol {
+    /// Convert canonical tool schemas (from `CompletionRequest.tools`) to
+    /// OpenAI function-calling wire format.  Canonical form uses `input_schema`;
+    /// OpenAI expects `function.parameters`.
+    fn canonical_to_openai_tools(canonical: &[Value]) -> Vec<Value> {
+        canonical
+            .iter()
+            .map(|t| {
+                let name = t.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                let desc = t.get("description").and_then(|v| v.as_str()).unwrap_or("");
+                let params = t
+                    .get("input_schema")
+                    .cloned()
+                    .unwrap_or(json!({"type": "object", "properties": {}}));
+                json!({
+                    "type": "function",
+                    "function": {
+                        "name": name,
+                        "description": desc,
+                        "parameters": params,
+                    }
+                })
+            })
+            .collect()
+    }
+
     fn convert_messages(&self, messages: &[crate::provider::ChatMessage]) -> Vec<OpenAiMessage> {
         use rustycode_protocol::{ContentBlock, MessageContent};
 
@@ -507,6 +547,47 @@ impl OpenAIChatProtocol {
 mod tests {
     use super::*;
     use rustycode_protocol::stream_event::StreamEvent;
+
+    #[test]
+    fn canonical_to_openai_tools_converts_schema() {
+        let canonical = vec![json!({
+            "name": "bash",
+            "description": "Run a shell command",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string"}
+                },
+                "required": ["command"]
+            }
+        })];
+
+        let wire = OpenAIChatProtocol::canonical_to_openai_tools(&canonical);
+        assert_eq!(wire.len(), 1);
+        assert_eq!(wire[0]["type"], "function");
+        assert_eq!(wire[0]["function"]["name"], "bash");
+        assert_eq!(wire[0]["function"]["description"], "Run a shell command");
+        assert_eq!(wire[0]["function"]["parameters"]["type"], "object");
+    }
+
+    #[test]
+    fn serialize_body_uses_request_tools_when_param_is_none() {
+        let request =
+            CompletionRequest::new("test-model".to_string(), vec![]).with_tools(vec![json!({
+                "name": "read_file",
+                "description": "Read a file",
+                "input_schema": {"type": "object", "properties": {"path": {"type": "string"}}}
+            })]);
+
+        let protocol = OpenAIChatProtocol;
+        let body = protocol.serialize_body(&request, None).unwrap();
+
+        let tools = body.get("tools").and_then(|t| t.as_array());
+        assert!(tools.is_some_and(|t| !t.is_empty()));
+        let tool = &tools.unwrap()[0];
+        assert_eq!(tool["type"], "function");
+        assert_eq!(tool["function"]["name"], "read_file");
+    }
 
     #[test]
     fn single_chunk_tool_call_with_arguments() {

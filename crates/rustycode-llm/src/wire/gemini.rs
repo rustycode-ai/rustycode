@@ -35,11 +35,19 @@ impl Protocol for GeminiProtocol {
 
         let contents = self.convert_messages(&request.messages);
 
-        let tools_blocks = tools.map(|t| {
-            json!([{
-                "functionDeclarations": self.serialize_tools(t)
-            }])
-        });
+        let tools_blocks = tools
+            .map(|t| {
+                json!([{
+                    "functionDeclarations": self.serialize_tools(t)
+                }])
+            })
+            .or_else(|| {
+                request.tools.as_ref().map(|canonical| {
+                    json!([{
+                        "functionDeclarations": Self::canonical_to_gemini_tools(canonical)
+                    }])
+                })
+            });
 
         let tool_config = request.tool_choice.as_ref().map(|tc| match tc {
             ToolChoice::Auto => json!({"functionCallingConfig": {"mode": "AUTO"}}),
@@ -324,6 +332,27 @@ impl Protocol for GeminiProtocol {
 }
 
 impl GeminiProtocol {
+    /// Convert canonical tool schemas (from `CompletionRequest.tools`) to
+    /// Gemini `functionDeclarations` format.
+    fn canonical_to_gemini_tools(canonical: &[Value]) -> Vec<Value> {
+        canonical
+            .iter()
+            .map(|t| {
+                let name = t.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                let desc = t.get("description").and_then(|v| v.as_str()).unwrap_or("");
+                let params = t
+                    .get("input_schema")
+                    .cloned()
+                    .unwrap_or(json!({"type": "object", "properties": {}}));
+                json!({
+                    "name": name,
+                    "description": desc,
+                    "parameters": params
+                })
+            })
+            .collect()
+    }
+
     fn convert_messages(&self, messages: &[crate::provider::ChatMessage]) -> Vec<Value> {
         use crate::provider::MessageRole;
         use rustycode_protocol::message::{ContentBlock, MessageContent};

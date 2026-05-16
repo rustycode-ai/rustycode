@@ -322,11 +322,16 @@ pub fn handle_mcp_command(parts: &[&str], ctx: CommandContext<'_>) -> Result<Com
     let tx = ctx.command_tx;
     let mcp_manager = ctx.mcp_manager.clone();
 
+    let connected_count = ctx.mcp_connected_count;
     std::thread::spawn(move || {
         let result = rustycode_shared_runtime::block_on_shared(async {
             tokio::time::timeout(
                 std::time::Duration::from_secs(30),
-                crate::slash_commands::mcp::handle_mcp_command(&input_clone, &mcp_manager),
+                crate::slash_commands::mcp::handle_mcp_command(
+                    &input_clone,
+                    &mcp_manager,
+                    connected_count,
+                ),
             )
             .await
             .unwrap_or_else(|_| Err("MCP command timed out (30s)".to_string()))

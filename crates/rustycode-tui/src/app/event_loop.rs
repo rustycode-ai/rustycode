@@ -1923,6 +1923,18 @@ impl TUI {
                     current_model: self.model.current_model.clone(),
                     session_start: self.integration.start_time,
                     mcp_manager: self.integration.mcp_manager.clone(),
+                    mcp_connected_count: self
+                        .integration
+                        .mcp
+                        .last_mcp_servers
+                        .iter()
+                        .filter(|s| {
+                            matches!(
+                                s.state,
+                                crate::ui::session_sidebar::McpServerState::Connected
+                            )
+                        })
+                        .count(),
                 },
             )?;
 

@@ -50,13 +50,34 @@ impl Protocol for OpenAIResponsesProtocol {
         let (instructions, input) =
             crate::openai_compatible::convert_messages_to_responses_input(request);
 
-        let tools_opt = tools.map(|t| {
-            let normalized = self.serialize_tools(t);
-            normalized
-                .into_iter()
-                .filter_map(|v| serde_json::from_value::<ResponsesApiTool>(v).ok())
-                .collect::<Vec<ResponsesApiTool>>()
-        });
+        let tools_opt = tools
+            .map(|t| {
+                let normalized = self.serialize_tools(t);
+                normalized
+                    .into_iter()
+                    .filter_map(|v| serde_json::from_value::<ResponsesApiTool>(v).ok())
+                    .collect::<Vec<ResponsesApiTool>>()
+            })
+            .or_else(|| {
+                request.tools.as_ref().map(|canonical| {
+                    canonical
+                        .iter()
+                        .map(|t| ResponsesApiTool {
+                            tool_type: "function".to_string(),
+                            name: t
+                                .get("name")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("")
+                                .to_string(),
+                            description: t
+                                .get("description")
+                                .and_then(|v| v.as_str())
+                                .map(String::from),
+                            parameters: t.get("input_schema").cloned(),
+                        })
+                        .collect::<Vec<ResponsesApiTool>>()
+                })
+            });
 
         let is_reasoning = OpenAiProvider::is_reasoning_model(&request.model);
         let effort = request
