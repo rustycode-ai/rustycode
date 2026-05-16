@@ -14,14 +14,14 @@ pub async fn handle_mcp_command(
 ) -> Result<Option<String>, String> {
     let parts: Vec<&str> = input.split_whitespace().collect();
 
-    if parts.is_empty() || parts.len() < 2 {
+    if parts.len() < 2 {
         return Ok(Some(mcp_help()));
     }
 
     let subcommand = parts[1];
 
     match subcommand {
-        "help" | "" => Ok(Some(mcp_help())),
+        "help" => Ok(Some(mcp_help())),
         "list" => handle_mcp_list(mcp_manager).await,
         "status" => handle_mcp_status(mcp_manager, connected_count).await,
         "debug" => handle_mcp_debug(mcp_manager).await,
@@ -435,15 +435,10 @@ async fn handle_mcp_debug(
 
 /// Handle MCP status command using the shared manager
 async fn handle_mcp_status(
-    mcp_manager: &Arc<RwLock<rustycode_mcp::McpServerManager>>,
+    _mcp_manager: &Arc<RwLock<rustycode_mcp::McpServerManager>>,
     connected_count: usize,
 ) -> Result<Option<String>, String> {
     use rustycode_mcp::McpConfigFile;
-
-    let _servers = {
-        let manager = mcp_manager.read().await;
-        manager.list_servers().await
-    };
 
     // Manually check standard locations to get detailed diagnostics
     let mut configs = Vec::new();
@@ -628,7 +623,9 @@ async fn handle_mcp_call(parts: &[&str]) -> Result<Option<String>, String> {
 
 /// Format tool execution result for display
 fn format_tool_result(tool_name: &str, result: &rustycode_mcp::McpToolResult) -> String {
-    let mut output = format!("Tool: {}\n\nResult:\n", tool_name);
+    let is_error = result.is_error == Some(true);
+    let prefix = if is_error { "⚠️ Error: " } else { "" };
+    let mut output = format!("{}Tool: {}\n\nResult:\n", prefix, tool_name);
 
     // Extract content from MCP tool result
     for item in &result.content {
@@ -653,10 +650,6 @@ fn format_tool_result(tool_name: &str, result: &rustycode_mcp::McpToolResult) ->
                 output.push_str("[Unknown content]\n");
             }
         }
-    }
-
-    if result.is_error == Some(true) {
-        output.insert_str(0, "⚠️ Error: ");
     }
 
     output
