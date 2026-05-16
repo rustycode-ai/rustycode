@@ -44,7 +44,7 @@ pub(super) fn handle_approval_request_chunk(
                 timeout_override: None,
             })
             .ok();
-        tui.sys.dirty = true;
+        tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
         return;
     }
 
@@ -61,7 +61,7 @@ pub(super) fn handle_approval_request_chunk(
             })
             .ok();
         tui.add_system_message(format!("✗ Auto-rejected (blocked): {}", tool_name));
-        tui.sys.dirty = true;
+        tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
         return;
     }
 
@@ -81,7 +81,7 @@ pub(super) fn handle_approval_request_chunk(
                         timeout_override: None,
                     })
                     .ok();
-                tui.sys.dirty = true;
+                tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 return;
             }
         }
@@ -114,7 +114,7 @@ pub(super) fn handle_approval_request_chunk(
                 .as_deref()
                 .unwrap_or("blocked by hook")
         ));
-        tui.sys.dirty = true;
+        tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
         return;
     }
 
@@ -132,7 +132,7 @@ pub(super) fn handle_approval_request_chunk(
             diff_scroll: crate::tool_approval::DiffScrollState::default(),
         });
     tui.panels.tool_approval.awaiting = true;
-    tui.sys.dirty = true;
+    tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     tracing::warn!(
         "TUI approval: SHOWING PROMPT for {} (risk={:?})",
         tool_name,
@@ -158,7 +158,7 @@ pub(super) fn handle_approval_approved_chunk(tui: &mut TUI, tool_id: String) {
         }
         tui.panels.tool_approval.awaiting = !tui.panels.tool_approval.pending_requests.is_empty();
     }
-    tui.sys.dirty = true;
+    tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
 }
 
 pub(super) fn handle_approval_rejected_chunk(tui: &mut TUI, tool_id: String) {
@@ -175,5 +175,5 @@ pub(super) fn handle_approval_rejected_chunk(tui: &mut TUI, tool_id: String) {
         }
         tui.panels.tool_approval.awaiting = !tui.panels.tool_approval.pending_requests.is_empty();
     }
-    tui.sys.dirty = true;
+    tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
 }

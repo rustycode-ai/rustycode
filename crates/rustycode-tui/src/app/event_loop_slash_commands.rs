@@ -145,7 +145,7 @@ fn spawn_team_orchestrator(&mut self, task: &str) -> Result<()> {
     self.team.team_panel.set_task(task);
     self.team.team_panel.visible = true;
     self.team.team_panel.reset();
-    self.sys.dirty = true;
+    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
 
     self.add_system_message(format!(
         "🤖 Team mode started: \"{}\"\n   Architect → Builder → Skeptic → Judge → Scalpel\n   Press Ctrl+G to toggle team panel | Esc to cancel",
@@ -176,7 +176,7 @@ pub(crate) fn cancel_team(&mut self) {
         self.team.team_panel.visible = false;
         self.team.team_handler.event_rx = None;
         self.team.team_handler.cancel_token = None;
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     } else {
         self.add_system_message("⚠ No team task is running.".to_string());
     }
@@ -338,7 +338,7 @@ pub(crate) fn apply_model_switch(&mut self, model: &crate::ui::model_selector::M
     self.sys.compaction.context_monitor.max_tokens = self.sys.compaction.compaction_config.effective_max_tokens();
     self.add_system_message(result.status_message);
     self.overlays.model_selector.hide();
-    self.sys.dirty = true;
+    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
 }
 
 /// Update rate limit countdown message with auto-retry
@@ -352,7 +352,7 @@ fn update_rate_limit_countdown(&mut self) -> bool {
         if let Some(msg_idx) = saved_msg_idx {
             if let Some(message) = self.session.messages.get_mut(msg_idx) {
                 message.content = new_content;
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
         }
 

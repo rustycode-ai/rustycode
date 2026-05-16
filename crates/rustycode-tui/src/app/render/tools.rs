@@ -468,16 +468,13 @@ fn render_tool_result_detail(
     }
 
     // Input parameters section (show what the tool was called with)
-    if let Some(input_json) = &tool.input_json {
+    if let Some(json_str) = &tool.input_json_pretty {
         lines.push(Line::from(vec![Span::styled(
             "Input:",
             Style::default()
                 .fg(Color::Rgb(100, 180, 255))
                 .add_modifier(ratatui::style::Modifier::BOLD),
         )]));
-
-        let json_str =
-            serde_json::to_string_pretty(input_json).unwrap_or_else(|_| "{}".to_string());
         let max_input_lines = 12;
         for (i, json_line) in json_str.lines().enumerate() {
             if i >= max_input_lines {

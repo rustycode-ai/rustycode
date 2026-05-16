@@ -29,6 +29,9 @@ fn new_running_tool(
     input_json: Option<serde_json::Value>,
     result_summary: String,
 ) -> ToolExecution {
+    let input_json_pretty = input_json
+        .as_ref()
+        .and_then(|v| serde_json::to_string_pretty(v).ok());
     ToolExecution {
         tool_id,
         name: tool_name,
@@ -39,6 +42,7 @@ fn new_running_tool(
         result_summary,
         detailed_output: None,
         input_json,
+        input_json_pretty,
         progress_current: None,
         progress_total: None,
         progress_description: None,
@@ -205,7 +209,7 @@ pub(super) fn handle_tool_start_chunk(
         }
     }
 
-    tui.sys.dirty = true;
+    tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
 }
 
 pub(super) fn handle_tool_progress_chunk(
@@ -223,7 +227,7 @@ pub(super) fn handle_tool_progress_chunk(
         stage,
         elapsed_ms
     );
-    tui.sys.dirty = true;
+    tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
 
     // Match by tool_id when available, fall back to tool_name
     let matches_tool = |entry: &ToolExecution| {
@@ -393,7 +397,7 @@ pub(super) fn handle_tool_complete_chunk(
         tui.ui.view.scroll_offset_line = 0;
     }
 
-    tui.sys.dirty = true;
+    tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
 
     // Toast notification for failed tools so the user notices even
     // when scrolled away from the tool output.

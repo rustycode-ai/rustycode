@@ -101,6 +101,10 @@ pub struct ToolExecution {
     #[serde(default)]
     pub input_json: Option<serde_json::Value>,
 
+    /// Cached pretty-printed input JSON — computed once, reused for rendering.
+    #[serde(skip)]
+    pub input_json_pretty: Option<String>,
+
     /// Current progress step (for multi-step tools, e.g., "3/10 files processed")
     #[serde(default)]
     pub progress_current: Option<usize>,
@@ -131,6 +135,7 @@ impl ToolExecution {
             result_summary,
             detailed_output: None,
             input_json: None,
+            input_json_pretty: None,
             progress_current: None,
             progress_total: None,
             progress_description: None,

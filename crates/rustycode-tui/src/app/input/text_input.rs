@@ -18,40 +18,40 @@ impl TUI {
         match (key.code, key.modifiers) {
             (KeyCode::Esc, _) => {
                 self.search.search_state.clear();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             (KeyCode::Enter, _) => {
                 // Navigate to next match on Enter
                 self.search.search_state.next_match();
                 self.scroll_to_current_search_match();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             (KeyCode::Up, _) => {
                 // Navigate to previous match with Up arrow
                 self.search.search_state.prev_match();
                 self.scroll_to_current_search_match();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             (KeyCode::Down, _) => {
                 // Navigate to next match with Down arrow
                 self.search.search_state.next_match();
                 self.scroll_to_current_search_match();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             (KeyCode::Char('u'), KeyModifiers::CONTROL) => {
                 self.search.search_state.query.clear();
                 self.refresh_search_matches();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
                 SearchEngine::add_char(&mut self.search.search_state, c);
                 self.refresh_search_matches();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             (KeyCode::Backspace, _) => {
                 SearchEngine::backspace(&mut self.search.search_state);
                 self.refresh_search_matches();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             _ => {
                 return Ok(true);
@@ -92,7 +92,7 @@ impl TUI {
                 // otherwise Ctrl+K → type → Esc leaves orphan text.
                 self.ui.input_handler.state.clear();
                 self.sys.input_mode = self.ui.input_handler.state.mode;
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 Ok(true)
             }
             (KeyCode::Enter, _) => {
@@ -108,7 +108,7 @@ impl TUI {
                     self.overlays.showing_command_palette = false;
                     self.overlays.command_palette.hide();
                     self.overlays.command_palette.state_mut().clear_query();
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                     return Ok(false);
                 }
 
@@ -123,7 +123,7 @@ impl TUI {
                     if needs_args {
                         self.ui.input_handler.state.insert_char(' ');
                         self.overlays.command_palette.state_mut().clear_query();
-                        self.sys.dirty = true;
+                        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                         self.overlays.showing_command_palette = false;
                         self.overlays.command_palette.hide();
                         self.sys.input_mode = self.ui.input_handler.state.mode;
@@ -136,18 +136,18 @@ impl TUI {
                 self.overlays.showing_command_palette = false;
                 self.overlays.command_palette.hide();
                 self.overlays.command_palette.state_mut().clear_query();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 // Return false to allow command submission
                 Ok(false)
             }
             (KeyCode::Tab, m) if m.contains(KeyModifiers::CONTROL) => {
                 self.overlays.command_palette.state_mut().next_tab();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 Ok(true)
             }
             (KeyCode::BackTab, _) => {
                 self.overlays.command_palette.state_mut().prev_tab();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 Ok(true)
             }
             (KeyCode::Tab, _) => {
@@ -168,56 +168,56 @@ impl TUI {
                 self.overlays.showing_command_palette = false;
                 self.overlays.command_palette.hide();
                 self.overlays.command_palette.state_mut().clear_query();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 Ok(true)
             }
             (KeyCode::PageUp, _) => {
                 self.overlays.command_palette.state_mut().page_up();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 Ok(true)
             }
             (KeyCode::PageDown, _) => {
                 self.overlays.command_palette.state_mut().page_down();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 Ok(true)
             }
             (KeyCode::Home, _) => {
                 self.overlays.command_palette.state_mut().home();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 Ok(true)
             }
             (KeyCode::End, _) => {
                 self.overlays.command_palette.state_mut().end();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 Ok(true)
             }
             (KeyCode::Up, _) => {
                 self.overlays.command_palette.state_mut().move_up();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 Ok(true)
             }
             (KeyCode::Down, _) => {
                 self.overlays.command_palette.state_mut().move_down();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 Ok(true)
             }
             (KeyCode::Char(c), m) if m == KeyModifiers::NONE || m == KeyModifiers::SHIFT => {
                 self.ui.input_handler.state.insert_char(c);
                 let text = self.ui.input_handler.state.all_text();
                 self.overlays.command_palette.sync_query_from_input(&text);
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 Ok(true)
             }
             (KeyCode::Backspace, KeyModifiers::NONE) => {
                 self.ui.input_handler.state.backspace();
                 let text = self.ui.input_handler.state.all_text();
                 self.overlays.command_palette.sync_query_from_input(&text);
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 Ok(true)
             }
             (KeyCode::Char('u'), KeyModifiers::CONTROL) => {
                 self.overlays.command_palette.state_mut().clear_query();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 Ok(true)
             }
             _ => Ok(false),
@@ -238,7 +238,7 @@ impl TUI {
             KeyCode::Esc => {
                 self.overlays.showing_skill_palette = false;
                 self.ui.skill_palette.close();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 Ok(true)
             }
             KeyCode::Enter => {
@@ -248,12 +248,12 @@ impl TUI {
                 }
                 self.overlays.showing_skill_palette = false;
                 self.ui.skill_palette.close();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 Ok(true)
             }
             _ => {
                 if self.ui.skill_palette.handle_key(key) {
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 }
                 Ok(true)
             }
@@ -356,7 +356,7 @@ impl TUI {
                         replaced
                     );
                 }
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             return Ok(());
         }
@@ -404,7 +404,7 @@ impl TUI {
             if let Some(reason) = &hook_result.block_reason {
                 self.add_system_message(format!("Blocked: {reason}"));
             }
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             return Ok(());
         }
 
@@ -496,7 +496,7 @@ impl TUI {
 
         let message = crate::ui::message::Message::user(display_content);
         self.session.messages.push(message);
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
         let prepare_elapsed = prepare_start.elapsed();
 
         // Show image attachment notification
@@ -529,7 +529,7 @@ impl TUI {
                 self.add_system_message(format!("$ {}", cmd));
                 self.execute_bash_command(cmd);
             }
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             self.auto_scroll();
         } else if content.starts_with('/') {
             if content == "/" {
@@ -547,7 +547,7 @@ impl TUI {
                         if let Err(e) = self.handle_slash_command(&cmd_name) {
                             self.add_system_message(format!("Command failed: {}", e));
                         }
-                        self.sys.dirty = true;
+                        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                         return Ok(());
                     }
                 }
@@ -555,7 +555,7 @@ impl TUI {
                 self.overlays.showing_command_palette = true;
                 self.overlays.command_palette.show();
                 self.overlays.command_palette.state_mut().clear_query();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 return Ok(());
             }
 
@@ -572,7 +572,7 @@ impl TUI {
                     };
                 self.add_system_message(user_msg.to_string());
             }
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             self.auto_scroll();
         } else {
             let message_to_send = self.prepare_message_for_send(&content);
@@ -693,12 +693,12 @@ impl TUI {
                     format!("⚠️  Send failed: {} - press Enter to retry", e)
                 };
                 self.add_system_message(user_msg);
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 self.auto_scroll();
             } else {
                 let assistant_msg = crate::ui::message::Message::assistant(String::new());
                 self.session.messages.push(assistant_msg);
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 self.auto_scroll();
 
                 self.integration.rate_limit.clear();
@@ -744,21 +744,21 @@ impl TUI {
                 self.overlays
                     .command_palette
                     .sync_query_from_input(&input_text);
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             InputAction::OpenSkillPalette => {
                 self.overlays.showing_command_palette = false;
                 self.overlays.command_palette.hide();
                 self.overlays.showing_skill_palette = true;
                 self.ui.skill_palette.open();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             InputAction::SendMessage(lines) => {
                 self.process_send_message(lines)?;
             }
             InputAction::Consumed => {
                 self.sys.input_mode = self.ui.input_handler.state.mode;
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             InputAction::Ignored => {
                 self.handle_global_shortcut(key.code, key.modifiers)?;
@@ -766,13 +766,13 @@ impl TUI {
             InputAction::HistoryPrevious | InputAction::HistoryNext => {
                 // History navigation is handled via InputAction::Consumed
                 // in the input handler (Up/Down in single-line mode).
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             InputAction::SearchReverse => {
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             InputAction::RemoveImage(_) => {
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
         }
         Ok(())

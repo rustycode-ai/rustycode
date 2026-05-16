@@ -439,7 +439,7 @@ pub fn handle_stream_chunk(tui: &mut TUI, chunk: StreamChunk) {
         } => {
             tui.model.token_budget.session_cache_read_tokens += cache_read_tokens;
             tui.model.token_budget.session_cache_creation_tokens += cache_creation_tokens;
-            tui.sys.dirty = true;
+            tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
         }
         StreamChunk::ExecutionTrace(trace) => handle_execution_trace_chunk(tui, trace),
         StreamChunk::SystemMessage(msg) => handle_system_message_chunk(tui, msg),
@@ -479,7 +479,7 @@ mod tests {
     #[test]
     fn test_cache_usage_sets_dirty_flag() {
         let mut tui = TUI::default();
-        tui.sys.dirty = false;
+        tui.sys.dirty.clear();
 
         handle_stream_chunk(
             &mut tui,
@@ -489,7 +489,7 @@ mod tests {
             },
         );
 
-        assert!(tui.sys.dirty, "CacheUsage must set dirty = true");
+        assert!(tui.sys.dirty.is_dirty(), "CacheUsage must set dirty = true");
         assert_eq!(tui.model.token_budget.session_cache_read_tokens, 500);
         assert_eq!(tui.model.token_budget.session_cache_creation_tokens, 200);
     }
@@ -578,7 +578,7 @@ mod tests {
 
         assert_eq!(tui.model.token_budget.session_input_tokens, 100);
         assert_eq!(tui.model.token_budget.session_output_tokens, 200);
-        assert!(tui.sys.dirty, "TokenUsage should mark dirty");
+        assert!(tui.sys.dirty.is_dirty(), "TokenUsage should mark dirty");
     }
 
     #[test]
@@ -597,7 +597,7 @@ mod tests {
             tui.session.active_tools.contains_key("tool-1"),
             "ToolStart should add tool to active_tools"
         );
-        assert!(tui.sys.dirty, "ToolStart should mark dirty");
+        assert!(tui.sys.dirty.is_dirty(), "ToolStart should mark dirty");
     }
 
     #[test]
@@ -616,6 +616,6 @@ mod tests {
             initial_count + 1,
             "SystemMessage chunk should add a system message"
         );
-        assert!(tui.sys.dirty, "SystemMessage should mark dirty");
+        assert!(tui.sys.dirty.is_dirty(), "SystemMessage should mark dirty");
     }
 }

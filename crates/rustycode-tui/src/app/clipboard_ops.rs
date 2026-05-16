@@ -27,7 +27,7 @@ impl TUI {
             }
         }
 
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
         Ok(())
     }
 
@@ -56,7 +56,7 @@ impl TUI {
 
         if conversation.is_empty() {
             self.add_system_message("No conversation text in selection".to_string());
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             return Ok(());
         }
 
@@ -122,7 +122,7 @@ impl TUI {
 
         if conversation.is_empty() {
             self.add_system_message("No conversation text in selection".to_string());
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             return Ok(());
         }
 
@@ -134,7 +134,7 @@ impl TUI {
         let content = self.session.session_sidebar.copyable_text();
         if content.trim().is_empty() {
             self.add_system_message("No sidebar text to copy".to_string());
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             return Ok(());
         }
 
@@ -169,7 +169,7 @@ impl TUI {
             }
         }
 
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
         Ok(())
     }
 
@@ -189,7 +189,7 @@ impl TUI {
 
         if content.is_empty() {
             self.add_system_message("No conversation text to copy".to_string());
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             return Ok(());
         }
 
@@ -307,7 +307,7 @@ impl TUI {
         );
         self.add_system_message(success_msg);
 
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
         Ok(())
     }
 
@@ -366,7 +366,7 @@ impl TUI {
         }
 
         // Update dirty flag
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
 
         // Send the user prompt again to get a new response
         let _workspace_context = self.workspace.workspace_context.clone();
@@ -418,7 +418,7 @@ impl TUI {
             self.add_system_message(
                 "✅ Successfully reverted the last task extraction.".to_string(),
             );
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             Ok(())
         } else {
             self.add_system_message("⚠️  No recent task extraction to revert.".to_string());

@@ -55,7 +55,7 @@ fn characterization_disconnected_cleanup_guard_resets_streaming() {
         tui.reset_streaming_state();
         tui.session.active_tools.clear();
         // In real code: complete_query() + update_terminal_title() + add_system_message()
-        tui.sys.dirty = true;
+        tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     }
 
     // Verify cleanup happened
@@ -68,7 +68,7 @@ fn characterization_disconnected_cleanup_guard_resets_streaming() {
         "active_tools should be cleared after disconnected cleanup"
     );
     assert!(
-        tui.sys.dirty,
+        tui.sys.dirty.is_dirty(),
         "dirty flag should be set after disconnected cleanup"
     );
 }
@@ -89,13 +89,14 @@ fn characterization_disconnected_cleanup_skipped_when_not_streaming() {
     if channel_disconnected && tui.session.streaming.is_streaming {
         // This should NOT execute
         tui.reset_streaming_state();
-        tui.sys.dirty = true;
+        tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
         panic!("Cleanup should not fire when is_streaming is false");
     }
 
     // dirty should not have changed from this guard
     assert_eq!(
-        tui.sys.dirty, initial_dirty,
+        tui.sys.dirty.is_dirty(),
+        initial_dirty.is_dirty(),
         "dirty should not change from disconnected guard when not streaming"
     );
 }

@@ -146,6 +146,8 @@ pub struct AutoMemoryManager {
     memories: Vec<AutoMemory>,
     /// Memory directory for persistent storage
     memory_dir: PathBuf,
+    /// Whether in-memory state differs from disk — only serialize when true
+    dirty: bool,
 }
 
 impl AutoMemoryManager {
@@ -165,6 +167,7 @@ impl AutoMemoryManager {
             storage_path,
             memories,
             memory_dir,
+            dirty: false,
         })
     }
 
@@ -183,15 +186,20 @@ impl AutoMemoryManager {
         Ok(memories)
     }
 
-    /// Save auto-memories to disk
-    fn save_to_disk(&self) -> Result<()> {
+    /// Save auto-memories to disk only if dirty.
+    fn save_to_disk(&mut self) -> Result<()> {
+        if !self.dirty {
+            return Ok(());
+        }
+
         // Ensure parent directory exists
         if let Some(parent) = self.storage_path.parent() {
             fs::create_dir_all(parent)?;
         }
 
-        let content = serde_json::to_string_pretty(&self.memories)?;
+        let content = serde_json::to_string(&self.memories)?;
         fs::write(&self.storage_path, content)?;
+        self.dirty = false;
 
         debug!("Saved {} auto-memories to disk", self.memories.len());
         Ok(())
@@ -199,6 +207,7 @@ impl AutoMemoryManager {
 
     /// Add an auto-memory
     pub fn add_memory(&mut self, memory: AutoMemory) -> Result<()> {
+        self.dirty = true;
         // Check for existing memory with same key and type
         if let Some(existing) = self
             .memories
@@ -223,35 +232,26 @@ impl AutoMemoryManager {
         Ok(())
     }
 
-    /// Get a memory by key and type
+    /// Get a memory by key and type (read-only — no disk serialization).
     pub fn memory(&mut self, key: &str, memory_type: MemoryType) -> Option<AutoMemory> {
         if let Some(idx) = self
             .memories
             .iter()
             .position(|m| m.key == key && m.memory_type == memory_type)
         {
-            // Record access
             self.memories[idx].record_access();
-            if let Err(e) = self.save_to_disk() {
-                tracing::debug!("Auto-memory best-effort save failed: {}", e);
-            }
             Some(self.memories[idx].clone())
         } else {
             None
         }
     }
 
-    /// Fetch memories of a specific type, recording access and persisting to disk.
+    /// Fetch memories of a specific type (read-only — no disk serialization).
     pub fn fetch_memories_by_type(&mut self, memory_type: MemoryType) -> Vec<AutoMemory> {
-        // Record access for all memories of this type
         for memory in &mut self.memories {
             if memory.memory_type == memory_type {
                 memory.record_access();
             }
-        }
-
-        if let Err(e) = self.save_to_disk() {
-            tracing::debug!("Auto-memory best-effort save failed: {}", e);
         }
 
         self.memories
@@ -261,19 +261,14 @@ impl AutoMemoryManager {
             .collect()
     }
 
-    /// Fetch recent memories, recording access and persisting to disk.
+    /// Fetch recent memories (read-only — no disk serialization).
     pub fn fetch_recent_memories(&mut self, days: i64) -> Vec<AutoMemory> {
         let cutoff = Utc::now() - chrono::Duration::days(days);
 
-        // Record access for recent memories
         for memory in &mut self.memories {
             if memory.accessed_at > cutoff {
                 memory.record_access();
             }
-        }
-
-        if let Err(e) = self.save_to_disk() {
-            tracing::debug!("Auto-memory best-effort save failed: {}", e);
         }
 
         self.memories
@@ -283,17 +278,12 @@ impl AutoMemoryManager {
             .collect()
     }
 
-    /// Fetch important memories, recording access and persisting to disk.
+    /// Fetch important memories (read-only — no disk serialization).
     pub fn fetch_important_memories(&mut self, threshold: f64) -> Vec<AutoMemory> {
-        // Record access for important memories
         for memory in &mut self.memories {
             if memory.importance >= threshold {
                 memory.record_access();
             }
-        }
-
-        if let Err(e) = self.save_to_disk() {
-            tracing::debug!("Auto-memory best-effort save failed: {}", e);
         }
 
         self.memories
@@ -341,6 +331,7 @@ impl AutoMemoryManager {
 
         if removed > 0 {
             info!("Cleaned up {} auto-memories", removed);
+            self.dirty = true;
             self.save_to_disk()?;
         }
 
@@ -355,7 +346,21 @@ impl AutoMemoryManager {
         Ok(())
     }
 
-    /// Sync important auto-memories to persistent memory system
+    /// Flush pending changes to disk.
+    pub fn flush(&mut self) {
+        if let Err(e) = self.save_to_disk() {
+            tracing::debug!("Auto-memory flush failed: {}", e);
+        }
+    }
+}
+
+impl Drop for AutoMemoryManager {
+    fn drop(&mut self) {
+        self.flush();
+    }
+}
+
+impl AutoMemoryManager {
     pub fn sync_to_memory(&self) -> Result<()> {
         let important_memories: Vec<_> = self
             .memories

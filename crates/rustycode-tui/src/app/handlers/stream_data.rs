@@ -110,7 +110,7 @@ pub(super) fn handle_question_request_chunk(
         crate::ui::clarification::ClarificationPanel::new(vec![question]);
     tui.panels.awaiting_clarification = true;
     tui.add_system_message(format!("❓ AI asks: {}", question_text));
-    tui.sys.dirty = true;
+    tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
 }
 
 pub(super) fn handle_question_answered_chunk(
@@ -174,19 +174,19 @@ pub(super) fn handle_token_usage_chunk(
         tracing::debug!("Cost tracking failed: {}", e);
     }
 
-    tui.sys.dirty = true;
+    tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
 }
 
 pub(super) fn handle_execution_trace_chunk(tui: &mut TUI, trace: serde_json::Value) {
     tracing::debug!("Received execution trace from orchestration pipeline");
     tui.session.execution_trace = Some(trace);
-    tui.sys.dirty = true;
+    tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     tui.mark_session_dirty();
 }
 
 pub(super) fn handle_system_message_chunk(tui: &mut TUI, msg: String) {
     tui.add_system_message(msg);
-    tui.sys.dirty = true;
+    tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
 }
 
 pub(super) fn handle_milestone_progress_chunk(
@@ -218,5 +218,5 @@ pub(super) fn handle_milestone_progress_chunk(
         &current_plan_summary,
         &action_hint,
     );
-    tui.sys.dirty = true;
+    tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
 }

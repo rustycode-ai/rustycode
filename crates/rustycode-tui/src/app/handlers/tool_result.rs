@@ -98,7 +98,7 @@ pub fn handle_tool_result(tui: &mut TUI, result: ToolResult) {
         }
     }
 
-    tui.sys.dirty = true;
+    tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
 
     // Emit EventMsg for the unified event channel
     let (success, output) = match &result.result {
@@ -230,7 +230,10 @@ fn update_message_tool_execution(
             result_summary,
             status: result_status,
             detailed_output,
-            input_json: fallback_input_json,
+            input_json: fallback_input_json.clone(),
+            input_json_pretty: fallback_input_json
+                .as_ref()
+                .and_then(|v| serde_json::to_string_pretty(v).ok()),
             progress_current: None,
             progress_total: None,
             progress_description: None,
@@ -298,6 +301,7 @@ fn update_tool_panel_history(
             status: panel_status,
             detailed_output: panel_detailed_output,
             input_json: None,
+            input_json_pretty: None,
             progress_current: None,
             progress_total: None,
             progress_description: None,

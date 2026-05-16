@@ -12,7 +12,7 @@ impl TUI {
             self.ui.help_state.scroll_offset =
                 self.ui.help_state.scroll_offset.saturating_sub(lines);
         }
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     }
 
     fn scroll_tool_result_by(&mut self, lines: usize, down: bool) {
@@ -29,7 +29,7 @@ impl TUI {
                 .tool_result_scroll_offset
                 .saturating_sub(lines);
         }
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     }
 
     /// Handle mouse scroll events with position-aware routing.
@@ -74,13 +74,13 @@ impl TUI {
                     for _ in 0..scroll_speed {
                         self.session.session_sidebar.scroll_up();
                     }
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 }
                 MouseEventKind::ScrollDown => {
                     for _ in 0..scroll_speed {
                         self.session.session_sidebar.scroll_down();
                     }
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 }
                 _ => {}
             }
@@ -188,7 +188,7 @@ impl TUI {
                 // Click on scroll-to-bottom indicator — jump to bottom
                 self.ui.view.user_scrolled = false;
                 self.auto_scroll();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 return;
             }
         }
@@ -218,7 +218,7 @@ impl TUI {
                 } else {
                     msg.collapsed = !msg.collapsed;
                 }
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
         }
     }

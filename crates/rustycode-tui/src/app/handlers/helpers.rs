@@ -28,7 +28,7 @@ pub(super) fn reset_streaming_buffer(tui: &mut TUI) {
 
 /// Mark the TUI as dirty and auto-scroll if the user hasn't manually scrolled.
 pub(super) fn mark_dirty_and_scroll(tui: &mut TUI) {
-    tui.sys.dirty = true;
+    tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     if !tui.ui.view.user_scrolled {
         tui.auto_scroll();
     }

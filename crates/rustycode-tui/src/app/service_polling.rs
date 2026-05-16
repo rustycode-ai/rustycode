@@ -66,7 +66,7 @@ impl TUI {
             self.add_system_message(
                 "⚠ Stream connection lost unexpectedly. You can retry.".to_string(),
             );
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
         }
 
         // Poll tool results — drain up to MAX_TOOL_RESULTS_PER_FRAME per frame
@@ -196,7 +196,7 @@ impl TUI {
             };
             self.add_system_message(format!("✓ {}", display));
             self.auto_scroll();
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
         }
 
         if debug_enabled {
@@ -226,7 +226,7 @@ impl TUI {
                 match rx.try_recv() {
                     Ok(event) => {
                         self.team.team_panel.handle_event(&event);
-                        self.sys.dirty = true;
+                        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
 
                         // Collect chat messages for key events (applied after loop
                         // to avoid borrow conflicts with team_panel)
@@ -314,7 +314,7 @@ impl TUI {
 
         // Mark dirty only when worker count or panel visibility changed
         if prev_count != workers.len() || (!workers.is_empty() && self.team.worker_panel.visible) {
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
         }
     }
 
@@ -349,7 +349,7 @@ impl TUI {
         // Process collected events (no borrow conflict now)
         for event in events {
             self.handle_scheduled_phase_event(event);
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
         }
     }
 

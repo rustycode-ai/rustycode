@@ -27,7 +27,7 @@ impl TUI {
                 self.overlays.showing_marketplace_browser = false;
                 self.overlays.command_palette.show();
                 self.overlays.command_palette.state_mut().clear_query();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             return Ok(());
         }
@@ -43,7 +43,7 @@ impl TUI {
                 self.ui.skill_palette.close();
                 self.overlays.showing_marketplace_browser = true;
                 self.ui.marketplace_browser.open();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             return Ok(());
         }
@@ -56,7 +56,7 @@ impl TUI {
                 if !self.session.messages.is_empty() {
                     self.push_undo_position();
                     self.half_page_up();
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 }
                 return Ok(());
             }
@@ -68,7 +68,7 @@ impl TUI {
                 if self.ui.view.user_scrolled && !self.session.messages.is_empty() {
                     self.push_undo_position();
                     self.half_page_down();
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 }
                 return Ok(());
             }
@@ -79,14 +79,14 @@ impl TUI {
                         // Second press during stream — force quit immediately
                         self.session.streaming.is_streaming = false;
                         self.sys.running = false;
-                        self.sys.dirty = true;
+                        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                         return Ok(());
                     }
                     self.integration.services.submit_op(Op::StopStream).ok();
                     self.session.streaming.stream_cancelled = true;
                     // Let Done handler clean up — then quit on next Ctrl+Q
                     self.add_system_message("Generation stopped - press again to quit".to_string());
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                     return Ok(());
                 }
                 self.sys.running = false;
@@ -97,7 +97,7 @@ impl TUI {
                 // Ctrl+D with text in input: dismiss overlay if showing one, otherwise do nothing
                 if self.panels.tool_panel.showing_tool_result {
                     self.panels.tool_panel.showing_tool_result = false;
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 }
                 return Ok(());
             }
@@ -107,7 +107,7 @@ impl TUI {
                     tracing::error!("Failed to copy message: {}", e);
                     self.add_system_message(format!("[X] Failed to copy: {}", e));
                 }
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
                 // Cancel/Interrupt - matches Claude Code convention
@@ -151,7 +151,7 @@ impl TUI {
                     if self.integration.rate_limit.until.is_some() {
                         self.integration.rate_limit.cancel_auto_retry();
                         self.add_system_message("Auto-retry cancelled".to_string());
-                        self.sys.dirty = true;
+                        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                         return Ok(());
                     }
 
@@ -182,7 +182,7 @@ impl TUI {
                         }
                     }
                 }
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             // Ctrl+Shift+S: Toggle skill palette
             #[allow(unreachable_patterns)]
@@ -197,7 +197,7 @@ impl TUI {
                     } else {
                         self.ui.skill_palette.close();
                     }
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 }
             }
             (KeyCode::Char('y'), KeyModifiers::CONTROL) => {
@@ -205,14 +205,14 @@ impl TUI {
                 if let Err(e) = self.copy_last_ai_response() {
                     tracing::error!("Failed to copy last response: {}", e);
                 }
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             // Ctrl+Shift+K: Copy entire conversation
             (KeyCode::Char('K'), KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
                 if let Err(e) = self.copy_all_conversation() {
                     tracing::error!("Failed to copy conversation: {}", e);
                 }
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             (KeyCode::Char('E'), KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
                 if let Err(e) = self.export_conversation() {
@@ -225,7 +225,7 @@ impl TUI {
                         .toast_manager
                         .success("Exported conversation to file".to_string());
                 }
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             // Note: Ctrl+R is handled by InputHandler for reverse search (readline standard)
             // Regenerate is on Ctrl+Shift+R to avoid conflict
@@ -252,7 +252,7 @@ impl TUI {
                         .toast_manager
                         .success("📝 Prompt stashed - press Ctrl+S again to restore".to_string());
                 }
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             (KeyCode::Char('z'), KeyModifiers::CONTROL) => {
                 // Suspend process (Ctrl+Z) — must restore terminal state first
@@ -286,7 +286,7 @@ impl TUI {
                         crossterm::event::EnableMouseCapture,
                     );
                     let _ = crossterm::terminal::enable_raw_mode();
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 }
                 #[cfg(not(unix))]
                 {
@@ -303,25 +303,25 @@ impl TUI {
             {
                 self.push_undo_position();
                 self.scroll_up();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             (KeyCode::Down, KeyModifiers::NONE)
                 if input_is_empty && !self.session.messages.is_empty() =>
             {
                 self.push_undo_position();
                 self.scroll_down();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             // Turn-based navigation: Shift+Up/Down jumps between user messages
             (KeyCode::Up, KeyModifiers::SHIFT) if !self.session.messages.is_empty() => {
                 self.push_undo_position();
                 self.navigate_to_prev_turn();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             (KeyCode::Down, KeyModifiers::SHIFT) if !self.session.messages.is_empty() => {
                 self.push_undo_position();
                 self.navigate_to_next_turn();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
             // Full-page scroll: PageUp/PageDown
             (KeyCode::PageUp, KeyModifiers::NONE) if input_is_empty => {
@@ -355,7 +355,7 @@ impl TUI {
                     self.add_system_message("⏸️  Auto-continue disabled".to_string());
                     self.session.auto_continue.clear_pending();
                 }
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 return Ok(());
             }
             (KeyCode::Char('m'), KeyModifiers::ALT) => {
@@ -365,7 +365,7 @@ impl TUI {
                     new_mode.display_name(),
                     new_mode.description()
                 ));
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 self.auto_scroll();
                 return Ok(());
             }
@@ -377,7 +377,7 @@ impl TUI {
                     new_mode.display_name(),
                     new_mode.description()
                 ));
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 self.auto_scroll();
                 return Ok(());
             }
@@ -389,7 +389,7 @@ impl TUI {
                 } else {
                     self.add_system_message("No scroll position to undo".to_string());
                 }
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 return Ok(());
             }
             // Ctrl+Shift+H: Toggle UI section visibility (status bar / footer)
@@ -405,7 +405,7 @@ impl TUI {
                 } else {
                     self.add_system_message("📐 UI sections restored".to_string());
                 }
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 self.sys.layout_dirty = true;
                 return Ok(());
             }
@@ -427,13 +427,13 @@ impl TUI {
                                     "Editor returned empty - input unchanged".to_string(),
                                 );
                             }
-                            self.sys.dirty = true;
+                            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                             self.sys.layout_dirty = true;
                             self.sys.needs_full_redraw = true;
                         }
                         Err(e) => {
                             self.add_system_message(format!("⚠️ Editor error: {}", e));
-                            self.sys.dirty = true;
+                            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                             self.sys.layout_dirty = true;
                             self.sys.needs_full_redraw = true;
                         }
@@ -443,7 +443,7 @@ impl TUI {
             }
             (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
                 self.ui.input_handler.state.clear();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 return Ok(());
             }
             (KeyCode::Esc, KeyModifiers::NONE) => {
@@ -453,7 +453,7 @@ impl TUI {
 
                 // Priority 1: Dismiss overlays (most recent/important first)
                 if self.dismiss_any_overlay() {
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                     return Ok(());
                 }
 
@@ -476,7 +476,7 @@ impl TUI {
                     if self.session.streaming.queued_message.take().is_some() {
                         self.add_system_message("Queued message cleared".to_string());
                     }
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                     return Ok(());
                 }
                 // Cancel team orchestrator if running
@@ -499,7 +499,7 @@ impl TUI {
                     self.add_system_message(
                         "⚠️  Auto-retry cancelled - press Enter when ready to retry".to_string(),
                     );
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                     return Ok(());
                 }
 
@@ -507,7 +507,7 @@ impl TUI {
                 if self.sys.input_mode == InputMode::MultiLine {
                     self.sys.input_mode = InputMode::SingleLine;
                     self.ui.input_handler.state.mode = InputMode::SingleLine;
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                     return Ok(());
                 }
 
@@ -521,7 +521,7 @@ impl TUI {
                         self.ui.input_handler.state.clear();
                         self.sys.input_mode = self.ui.input_handler.state.mode;
                         self.overlays.last_esc_press = None;
-                        self.sys.dirty = true;
+                        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                         return Ok(());
                     }
                 }
@@ -534,7 +534,7 @@ impl TUI {
                         .toast_manager
                         .success(format!("Theme: {}", theme.name));
                 }
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 self.auto_scroll();
             }
             (KeyCode::Char('T'), KeyModifiers::ALT | KeyModifiers::SHIFT) => {
@@ -543,7 +543,7 @@ impl TUI {
                         .toast_manager
                         .success(format!("Theme: {}", theme.name));
                 }
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 self.auto_scroll();
             }
             // Vim keybindings (when enabled and input is not focused)
@@ -556,7 +556,7 @@ impl TUI {
                 let action = self.ui.keyboard_handler.handle_vim_key('j');
                 if action == crate::app::keyboard_shortcuts::KeyboardAction::MoveDown {
                     self.scroll_down();
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 }
             }
             (KeyCode::Char('k'), KeyModifiers::NONE)
@@ -568,7 +568,7 @@ impl TUI {
                 let action = self.ui.keyboard_handler.handle_vim_key('k');
                 if action == crate::app::keyboard_shortcuts::KeyboardAction::MoveUp {
                     self.scroll_up();
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 }
             }
             (KeyCode::Char('g'), KeyModifiers::NONE)
@@ -584,7 +584,7 @@ impl TUI {
                         self.ui.view.selected_message = 0;
                         self.ui.view.scroll_offset_line = 0;
                         self.ui.view.user_scrolled = true;
-                        self.sys.dirty = true;
+                        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                     }
                 }
             }
@@ -603,13 +603,13 @@ impl TUI {
                     self.ui.view.scroll_offset_line = 0;
                     self.ui.view.user_scrolled = false;
                     self.auto_scroll();
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 }
             }
             (KeyCode::Char('p'), KeyModifiers::ALT) => {
                 if !self.is_any_overlay_open() {
                     self.overlays.model_selector.show();
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 }
             }
             // Message collapse/expand shortcuts
@@ -686,29 +686,29 @@ impl TUI {
         if self.panels.awaiting_clarification {
             self.panels.clarification_panel.visible = false;
             self.panels.awaiting_clarification = false;
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             return true;
         }
         if self.sys.compaction.showing_preview {
             self.sys.compaction.showing_preview = false;
             self.sys.compaction.pending = false;
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             return true;
         }
         if self.theme.error_manager.is_showing() {
             self.theme.error_manager.dismiss();
             self.overlays.showing_error = false;
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             return true;
         }
         if self.overlays.model_selector.is_visible() {
             self.overlays.model_selector.hide();
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             return true;
         }
         if self.overlays.showing_provider_selector {
             self.overlays.showing_provider_selector = false;
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             return true;
         }
         if self.overlays.showing_command_palette {
@@ -718,65 +718,65 @@ impl TUI {
             // Clear input to prevent palette search text from leaking into main input
             self.ui.input_handler.state.clear();
             self.sys.input_mode = self.ui.input_handler.state.mode;
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             return true;
         }
         if self.overlays.showing_skill_palette {
             self.overlays.showing_skill_palette = false;
             self.ui.skill_palette.close();
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             return true;
         }
         if self.overlays.showing_marketplace_browser {
             self.overlays.showing_marketplace_browser = false;
             self.ui.marketplace_browser.close();
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             return true;
         }
         if self.search.file_finder.is_visible() {
             self.search.file_finder.hide();
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             return true;
         }
         if self.search.search_state.visible {
             self.search.search_state.visible = false;
             self.search.search_state.query.clear();
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             return true;
         }
         if self.panels.tool_panel.showing_tool_panel {
             self.panels.tool_panel.showing_tool_panel = false;
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             return true;
         }
         if self.team.worker_panel.visible {
             self.team.worker_panel.visible = false;
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             return true;
         }
         if self.team.team_panel.visible {
             self.team.team_panel.visible = false;
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             return true;
         }
         if self.model.show_task_dashboard {
             self.model.show_task_dashboard = false;
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             return true;
         }
         if self.session.session_sidebar.is_visible() {
             self.session.session_sidebar.hide();
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             return true;
         }
         if self.theme.theme_preview.is_visible() {
             self.theme.theme_preview.hide();
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             return true;
         }
         if self.ui.help_state.visible {
             self.ui.help_state.visible = false;
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             return true;
         }
         false

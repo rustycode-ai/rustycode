@@ -125,12 +125,87 @@ pub(crate) struct InteractionSessionState {
     pub(crate) undo: crate::app::undo_state::UndoState,
 }
 
+/// Per-component dirty flags for selective rendering.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct DirtyFlags(u8);
+
+impl DirtyFlags {
+    pub const NONE: Self = Self(0);
+    pub const HEADER: Self = Self(1 << 0);
+    pub const STATUS: Self = Self(1 << 1);
+    pub const MESSAGES: Self = Self(1 << 2);
+    pub const INPUT: Self = Self(1 << 3);
+    pub const FOOTER: Self = Self(1 << 4);
+    pub const SIDEBAR: Self = Self(1 << 5);
+    pub const OVERLAYS: Self = Self(1 << 6);
+    /// All regions dirty — used for backward compat and full redraws.
+    pub const ALL: Self = Self(0x7F);
+
+    #[inline]
+    pub fn is_dirty(self) -> bool {
+        self.0 != 0
+    }
+
+    #[inline]
+    pub fn contains(self, flag: Self) -> bool {
+        (self.0 & flag.0) != 0
+    }
+
+    #[inline]
+    pub fn set(&mut self, flag: Self) {
+        self.0 |= flag.0;
+    }
+
+    #[inline]
+    pub fn clear(&mut self) {
+        self.0 = 0;
+    }
+}
+
+impl std::ops::Not for DirtyFlags {
+    type Output = bool;
+    fn not(self) -> bool {
+        !self.is_dirty()
+    }
+}
+
+impl std::fmt::Display for DirtyFlags {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.0 == 0 {
+            return write!(f, "NONE");
+        }
+        let mut parts = Vec::new();
+        if self.contains(Self::HEADER) {
+            parts.push("HEADER");
+        }
+        if self.contains(Self::STATUS) {
+            parts.push("STATUS");
+        }
+        if self.contains(Self::MESSAGES) {
+            parts.push("MESSAGES");
+        }
+        if self.contains(Self::INPUT) {
+            parts.push("INPUT");
+        }
+        if self.contains(Self::FOOTER) {
+            parts.push("FOOTER");
+        }
+        if self.contains(Self::SIDEBAR) {
+            parts.push("SIDEBAR");
+        }
+        if self.contains(Self::OVERLAYS) {
+            parts.push("OVERLAYS");
+        }
+        write!(f, "{}", parts.join("|"))
+    }
+}
+
 /// System State sub-struct
 ///
 /// Groups runtime flags, memory systems, plugin management, and mode state.
 pub(crate) struct SystemState {
     pub(crate) running: bool,
-    pub(crate) dirty: bool,
+    pub(crate) dirty: DirtyFlags,
     pub(crate) layout_dirty: bool,
     pub(crate) needs_full_redraw: bool,
     pub(crate) compaction: CompactionState,

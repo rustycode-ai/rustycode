@@ -60,7 +60,7 @@ pub(super) fn handle_error_chunk(tui: &mut TUI, err: StreamError) {
     if !is_retryable {
         tui.session.auto_continue.disable();
         tui.show_error(anyhow::anyhow!("{}", err));
-        tui.sys.dirty = true;
+        tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
         tui.auto_scroll();
         return;
     }
@@ -129,7 +129,7 @@ pub(super) fn handle_error_chunk(tui: &mut TUI, err: StreamError) {
         tui.integration.rate_limit.retry_count.saturating_add(1);
 
     tui.auto_scroll();
-    tui.sys.dirty = true;
+    tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
 
     tracing::debug!(
         "Stream error: {} (retry {} in {}s)",

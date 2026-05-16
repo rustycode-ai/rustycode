@@ -289,6 +289,6 @@ fn send_queued_message(tui: &mut TUI, was_cancelled: bool) {
             tui.session.messages.len()
         );
     }
-    tui.sys.dirty = true;
+    tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     tui.auto_scroll();
 }

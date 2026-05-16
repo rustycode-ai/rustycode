@@ -1341,13 +1341,11 @@ impl BrutalistRenderer<'_> {
                 if message.tools_expansion == ExpansionLevel::Expanded {
                     for tool in tools {
                         // Show tool input JSON
-                        if let Some(input_json) = &tool.input_json {
+                        if let Some(json_str) = &tool.input_json_pretty {
                             lines.push(Line::from(vec![Span::styled(
                                 "      ╭─ input ─╴",
                                 Style::default().fg(colors.muted),
                             )]));
-                            let json_str = serde_json::to_string_pretty(input_json)
-                                .unwrap_or_else(|_| "{}".to_string());
                             for json_line in json_str.lines().take(15) {
                                 lines.push(Line::from(vec![
                                     Span::styled("      │ ", Style::default().fg(colors.muted)),
@@ -1724,6 +1722,7 @@ mod tests {
                 result_summary: "done".to_string(),
                 detailed_output: None,
                 input_json: None,
+                input_json_pretty: None,
                 start_time: chrono::Utc::now(),
                 end_time: None,
                 duration_ms: None,
@@ -1922,6 +1921,7 @@ mod tests {
             result_summary: "汉".repeat(80),
             detailed_output: None,
             input_json: None,
+            input_json_pretty: None,
             start_time: chrono::Utc::now(),
             end_time: None,
             duration_ms: None,

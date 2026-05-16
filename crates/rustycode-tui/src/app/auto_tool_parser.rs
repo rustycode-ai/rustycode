@@ -11,6 +11,7 @@ pub fn extract_tool_payloads(response: &str) -> Vec<String> {
     let mut in_tool_block = false;
     let mut tool_block_lines: Vec<String> = Vec::new();
     let mut tool_payloads: Vec<String> = Vec::new();
+    let fence_state = build_fence_state(response);
 
     for (idx, line) in response.lines().enumerate() {
         let trimmed = line.trim();
@@ -33,7 +34,7 @@ pub fn extract_tool_payloads(response: &str) -> Vec<String> {
         }
 
         // Also extract inline tool JSON (not in ``` blocks)
-        if looks_like_tool_json_payload(line) && !is_inside_any_fenced_block(response, idx) {
+        if looks_like_tool_json_payload(line) && !fence_state[idx] {
             tool_payloads.push(line.to_string());
         }
     }
@@ -76,6 +77,21 @@ pub fn parse_tool_calls_payload(payload: &str) -> anyhow::Result<Vec<ParsedToolC
     Ok(out)
 }
 
+/// Pre-compute whether each line is inside a fenced code block (O(n) instead of O(n²)).
+fn build_fence_state(text: &str) -> Vec<bool> {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut state = vec![false; lines.len()];
+    let mut in_fence = false;
+    for (i, raw) in lines.iter().enumerate() {
+        let t = raw.trim();
+        if t.starts_with("```") {
+            in_fence = !in_fence;
+        }
+        state[i] = in_fence;
+    }
+    state
+}
+
 fn looks_like_tool_json_payload(line: &str) -> bool {
     let s = line.trim();
     if s.is_empty() {
@@ -91,26 +107,13 @@ fn looks_like_tool_json_payload(line: &str) -> bool {
         || (s.contains("\"name\"") && (s.contains("\"arguments\"") || s.contains("\"args\"")))
 }
 
-fn is_inside_any_fenced_block(text: &str, line_index: usize) -> bool {
-    let mut in_fence = false;
-    for (idx, raw) in text.lines().enumerate() {
-        if idx >= line_index {
-            break;
-        }
-        let t = raw.trim();
-        if t.starts_with("```") {
-            in_fence = !in_fence;
-        }
-    }
-    in_fence
-}
-
 /// Remove raw tool payload artifacts from assistant display text.
 /// Tool payloads are still parsed/executed separately; this only cleans UI output.
 pub fn sanitize_tool_artifacts_for_display(response: &str) -> String {
-    let mut out: Vec<String> = Vec::new();
+    let mut out: Vec<&str> = Vec::new();
     let mut in_tool_block = false;
     let mut removed_any = false;
+    let fence_state = build_fence_state(response);
 
     for (idx, raw) in response.lines().enumerate() {
         let line = raw.trim();
@@ -127,12 +130,12 @@ pub fn sanitize_tool_artifacts_for_display(response: &str) -> String {
             continue;
         }
 
-        if looks_like_tool_json_payload(line) && !is_inside_any_fenced_block(response, idx) {
+        if looks_like_tool_json_payload(line) && !fence_state[idx] {
             removed_any = true;
             continue;
         }
 
-        out.push(raw.to_string());
+        out.push(raw);
     }
 
     let cleaned = out

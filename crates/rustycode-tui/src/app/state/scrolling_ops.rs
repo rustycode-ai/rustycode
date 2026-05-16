@@ -43,7 +43,7 @@ impl TUI {
 
         let _max_scroll = self.begin_manual_scroll();
         self.ui.view.scroll_offset_line = self.ui.view.scroll_offset_line.saturating_sub(lines);
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     }
 
     /// Scroll down (scroll by lines)
@@ -68,7 +68,7 @@ impl TUI {
             self.ui.view.user_scrolled = false;
         }
 
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     }
 
     /// Push current position to undo stack with bounded capacity
@@ -89,7 +89,7 @@ impl TUI {
                 self.ui.view.scroll_offset_line = prev_scroll;
                 self.ui.view.user_scrolled = true;
                 self.ui.view.last_user_scroll_time = std::time::Instant::now();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 return true;
             }
         }
@@ -126,7 +126,7 @@ impl TUI {
             .view
             .scroll_offset_line
             .saturating_sub(scroll_amount);
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     }
 
     /// Page down (scroll by half viewport height — Vim-style Ctrl+D)
@@ -148,7 +148,7 @@ impl TUI {
             self.ui.view.user_scrolled = false;
         }
 
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     }
 
     /// Page up (scroll by full viewport height)
@@ -162,7 +162,7 @@ impl TUI {
             .view
             .scroll_offset_line
             .saturating_sub(scroll_amount);
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     }
 
     /// Page down (scroll by full viewport height)
@@ -183,7 +183,7 @@ impl TUI {
             self.ui.view.user_scrolled = false;
         }
 
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     }
 
     /// Toggle collapse/expand on selected message
@@ -209,7 +209,7 @@ impl TUI {
                 msg.collapsed = !msg.collapsed;
             }
 
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
         }
     }
 
@@ -224,7 +224,7 @@ impl TUI {
                 msg.tools_expansion = crate::ui::message::ExpansionLevel::Expanded;
             }
         }
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     }
 
     /// Collapse all messages except user messages
@@ -238,7 +238,7 @@ impl TUI {
                 }
             }
         }
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     }
 
     /// Expand all tools in all messages
@@ -248,7 +248,7 @@ impl TUI {
                 msg.tools_expansion = crate::ui::message::ExpansionLevel::Expanded;
             }
         }
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     }
 
     /// Collapse all tools in all messages
@@ -258,7 +258,7 @@ impl TUI {
                 msg.tools_expansion = crate::ui::message::ExpansionLevel::Collapsed;
             }
         }
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     }
 
     /// Scroll the viewport to show the current search match.
@@ -391,7 +391,7 @@ impl TUI {
         self.ui.view.scroll_offset_line = 0;
         self.ui.view.user_scrolled = true;
         self.ui.view.last_user_scroll_time = std::time::Instant::now();
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     }
 
     /// Jump to the bottom of the conversation.
@@ -405,7 +405,7 @@ impl TUI {
         self.ui.view.selected_message = self.session.messages.len().saturating_sub(1);
         self.ui.view.user_scrolled = false;
         self.auto_scroll();
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     }
 }
 

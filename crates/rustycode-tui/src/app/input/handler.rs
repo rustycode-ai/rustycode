@@ -99,7 +99,7 @@ impl TUI {
                     self.overlays.showing_marketplace_browser = false;
                     self.overlays.command_palette.show();
                     self.overlays.command_palette.state_mut().clear_query();
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                     return Ok(());
                 }
                 if self.handle_wizard_input(key)? {
@@ -123,7 +123,7 @@ impl TUI {
                         KeyCode::Esc => {
                             self.sys.compaction.showing_preview = false;
                             self.sys.compaction.pending = false;
-                            self.sys.dirty = true;
+                            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                             return Ok(());
                         }
                         KeyCode::Char('c') | KeyCode::Char('q')
@@ -132,7 +132,7 @@ impl TUI {
                             // Allow Ctrl+C/Ctrl+Q to fall through to global shortcut handler
                         }
                         _ => {
-                            self.sys.dirty = true;
+                            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                             return Ok(());
                         }
                     }
@@ -145,7 +145,7 @@ impl TUI {
                             self.panels.tool_panel.showing_tool_result = false;
                             self.panels.tool_panel.tool_result_show_full = false;
                             self.panels.tool_panel.tool_result_scroll_offset = 0;
-                            self.sys.dirty = true;
+                            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                             return Ok(());
                         }
                         KeyCode::Char('f') | KeyCode::Char('F') => {
@@ -153,7 +153,7 @@ impl TUI {
                             self.panels.tool_panel.tool_result_show_full =
                                 !self.panels.tool_panel.tool_result_show_full;
                             self.panels.tool_panel.tool_result_scroll_offset = 0;
-                            self.sys.dirty = true;
+                            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                             return Ok(());
                         }
                         KeyCode::Up => {
@@ -163,7 +163,7 @@ impl TUI {
                                 .tool_panel
                                 .tool_result_scroll_offset
                                 .saturating_sub(crate::app::TOOL_RESULT_SCROLL_STEP);
-                            self.sys.dirty = true;
+                            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                             return Ok(());
                         }
                         KeyCode::Down => {
@@ -173,7 +173,7 @@ impl TUI {
                                 .tool_panel
                                 .tool_result_scroll_offset
                                 .saturating_add(crate::app::TOOL_RESULT_SCROLL_STEP);
-                            self.sys.dirty = true;
+                            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                             return Ok(());
                         }
                         KeyCode::PageUp => {
@@ -182,7 +182,7 @@ impl TUI {
                                 .tool_panel
                                 .tool_result_scroll_offset
                                 .saturating_sub(self.ui.view.viewport_height);
-                            self.sys.dirty = true;
+                            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                             return Ok(());
                         }
                         KeyCode::PageDown => {
@@ -191,7 +191,7 @@ impl TUI {
                                 .tool_panel
                                 .tool_result_scroll_offset
                                 .saturating_add(self.ui.view.viewport_height);
-                            self.sys.dirty = true;
+                            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                             return Ok(());
                         }
                         KeyCode::Char('j') => {
@@ -200,7 +200,7 @@ impl TUI {
                                 .tool_panel
                                 .tool_result_scroll_offset
                                 .saturating_add(crate::app::TOOL_RESULT_SCROLL_STEP);
-                            self.sys.dirty = true;
+                            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                             return Ok(());
                         }
                         KeyCode::Char('k') => {
@@ -209,7 +209,7 @@ impl TUI {
                                 .tool_panel
                                 .tool_result_scroll_offset
                                 .saturating_sub(crate::app::TOOL_RESULT_SCROLL_STEP);
-                            self.sys.dirty = true;
+                            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                             return Ok(());
                         }
                         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -236,13 +236,13 @@ impl TUI {
                         KeyCode::Up | KeyCode::Char('k') => {
                             self.ui.help_state.scroll_offset =
                                 self.ui.help_state.scroll_offset.saturating_sub(1);
-                            self.sys.dirty = true;
+                            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                             return Ok(());
                         }
                         KeyCode::Down | KeyCode::Char('j') => {
                             self.ui.help_state.scroll_offset =
                                 self.ui.help_state.scroll_offset.saturating_add(1);
-                            self.sys.dirty = true;
+                            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                             return Ok(());
                         }
                         KeyCode::PageUp => {
@@ -251,7 +251,7 @@ impl TUI {
                                 .help_state
                                 .scroll_offset
                                 .saturating_sub(crate::app::HELP_SCROLL_STEP);
-                            self.sys.dirty = true;
+                            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                             return Ok(());
                         }
                         KeyCode::PageDown => {
@@ -260,12 +260,12 @@ impl TUI {
                                 .help_state
                                 .scroll_offset
                                 .saturating_add(crate::app::HELP_SCROLL_STEP);
-                            self.sys.dirty = true;
+                            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                             return Ok(());
                         }
                         KeyCode::Home => {
                             self.ui.help_state.scroll_offset = 0;
-                            self.sys.dirty = true;
+                            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                             return Ok(());
                         }
                         KeyCode::End => {
@@ -275,7 +275,7 @@ impl TUI {
                                 .help_state
                                 .scroll_offset
                                 .saturating_add(crate::app::HELP_SCROLL_STEP * 100);
-                            self.sys.dirty = true;
+                            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                             return Ok(());
                         }
                         KeyCode::Esc => {} // Esc handled by global shortcuts
@@ -358,7 +358,7 @@ impl TUI {
                     && key.modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT)
                 {
                     self.theme.theme_preview.toggle();
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                     return Ok(());
                 }
 
@@ -395,7 +395,7 @@ impl TUI {
 
                 // Handle theme preview input
                 if self.handle_theme_preview_input(key) {
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                     return Ok(());
                 }
 
@@ -404,7 +404,7 @@ impl TUI {
                     if let Some(selected) = self.overlays.model_selector.take_selected() {
                         self.apply_model_switch(&selected);
                     }
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                     return Ok(());
                 }
 
@@ -413,7 +413,7 @@ impl TUI {
                     self.ui.help_state.visible = true;
                     self.ui.help_state.scroll_offset = 0;
                     self.theme.toast_manager.info("Press Esc to close");
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                     return Ok(());
                 }
 
@@ -423,7 +423,7 @@ impl TUI {
                         && self.ui.input_handler.state.lines[0].is_empty();
                     if input_is_empty && !self.session.messages.is_empty() {
                         self.toggle_message_collapse();
-                        self.sys.dirty = true;
+                        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                         return Ok(());
                     }
                 }
@@ -463,7 +463,7 @@ impl TUI {
                                         crate::ui::message::ExpansionLevel::Collapsed;
                                 }
                             }
-                            self.sys.dirty = true;
+                            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                             return Ok(());
                         } else if has_tools {
                             msg.tools_expansion = match msg.tools_expansion {
@@ -472,11 +472,11 @@ impl TUI {
                                 }
                                 _ => crate::ui::message::ExpansionLevel::Collapsed,
                             };
-                            self.sys.dirty = true;
+                            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                             return Ok(());
                         } else if has_thinking {
                             msg.toggle_thinking_expansion();
-                            self.sys.dirty = true;
+                            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                             return Ok(());
                         }
                     }
@@ -490,7 +490,7 @@ impl TUI {
                             self.ui.view.selected_message = 0;
                             self.ui.view.scroll_offset_line = 0;
                             self.ui.view.user_scrolled = true;
-                            self.sys.dirty = true;
+                            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                             return Ok(());
                         }
                         KeyCode::End => {
@@ -499,7 +499,7 @@ impl TUI {
                                 self.session.messages.len().saturating_sub(1);
                             self.ui.view.user_scrolled = false;
                             self.auto_scroll();
-                            self.sys.dirty = true;
+                            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                             return Ok(());
                         }
                         _ => {}
@@ -565,7 +565,7 @@ impl TUI {
                 // Don't reset scroll_offset_line to 0, let it stay where it was
                 // and it will be clamped during next render if necessary.
                 self.dismiss_any_overlay();
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 self.sys.layout_dirty = true;
                 tracing::debug!("Terminal resized to {}x{}", width, height);
             }
@@ -584,7 +584,7 @@ impl TUI {
                 "Processed input event: event={} elapsed_ms={} dirty={} streaming={} tool_panel={} command_palette={} skill_palette={} provider_selector={}",
                 event_summary.as_deref().unwrap_or("unknown"),
                 input_elapsed.as_millis(),
-                self.sys.dirty,
+                self.sys.dirty.is_dirty(),
                 self.session.streaming.is_streaming,
                 self.panels.tool_panel.showing_tool_panel,
                 self.overlays.showing_command_palette,
@@ -636,7 +636,7 @@ impl TUI {
         } else {
             let assistant_msg = Message::assistant(String::new());
             self.session.messages.push(assistant_msg);
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             self.auto_scroll();
         }
     }
@@ -794,7 +794,7 @@ impl TUI {
         }
         self.ui.input_handler.state.insert_char(' ');
         self.sys.input_mode = self.ui.input_handler.state.mode;
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     }
 
     // ========================================================================
@@ -816,7 +816,7 @@ impl TUI {
                     tag_type.display_name()
                 ));
             }
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
         }
         Ok(())
     }
@@ -835,7 +835,7 @@ impl TUI {
                     tag_type.display_name()
                 ));
             }
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
         }
         Ok(())
     }
@@ -857,7 +857,7 @@ impl TUI {
         } else {
             self.add_system_message("Tag filter cleared - showing all messages".to_string());
         }
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     }
 
     /// Clear the tag filter

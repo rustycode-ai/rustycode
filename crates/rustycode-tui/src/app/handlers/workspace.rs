@@ -80,7 +80,7 @@ pub fn handle_workspace_update(tui: &mut TUI, update: WorkspaceUpdate) {
             // percentage, and redrawing every one of them causes the startup
             // stutter we were seeing.
             if old_pct != Some(new_pct) {
-                tui.sys.dirty = true;
+                tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
 
             Some(EventMsg::Workspace(WorkspaceEvent::ScanProgress {
@@ -136,6 +136,6 @@ pub fn handle_slash_command_result(tui: &mut TUI, result: SlashCommandResult) {
             );
         }
     }
-    tui.sys.dirty = true;
+    tui.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     tui.auto_scroll();
 }

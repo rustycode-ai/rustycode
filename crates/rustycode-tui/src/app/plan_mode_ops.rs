@@ -184,7 +184,7 @@ impl TUI {
         }
 
         self.session.plan_mode_banner = banner;
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     }
 
     /// Clear any active plan-mode banner.

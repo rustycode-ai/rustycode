@@ -178,10 +178,10 @@ impl TUI {
             match event {
                 rustycode_mcp::protocol::McpEvent::ProgressNotification { progress, message } => {
                     info!("MCP progress: {}% - {:?}", progress * 100.0, message);
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 }
                 rustycode_mcp::protocol::McpEvent::ToolsListChanged { .. } => {
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 }
                 _ => {}
             }
@@ -480,7 +480,7 @@ impl TUI {
             },
             sys: crate::app::state_model::SystemState {
                 running: true,
-                dirty: true,
+                dirty: crate::app::state_model::DirtyFlags::ALL,
                 layout_dirty: true,
                 needs_full_redraw: false,
                 compaction: crate::app::compaction_state::CompactionState::new(
@@ -740,7 +740,7 @@ impl TUI {
             },
             sys: crate::app::state_model::SystemState {
                 running: true,
-                dirty: true,
+                dirty: crate::app::state_model::DirtyFlags::ALL,
                 layout_dirty: true,
                 needs_full_redraw: false,
                 compaction: crate::app::compaction_state::CompactionState::new(
@@ -940,7 +940,7 @@ impl TUI {
             );
             self.integration.lsp.last_lsp_connected = display_connected;
             self.integration.lsp.last_lsp_servers = lsp_names;
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
         }
 
         self.integration.lsp.last_lsp_refresh = Instant::now();
@@ -1039,7 +1039,7 @@ impl TUI {
                 .update_mcp_status(mcp_connected, mcp_servers.clone());
             self.integration.mcp.last_mcp_connected = mcp_connected;
             self.integration.mcp.last_mcp_servers = mcp_servers;
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
         }
 
         self.integration.mcp.last_mcp_refresh = Instant::now();
@@ -1143,7 +1143,7 @@ impl TUI {
                     "Resumed session '{}' ({} messages, {} min ago)",
                     display_id, session.message_count, session.age_minutes
                 ));
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 tracing::info!(
                     "Resumed session {} ({} messages)",
                     session.session_id,
@@ -1384,7 +1384,7 @@ impl TUI {
             if self.ui.animator.update() {
                 // Only mark dirty if an animation is visible (streaming or active tools)
                 if self.session.streaming.is_streaming || !self.session.active_tools.is_empty() {
-                    self.sys.dirty = true;
+                    self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 }
             }
             let animation_elapsed = animation_start.elapsed();
@@ -1406,7 +1406,7 @@ impl TUI {
             let toast_start = Instant::now();
             let has_active_toasts = self.theme.toast_manager.tick(delta_ms);
             if has_active_toasts {
-                self.sys.dirty = true; // Mark dirty for animation updates
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL); // Mark dirty for animation updates
             }
             let toast_elapsed = toast_start.elapsed();
 
@@ -1415,10 +1415,10 @@ impl TUI {
             // after the auto-dismiss timeout (10s). Without this, the error
             // indicator persists indefinitely when no other state changes occur.
             if self.theme.error_manager.is_showing() {
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             } else if self.overlays.showing_error {
                 self.overlays.showing_error = false;
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
 
             // Phase 2: Poll async sources (ONE item each)
@@ -1439,7 +1439,7 @@ impl TUI {
                         None,
                     );
                 }
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
 
             {
@@ -1462,7 +1462,7 @@ impl TUI {
             // Phase 2.5: Update countdowns (rate limit, agents, etc.)
             let countdown_start = Instant::now();
             if self.update_rate_limit_countdown() {
-                self.sys.dirty = true; // Mark dirty if countdown updated
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL); // Mark dirty if countdown updated
             }
             let countdown_elapsed = countdown_start.elapsed();
 
@@ -1510,7 +1510,8 @@ impl TUI {
 
             let input_poll_elapsed = if elapsed < frame_budget {
                 // Phase 4: Render (only if dirty or layout changed)
-                let should_render = self.sys.dirty || self.sys.layout_dirty || frame_count < 3;
+                let should_render =
+                    self.sys.dirty.is_dirty() || self.sys.layout_dirty || frame_count < 3;
 
                 if should_render {
                     let render_start = Instant::now();
@@ -1524,7 +1525,7 @@ impl TUI {
                         .draw(|f| self.render(f))
                         .context("failed to draw TUI frame")?;
                     frame_count += 1;
-                    self.sys.dirty = false;
+                    self.sys.dirty.clear();
                     self.sys.layout_dirty = false;
                     render_elapsed = render_start.elapsed();
                     rendered = true;
@@ -1591,7 +1592,7 @@ impl TUI {
                     render_elapsed.as_millis(),
                     input_poll_elapsed.as_millis(),
                     input_handle_elapsed.as_millis(),
-                    self.sys.dirty,
+                    self.sys.dirty.is_dirty(),
                     rendered,
                     input_polled,
                     input_handled,
@@ -1699,7 +1700,7 @@ impl TUI {
             self.sys.input_mode = crate::ui::input_state::InputMode::MultiLine;
         }
 
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
         Ok(())
     }
 
@@ -1713,7 +1714,7 @@ impl TUI {
         // Handle /cost locally (needs TUI state not in CommandContext)
         if matches!(parts[0], "/cost" | "/usage") {
             self.handle_cost_command();
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             self.auto_scroll();
             return Ok(());
         }
@@ -1777,7 +1778,7 @@ impl TUI {
                         );
                     }
                 }
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 return Ok(());
             }
 
@@ -1794,7 +1795,7 @@ impl TUI {
                 self.show_planning_banner("Manual");
                 self.add_system_message("Plan mode: switched to planning phase".to_string());
             }
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             self.auto_scroll();
             self.integration
                 .services
@@ -1830,7 +1831,7 @@ impl TUI {
                         .to_string(),
                 );
             }
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             self.auto_scroll();
             if parts.len() > 1 {
                 let task = parts[1..].join(" ");
@@ -1862,7 +1863,7 @@ impl TUI {
                         .to_string(),
                 );
             }
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             self.auto_scroll();
             if parts.len() > 1 {
                 let task = parts[1..].join(" ");
@@ -1881,7 +1882,7 @@ impl TUI {
             self.add_system_message(
                 "💬 ASK mode — tools require approval, full summaries.".to_string(),
             );
-            self.sys.dirty = true;
+            self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             self.auto_scroll();
             if parts.len() > 1 {
                 let task = parts[1..].join(" ");
@@ -1929,7 +1930,7 @@ impl TUI {
                 self.apply_slash_command_effect(effect)?;
                 self.ui.view.user_scrolled = false;
                 self.ui.view.last_total_lines.set(0);
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
                 return Ok(());
             }
         }
@@ -1943,7 +1944,7 @@ impl TUI {
             ));
         }
 
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
         self.auto_scroll();
         Ok(())
     }

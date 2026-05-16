@@ -10,7 +10,7 @@ impl TUI {
     pub fn add_ai_message(&mut self, content: String) {
         let message = Message::assistant(content);
         self.session.messages.push(message);
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
 
         // Mark session recovery dirty for auto-save
         self.mark_session_dirty();
@@ -29,7 +29,7 @@ impl TUI {
     pub fn add_system_message(&mut self, content: String) {
         let message = Message::system(content);
         self.session.messages.push(message);
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
 
         // Mark session recovery dirty for auto-save
         self.mark_session_dirty();
@@ -152,7 +152,7 @@ impl TUI {
             .with_suggestions(suggestions);
         self.theme.error_manager.show(error_display);
         self.overlays.showing_error = true;
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     }
 
     /// Add tools to the last AI message
@@ -160,7 +160,7 @@ impl TUI {
         if let Some(last_msg) = self.session.messages.last_mut() {
             if last_msg.role == crate::ui::message::MessageRole::Assistant {
                 last_msg.tool_executions = Some(tools);
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
         }
     }
@@ -170,7 +170,7 @@ impl TUI {
         if let Some(last_msg) = self.session.messages.last_mut() {
             if last_msg.role == crate::ui::message::MessageRole::Assistant {
                 last_msg.thinking = Some(thinking);
-                self.sys.dirty = true;
+                self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
             }
         }
     }
@@ -492,6 +492,6 @@ impl TUI {
         self.session
             .messages
             .push(Message::assistant(String::new()));
-        self.sys.dirty = true;
+        self.sys.dirty.set(crate::app::state_model::DirtyFlags::ALL);
     }
 }
