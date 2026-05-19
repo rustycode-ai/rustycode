@@ -1,0 +1,35 @@
+name: Trigger CI/CD
+
+on:
+  repository_dispatch:
+    types: [trigger-ci]
+
+jobs:
+  run-ci:
+    if: github.event.client_payload.ref != '' && !startsWith(github.event.client_payload.ref, 'v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout dev repo
+        uses: actions/checkout@v4
+        with:
+          repository: luengnat/rustycode
+          ref: ${{ github.event.client_payload.ref }}
+          token: ${{ secrets.PRIVATE_REPO_PAT }}
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libssl-dev pkg-config
+
+      - name: Build
+        run: cargo build --workspace --locked
+
+      - name: Test
+        run: cargo test --workspace --locked
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Format check
+        run: cargo fmt --all --check

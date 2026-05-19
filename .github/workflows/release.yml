@@ -1,0 +1,201 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to build from dev repo (tag or branch)"
+        required: true
+        default: "main"
+      release_type:
+        description: "Release channel"
+        type: choice
+        options: [stable, nightly]
+        default: stable
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  BINARY_NAME: rustycode
+  DEV_REPO: luengnat/rustycode
+
+jobs:
+  determine-version:
+    name: Determine version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      is_stable: ${{ steps.version.outputs.is_stable }}
+      ref: ${{ steps.version.outputs.ref }}
+    steps:
+      - name: Checkout dev repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.DEV_REPO }}
+          ref: ${{ github.event.inputs.ref }}
+          token: ${{ secrets.PRIVATE_REPO_PAT }}
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "ref=${{ github.event.inputs.ref }}" >> "$GITHUB_OUTPUT"
+
+          if [ "${{ github.event.inputs.release_type }}" = "nightly" ]; then
+            DATE=$(date +%Y%m%d)
+            TAG="nightly-${DATE}"
+            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+            echo "is_stable=false" >> "$GITHUB_OUTPUT"
+          else
+            TAG="v${VERSION}"
+            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+            echo "is_stable=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "Version: $VERSION  Tag: $TAG  Ref: ${{ github.event.inputs.ref }}"
+
+  build:
+    name: Build ${{ matrix.target }}
+    needs: determine-version
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-latest
+            artifact: rustycode-linux-x64
+            ext: .tar.gz
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-latest
+            artifact: rustycode-linux-arm64
+            ext: .tar.gz
+          - target: x86_64-apple-darwin
+            runner: macos-13
+            artifact: rustycode-macos-x64
+            ext: .tar.gz
+          - target: aarch64-apple-darwin
+            runner: macos-latest
+            artifact: rustycode-macos-arm64
+            ext: .tar.gz
+          - target: x86_64-pc-windows-msvc
+            runner: windows-latest
+            artifact: rustycode-windows-x64
+            ext: .zip
+
+    steps:
+      - name: Checkout dev repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.DEV_REPO }}
+          ref: ${{ needs.determine-version.outputs.ref }}
+          token: ${{ secrets.PRIVATE_REPO_PAT }}
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+
+      - name: Install Linux ARM64 cross-compilation tools
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libssl-dev pkg-config
+
+      - name: Install macOS system dependencies
+        if: runner.os == 'macOS'
+        run: brew install protobuf openssl
+
+      - name: Install Windows system dependencies
+        if: runner.os == 'Windows'
+        run: choco install protobuf
+
+      - name: Cache build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-${{ matrix.target }}
+
+      - name: Build (Linux ARM64 cross-compile)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        run: cargo build --release -p rustycode-cli --target ${{ matrix.target }} --locked
+
+      - name: Build (native)
+        if: matrix.target != 'aarch64-unknown-linux-gnu'
+        run: cargo build --release -p rustycode-cli --target ${{ matrix.target }} --locked
+
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar czf ${{ matrix.artifact }}.tar.gz ${{ env.BINARY_NAME }}
+          mv ${{ matrix.artifact }}.tar.gz ${{ github.workspace }}/
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd target/${{ matrix.target }}/release
+          Compress-Archive -Path ${{ env.BINARY_NAME }}.exe -DestinationPath ${{ github.workspace }}/${{ matrix.artifact }}.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}${{ matrix.ext }}
+          if-no-files-found: error
+
+  release:
+    name: Create release
+    needs: [determine-version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout dev repo (for CHANGELOG.md)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.DEV_REPO }}
+          ref: ${{ needs.determine-version.outputs.ref }}
+          token: ${{ secrets.PRIVATE_REPO_PAT }}
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f | sort
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          VERSION="${{ needs.determine-version.outputs.version }}"
+          if grep -q "## \[${VERSION}\]" CHANGELOG.md; then
+            sed -n "/## \[${VERSION}\]/,/## \[/p" CHANGELOG.md | head -n -1 > release_notes.md
+          else
+            echo "Release v${VERSION}" > release_notes.md
+          fi
+
+      - name: Create or update release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.determine-version.outputs.tag }}
+          name: "RustyCode ${{ needs.determine-version.outputs.tag }}"
+          body_path: release_notes.md
+          prerelease: ${{ needs.determine-version.outputs.is_stable == 'false' }}
+          files: |
+            artifacts/rustycode-linux-x64/rustycode-linux-x64.tar.gz
+            artifacts/rustycode-linux-arm64/rustycode-linux-arm64.tar.gz
+            artifacts/rustycode-macos-x64/rustycode-macos-x64.tar.gz
+            artifacts/rustycode-macos-arm64/rustycode-macos-arm64.tar.gz
+            artifacts/rustycode-windows-x64/rustycode-windows-x64.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
