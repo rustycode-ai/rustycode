@@ -100,6 +100,9 @@ jobs:
         with:
           toolchain: stable
           target: ${{ matrix.target }}
+          # Do not set -D warnings for release builds — pre-existing deprecation
+          # warnings in the codebase should not block binary artifact creation.
+          rustflags: ""
 
       - name: Install Linux system dependencies
         if: runner.os == 'Linux'
