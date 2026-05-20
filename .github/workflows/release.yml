@@ -101,23 +101,29 @@ jobs:
           toolchain: stable
           target: ${{ matrix.target }}
 
-      - name: Install Linux ARM64 cross-compilation tools
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
-
       - name: Install Linux system dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libssl-dev pkg-config
+
+      - name: Install Linux ARM64 cross-compilation tools
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          sudo apt-get install -y crossbuild-essential-arm64 || true
 
       - name: Install macOS system dependencies
         if: runner.os == 'macOS'
         run: brew install protobuf openssl
 
-      - name: Install Windows system dependencies
+      - name: Install Windows system dependencies (protoc)
         if: runner.os == 'Windows'
-        run: choco install protobuf
+        shell: pwsh
+        run: |
+          $protocUrl = "https://github.com/protocolbuffers/protobuf/releases/download/v29.5/protoc-29.5-win64.zip"
+          Invoke-WebRequest -Uri $protocUrl -OutFile protoc.zip
+          Expand-Archive -Path protoc.zip -DestinationPath C:\protoc
+          echo "C:\protoc\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          C:\protoc\bin\protoc.exe --version
 
       - name: Cache build artifacts
         uses: Swatinem/rust-cache@v2
@@ -128,7 +134,10 @@ jobs:
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-        run: cargo build --release -p rustycode-cli --target ${{ matrix.target }} --locked
+        run: |
+          export OPENSSL_LIB_DIR=/usr/lib/aarch64-linux-gnu
+          export OPENSSL_INCLUDE_DIR=/usr/include
+          cargo build --release -p rustycode-cli --target ${{ matrix.target }} --locked
 
       - name: Build (native)
         if: matrix.target != 'aarch64-unknown-linux-gnu'
