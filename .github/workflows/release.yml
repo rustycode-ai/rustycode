@@ -113,6 +113,10 @@ jobs:
         run: |
           sudo apt-get install -y gcc-aarch64-linux-gnu
           sudo apt-get install -y crossbuild-essential-arm64 || true
+          # Add ARM64 architecture and install ARM64 OpenSSL dev headers
+          sudo dpkg --add-architecture arm64
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev:arm64
 
       - name: Install macOS system dependencies
         if: runner.os == 'macOS'
@@ -137,10 +141,9 @@ jobs:
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-        run: |
-          export OPENSSL_LIB_DIR=/usr/lib/aarch64-linux-gnu
-          export OPENSSL_INCLUDE_DIR=/usr/include
-          cargo build --release -p rustycode-cli --target ${{ matrix.target }} --locked
+          OPENSSL_LIB_DIR: /usr/lib/aarch64-linux-gnu
+          OPENSSL_INCLUDE_DIR: /usr/include/aarch64-linux-gnu
+        run: cargo build --release -p rustycode-cli --target ${{ matrix.target }} --locked
 
       - name: Build (native)
         if: matrix.target != 'aarch64-unknown-linux-gnu'
