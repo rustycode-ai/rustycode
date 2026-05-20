@@ -106,7 +106,11 @@ jobs:
 
       - name: Install Linux system dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libssl-dev pkg-config
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler pkg-config
+
+      - name: Install Linux x64 OpenSSL headers
+        if: runner.os == 'Linux' && matrix.target != 'aarch64-unknown-linux-gnu'
+        run: sudo apt-get install -y libssl-dev
 
       - name: Install Linux ARM64 cross-compilation tools
         if: matrix.target == 'aarch64-unknown-linux-gnu'
@@ -137,7 +141,7 @@ jobs:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
           CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
           CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++
-          PKG_CONFIG_ALLOW_CROSS: "1"
+          OPENSSL_NO_PKG_CONFIG: "1"
         run: cargo build --release -p rustycode-cli --target ${{ matrix.target }} --locked
 
       - name: Build (native)
