@@ -1,0 +1,151 @@
+name: Test
+
+on:
+  repository_dispatch:
+    types: [trigger-ci]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to build from dev repo"
+        required: true
+        default: "main"
+
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DEV_REPO: luengnat/rustycode
+
+jobs:
+  test:
+    name: Test (${{ matrix.os-label }}, ${{ matrix.toolchain }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            os-label: linux-x64
+            toolchain: stable
+          - runner: ubuntu-latest
+            os-label: linux-x64
+            toolchain: beta
+          - runner: ubuntu-latest
+            os-label: linux-x64
+            toolchain: nightly
+          - runner: macos-latest
+            os-label: macos-arm64
+            toolchain: stable
+          - runner: macos-13
+            os-label: macos-x64
+            toolchain: stable
+          - runner: windows-latest
+            os-label: windows-x64
+            toolchain: stable
+
+    steps:
+      - name: Checkout dev repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.DEV_REPO }}
+          ref: ${{ github.event.client_payload.ref || github.event.inputs.ref || 'main' }}
+          token: ${{ secrets.PRIVATE_REPO_PAT }}
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          rustflags: ""
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libssl-dev pkg-config
+
+      - name: Install system dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install protobuf openssl
+
+      - name: Install system dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $protocUrl = "https://github.com/protocolbuffers/protobuf/releases/download/v29.5/protoc-29.5-win64.zip"
+          Invoke-WebRequest -Uri $protocUrl -OutFile protoc.zip
+          Expand-Archive -Path protoc.zip -DestinationPath C:\protoc
+          echo "C:\protoc\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          C:\protoc\bin\protoc.exe --version
+
+      - name: Cache build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: test-${{ matrix.os-label }}-${{ matrix.toolchain }}
+
+      - name: Build workspace
+        run: cargo build --workspace --locked
+
+      - name: Run workspace tests
+        run: cargo test --workspace --locked
+
+  quality:
+    name: Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout dev repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.DEV_REPO }}
+          ref: ${{ github.event.client_payload.ref || github.event.inputs.ref || 'main' }}
+          token: ${{ secrets.PRIVATE_REPO_PAT }}
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+          rustflags: ""
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libssl-dev pkg-config
+
+      - name: Cache build artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Run clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+  security:
+    name: Security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout dev repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.DEV_REPO }}
+          ref: ${{ github.event.client_payload.ref || github.event.inputs.ref || 'main' }}
+          token: ${{ secrets.PRIVATE_REPO_PAT }}
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          rustflags: ""
+
+      - name: Cache build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: security
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      - name: Run security audit
+        run: cargo audit 2>/dev/null || true
