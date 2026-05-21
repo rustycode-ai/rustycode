@@ -35,7 +35,6 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-          cache: 'pip'
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -51,7 +50,7 @@ jobs:
           if [[ "${{ github.event.inputs.instances_file }}" == http* ]]; then
             curl -L "${{ github.event.inputs.instances_file }}" -o instances.json
           else
-            cp "release-repo/${{ github.event.inputs.instances_file }}" instances.json || \
+            cp "release-repo/${{ github.event.inputs.instances_file }}" instances.json 2>/dev/null || \
             curl -L "https://raw.githubusercontent.com/rustycode-ai/rustycode/main/${{ github.event.inputs.instances_file }}" -o instances.json
           fi
           wc -l instances.json
@@ -61,7 +60,7 @@ jobs:
           if [[ "${{ github.event.inputs.predictions_file }}" == http* ]]; then
             curl -L "${{ github.event.inputs.predictions_file }}" -o predictions.json
           else
-            cp "release-repo/${{ github.event.inputs.predictions_file }}" predictions.json || \
+            cp "release-repo/${{ github.event.inputs.predictions_file }}" predictions.json 2>/dev/null || \
             curl -L "https://raw.githubusercontent.com/rustycode-ai/rustycode/main/${{ github.event.inputs.predictions_file }}" -o predictions.json
           fi
           wc -l predictions.json
@@ -94,22 +93,3 @@ jobs:
           name: swe-bench-results
           path: eval-results.json
           retention-days: 30
-
-      - name: Comment on PR/Issue
-        if: github.event_name == 'pull_request' && always()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            if (fs.existsSync('eval-results.json')) {
-              const results = JSON.parse(fs.readFileSync('eval-results.json', 'utf8'));
-              const resolved = results.filter(r => r.resolved).length;
-              const total = results.length;
-
-              github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: `## SWE-bench Evaluation Results\n\n**Resolved: ${resolved}/${total}**\n\n[View full results](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`
-              });
-            }
