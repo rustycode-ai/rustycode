@@ -43,15 +43,25 @@ case "$ARCH" in
     ;;
 esac
 
+github_api() {
+  curl -fsSL -H "User-Agent: RustyCode-Installer" "$1"
+}
+
 # --- Resolve version ---
 if [ "$NIGHTLY" = 1 ]; then
-  TAG="nightly"
+  TAG=$(github_api "https://api.github.com/repos/${REPO}/releases?per_page=100" \
+    | grep -m 1 '"tag_name": "nightly-' \
+    | sed -E 's/.*"tag_name": "([^"]+)".*/\1/')
 else
-  TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null | grep '"tag_name"' | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
-  if [ -z "$TAG" ]; then
-    echo "Error: could not determine latest version"
-    exit 1
-  fi
+  TAG=$(github_api "https://api.github.com/repos/${REPO}/releases/latest" \
+    | grep '"tag_name"' \
+    | head -1 \
+    | sed -E 's/.*"([^"]+)".*/\1/')
+fi
+
+if [ -z "$TAG" ]; then
+  echo "Error: could not determine release version"
+  exit 1
 fi
 
 FILENAME="rustycode-${PLATFORM}-${ARCH_TAG}.tar.gz"
@@ -76,10 +86,10 @@ curl -fsSL "$URL" -o "${TMPDIR}/${FILENAME}"
 tar xzf "${TMPDIR}/${FILENAME}" -C "$TMPDIR"
 
 # Find the binary in the extracted content
-BINARY_PATH=$(find "$TMPDIR" -name "rustycode*" -type f -perm -u+x | head -1)
+BINARY_PATH=$(find "$TMPDIR" -type f -name "rustycode*" -perm -u+x | head -1)
 if [ -z "$BINARY_PATH" ]; then
   # Try without execute permission (might need chmod)
-  BINARY_PATH=$(find "$TMPDIR" -name "rustycode" -o -name "rustycode-*" | grep -v '.tar.gz' | head -1)
+  BINARY_PATH=$(find "$TMPDIR" -type f \( -name "rustycode" -o -name "rustycode-*" \) | head -1)
 fi
 
 if [ -z "$BINARY_PATH" ]; then
@@ -99,10 +109,8 @@ fi
 
 # --- Verify ---
 INSTALLED="${INSTALL_DIR}/${BINARY_NAME}"
-if command -v "$BINARY_NAME" >/dev/null 2>&1; then
-  VERSION=$("$BINARY_NAME" --version 2>/dev/null || echo "installed")
-  echo "RustyCode installed: ${INSTALLED} (${VERSION})"
-else
-  echo "RustyCode installed to ${INSTALLED}"
+VERSION=$("$INSTALLED" --version 2>/dev/null || echo "installed")
+echo "RustyCode installed: ${INSTALLED} (${VERSION})"
+if ! command -v "$BINARY_NAME" >/dev/null 2>&1; then
   echo "Add ${INSTALL_DIR} to your PATH if it's not already there."
 fi
