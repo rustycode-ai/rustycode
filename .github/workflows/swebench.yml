@@ -1,0 +1,131 @@
+name: SWE-bench
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to build from dev repo (branch or tag)"
+        default: "main"
+      instance-ids:
+        description: "Comma-separated instance IDs (empty = all 8)"
+        default: ""
+      model:
+        description: "Model name"
+        default: "glm-5.1"
+      provider:
+        description: "Provider: zhipu, anthropic, openai"
+        default: "zhipu"
+      max-turns:
+        description: "Max agent turns per instance"
+        default: "30"
+      verify-retries:
+        description: "Verification retry count"
+        default: "1"
+      timeout:
+        description: "Per-instance timeout (seconds)"
+        default: "900"
+
+permissions:
+  contents: read
+
+env:
+  DEV_REPO: luengnat/rustycode
+
+jobs:
+  swebench:
+    name: Run SWE-bench
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout dev repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.DEV_REPO }}
+          ref: ${{ github.event.inputs.ref }}
+          token: ${{ secrets.PRIVATE_REPO_PAT }}
+          path: dev-repo
+
+      - name: Checkout release repo (for data files)
+        uses: actions/checkout@v4
+        with:
+          repository: rustycode-ai/rustycode
+          path: release-repo
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Cache build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: swebench
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler libssl-dev pkg-config
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python deps
+        run: |
+          pip install --quiet numpy cython pytest
+
+      - name: Build bench runner
+        working-directory: dev-repo
+        run: cargo build -p rustycode-bench --locked
+
+      - name: Run SWE-bench
+        working-directory: dev-repo
+        env:
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          ZHIPU_BASE_URL: "https://api.z.ai/api/coding/paas/v4"
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          RUST_LOG: info
+        run: |
+          INSTANCES="release-repo/swebench-8instances.json"
+          IDS_FLAG=""
+          if [ -n "${{ github.event.inputs.instance-ids }}" ]; then
+            IDS_FLAG="--instance-ids ${{ github.event.inputs.instance-ids }}"
+          fi
+
+          cargo run -p rustycode-bench -- swebench \
+            --instances "$INSTANCES" \
+            $IDS_FLAG \
+            --provider ${{ github.event.inputs.provider || 'zhipu' }} \
+            --model ${{ github.event.inputs.model || 'glm-5.1' }} \
+            --max-turns ${{ github.event.inputs.max-turns || '30' }} \
+            --verify-retries ${{ github.event.inputs.verify-retries || '1' }} \
+            --timeout ${{ github.event.inputs.timeout || '900' }} \
+            --output /tmp/swebench-predictions.json \
+            --format json
+
+      - name: Evaluate predictions
+        if: always()
+        working-directory: dev-repo
+        env:
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          ZHIPU_BASE_URL: "https://api.z.ai/api/coding/paas/v4"
+        run: |
+          if [ -f /tmp/swebench-predictions.json ]; then
+            cargo run -p rustycode-bench -- evaluate \
+              --predictions /tmp/swebench-predictions.json \
+              --instances release-repo/swebench-8instances.json \
+              --output /tmp/swebench-eval.json \
+              --format json
+          fi
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: swebench-results
+          path: |
+            /tmp/swebench-predictions.json
+            /tmp/swebench-eval.json
+          retention-days: 90
