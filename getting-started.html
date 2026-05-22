@@ -29,6 +29,7 @@
         <li><a href="#configure">Configure API Keys</a></li>
         <li><a href="#first-run">Your First Run</a></li>
         <li><a href="#tui-basics">TUI Basics</a></li>
+        <li><a href="#web-ui">Web UI</a></li>
         <li><a href="#headless-mode">Headless Mode</a></li>
         <li><a href="#next-steps">Next Steps</a></li>
       </ul>
@@ -38,25 +39,31 @@
     <table>
       <tr><th>Requirement</th><th>Details</th></tr>
       <tr><td>Operating System</td><td>macOS (arm64), Windows (x64), Linux (amd64/arm64)</td></tr>
-      <tr><td>API Key</td><td>Anthropic API key (for Claude) or OpenAI API key</td></tr>
+      <tr><td>API Key</td><td>Anthropic, OpenAI, or any supported provider &mdash; or use Ollama for free local models</td></tr>
       <tr><td>Terminal</td><td>Any modern terminal with 256-color support</td></tr>
     </table>
 
     <h2 id="install">Installation</h2>
 
-    <h3>Download Binary (Recommended)</h3>
-    <p>Download the latest release from <a href="https://github.com/rustycode-ai/rustycode/releases">GitHub Releases</a>:</p>
-
-    <pre><code># macOS (arm64)
-curl -LO https://github.com/rustycode-ai/rustycode/releases/download/v0.1.0/rustycode-macos-arm64.tar.gz
-tar xzf rustycode-macos-arm64.tar.gz
-chmod +x rustycode-macos-arm64
-sudo mv rustycode-macos-arm64 /usr/local/bin/rustycode
+    <h3>One-Line Install (Recommended)</h3>
+    <pre><code># macOS / Linux
+curl -fsSL https://rustycode-ai.github.io/install.sh | sh
 
 # Windows (PowerShell)
-Invoke-WebRequest -Uri https://github.com/rustycode-ai/rustycode/releases/download/v0.1.0/rustycode-windows-x64.zip -OutFile rustycode-windows-x64.zip
-Expand-Archive rustycode-windows-x64.zip
-# Move rustycode-windows-x86_64.exe somewhere in your PATH</code></pre>
+irm https://rustycode-ai.github.io/install.ps1 | iex
+
+# Nightly channel
+curl -fsSL https://rustycode-ai.github.io/install.sh | sh -s -- --nightly</code></pre>
+
+    <h3>Download Binary</h3>
+    <p>Download the latest release from <a href="https://github.com/rustycode-ai/rustycode/releases">GitHub Releases</a>:</p>
+    <table>
+      <tr><th>Platform</th><th>Asset</th></tr>
+      <tr><td>macOS (Apple Silicon)</td><td><code>rustycode-macos-arm64.tar.gz</code></td></tr>
+      <tr><td>Linux (x64)</td><td><code>rustycode-linux-x64.tar.gz</code></td></tr>
+      <tr><td>Linux (arm64)</td><td><code>rustycode-linux-arm64.tar.gz</code></td></tr>
+      <tr><td>Windows (x64)</td><td><code>rustycode-windows-x64.zip</code></td></tr>
+    </table>
 
     <h3>Build from Source</h3>
     <pre><code>git clone https://github.com/rustycode-ai/rustycode.git
@@ -65,8 +72,7 @@ cargo build --release -p rustycode-cli
 # Binary at target/release/rustycode-cli</code></pre>
 
     <h3>Verify Installation</h3>
-    <pre><code>rustycode --version
-# rustycode-cli 0.1.0</code></pre>
+    <pre><code>rustycode --version</code></pre>
 
     <h2 id="configure">Configure API Keys</h2>
     <p>RustyCode reads API keys from environment variables:</p>
@@ -114,8 +120,10 @@ rustycode tui</code></pre>
       <tr><td><code>Escape</code></td><td>Cancel / Go back</td></tr>
       <tr><td><code>Ctrl+C</code></td><td>Stop current operation</td></tr>
       <tr><td><code>Ctrl+Q</code></td><td>Quit RustyCode</td></tr>
-      <tr><td><code>Up/Down</code></td><td>Scroll conversation history</td></tr>
-      <tr><td><code>Tab</code></td><td>Autocomplete file paths</td></tr>
+      <tr><td><code>Ctrl+B</code></td><td>Toggle sidebar</td></tr>
+      <tr><td><code>Ctrl+K</code></td><td>Open command palette</td></tr>
+      <tr><td><code>Ctrl+F</code></td><td>Search messages</td></tr>
+      <tr><td><code>Ctrl+1-9</code></td><td>Switch between sessions</td></tr>
     </table>
 
     <h3>Tool Approvals</h3>
@@ -124,6 +132,25 @@ rustycode tui</code></pre>
       <li><strong>Approve</strong> &mdash; let the tool execute</li>
       <li><strong>Deny</strong> &mdash; block the action</li>
       <li><strong>Auto-approve</strong> &mdash; approve all subsequent actions for this session</li>
+    </ul>
+
+    <h2 id="web-ui">Web UI</h2>
+    <p>RustyCode includes a web-based interface for browser-based development:</p>
+    <pre><code># Start the web server
+rustycode web
+
+# Or start with API server mode
+rustycode serve</code></pre>
+
+    <p>The web UI provides:</p>
+    <ul>
+      <li>Chat interface with streaming responses</li>
+      <li>Session sidebar with multi-session support</li>
+      <li>Tool approval modals</li>
+      <li>Command palette (<code>Ctrl+K</code>)</li>
+      <li>Search across messages</li>
+      <li>Model selector</li>
+      <li>Settings panel</li>
     </ul>
 
     <h2 id="headless-mode">Headless Mode</h2>
@@ -148,9 +175,9 @@ rustycode run --timeout 300 "Implement the full user registration flow"</code></
         <h3>Configuration</h3>
         <p>Customize providers, permissions, and behavior.</p>
       </a>
-      <a class="card" href="tips-and-tricks.html">
-        <h3>Tips &amp; Tricks</h3>
-        <p>Get the most out of RustyCode with advanced patterns.</p>
+      <a class="card" href="skills-mcp-tools.html">
+        <h3>Skills &amp; MCP</h3>
+        <p>Extend RustyCode with skills, MCP servers, and custom tools.</p>
       </a>
     </div>
   </div>
