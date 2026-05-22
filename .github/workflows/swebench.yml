@@ -88,7 +88,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           RUST_LOG: info
         run: |
-          INSTANCES="release-repo/swebench-8instances.json"
+          INSTANCES="../release-repo/swebench-8instances.json"
           IDS_FLAG=""
           if [ -n "${{ github.event.inputs.instance-ids }}" ]; then
             IDS_FLAG="--instance-ids ${{ github.event.inputs.instance-ids }}"
@@ -115,7 +115,7 @@ jobs:
           if [ -f /tmp/swebench-predictions.json ]; then
             cargo run -p rustycode-bench -- evaluate \
               --predictions /tmp/swebench-predictions.json \
-              --instances release-repo/swebench-8instances.json \
+              --instances ../release-repo/swebench-8instances.json \
               --output /tmp/swebench-eval.json \
               --format json
           fi
