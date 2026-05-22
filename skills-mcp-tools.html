@@ -30,13 +30,16 @@
         <li><a href="#creating-skills">Creating Custom Skills</a></li>
         <li><a href="#mcp">Model Context Protocol (MCP)</a></li>
         <li><a href="#installing-mcp">Installing MCP Servers</a></li>
+        <li><a href="#acp">Agent Client Protocol (ACP)</a></li>
+        <li><a href="#a2a">Agent-to-Agent (A2A)</a></li>
         <li><a href="#built-in-tools">Built-in Tools</a></li>
+        <li><a href="#wiki">Wiki &amp; Knowledge</a></li>
         <li><a href="#custom-tools">Creating Custom Tools</a></li>
       </ul>
     </div>
 
     <h2 id="overview">Overview</h2>
-    <p>RustyCode's extensibility comes from three layers:</p>
+    <p>RustyCode's extensibility comes from multiple layers:</p>
 
     <div class="card-grid">
       <div class="card">
@@ -48,8 +51,20 @@
         <p>External tools and data sources connected via the Model Context Protocol. Add databases, APIs, and services.</p>
       </div>
       <div class="card">
+        <h3>ACP Server</h3>
+        <p>Agent Client Protocol server for IDE integration. Lets editors like VS Code and JetBrains connect to RustyCode.</p>
+      </div>
+      <div class="card">
+        <h3>A2A Protocol</h3>
+        <p>Agent-to-Agent communication over HTTP/JSON-RPC. Coordinate multiple AI agents on complex tasks.</p>
+      </div>
+      <div class="card">
         <h3>Built-in Tools</h3>
-        <p>File editing, shell execution, search, LSP &mdash; always available, no setup needed.</p>
+        <p>File editing, shell execution, search, LSP, web fetch &mdash; always available, no setup needed.</p>
+      </div>
+      <div class="card">
+        <h3>Wiki</h3>
+        <p>Built-in knowledge base with full-text search, citations, and cross-session memory.</p>
       </div>
     </div>
 
@@ -153,7 +168,7 @@ tags:
 │  RustyCode   │ ◄───────────────► │  MCP Server   │
 │  (Client)    │                   │  (e.g., Postgres)
 └─────────────┘                   └──────────────┘</code></pre>
-    <p>RustyCode starts MCP servers as subprocesses and communicates via JSON-RPC over stdio (or HTTP/SSE for remote servers).</p>
+    <p>RustyCode starts MCP servers as subprocesses and communicates via JSON-RPC over stdio (or HTTP/SSE for remote servers). Discovered MCP tools are wrapped as native <code>Tool</code> trait implementations via <code>McpToolBridge</code>.</p>
 
     <h2 id="installing-mcp">Installing MCP Servers</h2>
     <p>Configure MCP servers in your config file:</p>
@@ -189,29 +204,52 @@ transport = "sse"
 url = "https://mcp.example.com/v1/sse"
 headers = { Authorization = "Bearer your-token" }</code></pre>
 
-    <h3>Prerequisites for MCP Servers</h3>
-    <p>Most MCP servers are Node.js packages. You need:</p>
-    <pre><code># Install Node.js (if not already installed)
-brew install node        # macOS
-# or use nvm, fnm, etc.
-
-# MCP servers are auto-installed via npx on first use
-# No separate install step needed</code></pre>
-
     <div class="tip">
       <strong>Tip:</strong> Use <code>npx -y</code> in the command to auto-install the MCP package on first run. This avoids a separate install step.
     </div>
 
     <h3>Popular MCP Servers</h3>
     <table>
-      <tr><th>Server</th><th>What It Provides</th><th>Install Command</th></tr>
-      <tr><td><code>@modelcontextprotocol/server-postgres</code></td><td>Query PostgreSQL databases</td><td><code>npx -y @modelcontextprotocol/server-postgres</code></td></tr>
-      <tr><td><code>@modelcontextprotocol/server-filesystem</code></td><td>Controlled file access</td><td><code>npx -y @modelcontextprotocol/server-filesystem</code></td></tr>
-      <tr><td><code>@modelcontextprotocol/server-github</code></td><td>GitHub API (issues, PRs, repos)</td><td><code>npx -y @modelcontextprotocol/server-github</code></td></tr>
-      <tr><td><code>@modelcontextprotocol/server-gitlab</code></td><td>GitLab API</td><td><code>npx -y @modelcontextprotocol/server-gitlab</code></td></tr>
-      <tr><td><code>@modelcontextprotocol/server-brave-search</code></td><td>Web search via Brave</td><td><code>npx -y @modelcontextprotocol/server-brave-search</code></td></tr>
-      <tr><td><code>@modelcontextprotocol/server-memory</code></td><td>Persistent key-value memory</td><td><code>npx -y @modelcontextprotocol/server-memory</code></td></tr>
+      <tr><th>Server</th><th>What It Provides</th></tr>
+      <tr><td><code>@modelcontextprotocol/server-postgres</code></td><td>Query PostgreSQL databases</td></tr>
+      <tr><td><code>@modelcontextprotocol/server-filesystem</code></td><td>Controlled file access</td></tr>
+      <tr><td><code>@modelcontextprotocol/server-github</code></td><td>GitHub API (issues, PRs, repos)</td></tr>
+      <tr><td><code>@modelcontextprotocol/server-gitlab</code></td><td>GitLab API</td></tr>
+      <tr><td><code>@modelcontextprotocol/server-brave-search</code></td><td>Web search via Brave</td></tr>
+      <tr><td><code>@modelcontextprotocol/server-memory</code></td><td>Persistent key-value memory</td></tr>
     </table>
+
+    <h2 id="acp">Agent Client Protocol (ACP)</h2>
+    <p>RustyCode includes an <strong>ACP server</strong> for IDE integration. ACP lets editors like VS Code and JetBrains connect to RustyCode as a coding agent.</p>
+
+    <h3>How ACP Works</h3>
+    <pre><code>┌─────────────┐     ACP (JSON-RPC)     ┌──────────────┐
+│  IDE/Editor  │ ◄─────────────────────► │  RustyCode    │
+│  (VS Code)   │                         │  (ACP Server) │
+└─────────────┘                         └──────────────┘</code></pre>
+
+    <p>The ACP server handles session lifecycle, tool approvals, and streaming responses. It reads model and provider settings from your RustyCode config.</p>
+
+    <h3>Starting the ACP Server</h3>
+    <pre><code># Start RustyCode with ACP enabled
+rustycode serve</code></pre>
+
+    <h2 id="a2a">Agent-to-Agent (A2A)</h2>
+    <p>RustyCode supports the <strong>A2A protocol</strong> for inter-agent communication over HTTP/JSON-RPC. This enables multi-agent coordination where different AI agents collaborate on complex tasks.</p>
+
+    <h3>How A2A Works</h3>
+    <pre><code>┌──────────────┐     A2A (HTTP/JSON-RPC)     ┌──────────────┐
+│  RustyCode    │ ◄──────────────────────────► │  Other Agent  │
+│  (A2A Server) │                              │  (any A2A)    │
+└──────────────┘                              └──────────────┘</code></pre>
+
+    <p>The A2A server uses a 3-phase state machine for task execution. Agent capabilities are advertised via an agent card at <code>/.well-known/agent-card.json</code>.</p>
+
+    <h3>Configuration</h3>
+    <pre><code># Enable A2A in config.toml
+[a2a]
+enabled = true
+port = 8080</code></pre>
 
     <h2 id="built-in-tools">Built-in Tools</h2>
     <p>These tools are always available without any configuration:</p>
@@ -255,6 +293,24 @@ brew install node        # macOS
       <tr><td><code>web_fetch</code></td><td>Fetch web content with optional prompt for focused extraction</td></tr>
     </table>
 
+    <h2 id="wiki">Wiki &amp; Knowledge</h2>
+    <p>RustyCode includes a built-in wiki for persistent knowledge across sessions:</p>
+
+    <h3>Features</h3>
+    <ul>
+      <li><strong>Full-text search</strong> via SQLite FTS5</li>
+      <li><strong>Citation tracking</strong> &mdash; link wiki pages to source files and decisions</li>
+      <li><strong>Categorized pages</strong> &mdash; architecture, decisions, patterns, debugging, conventions</li>
+      <li><strong>Cross-session persistence</strong> &mdash; knowledge survives session restarts</li>
+    </ul>
+
+    <h3>Wiki Location</h3>
+    <pre><code># Project wiki
+.rustycode/wiki/
+
+# User-level wiki
+~/.rustycode/wiki/</code></pre>
+
     <h2 id="custom-tools">Creating Custom Tools</h2>
     <p>You can extend RustyCode with custom tools by implementing the <code>ToolExecutor</code> trait from <code>rustycode-tools-api</code>:</p>
 
@@ -265,7 +321,7 @@ use rustycode_tools_api::{ToolExecutor, ToolResult, ToolContext};
 pub struct MyTool;
 
 impl ToolExecutor for MyTool {
-    fn name(&self) -> &amp;str {
+    fn name(&amp;str) -> &amp;str {
         "my_tool"
     }
 
