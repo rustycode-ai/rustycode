@@ -28,8 +28,13 @@
         <li><a href="#full-config">Full Config Reference</a></li>
         <li><a href="#anthropic">Anthropic Claude Setup</a></li>
         <li><a href="#openai">OpenAI GPT Setup</a></li>
+        <li><a href="#google">Google Gemini Setup</a></li>
+        <li><a href="#bedrock">Amazon Bedrock Setup</a></li>
+        <li><a href="#azure">Azure OpenAI Setup</a></li>
         <li><a href="#ollama">Ollama (Local) Setup</a></li>
+        <li><a href="#other-providers">Other Providers</a></li>
         <li><a href="#custom-endpoints">Custom Endpoints</a></li>
+        <li><a href="#mcp-servers">MCP Server Configuration</a></li>
         <li><a href="#environment-variables">Environment Variables</a></li>
         <li><a href="#tool-permissions">Tool Permissions</a></li>
         <li><a href="#orchestration">Orchestration Tuning</a></li>
@@ -60,19 +65,16 @@
 
 [provider]
 # Which provider to use by default
-# Options: "anthropic", "openai", "ollama"
+# Options: "anthropic", "openai", "google", "bedrock",
+#          "azure", "ollama", "cohere", "mistral", "litert"
 default = "anthropic"
 
 # ── Anthropic Claude ───────────────────────────────────────
 
 [provider.anthropic]
-# Environment variable holding your API key
 api_key_env = "ANTHROPIC_API_KEY"
-# Model to use
 model = "claude-sonnet-4-6"
-# Maximum tokens in the response
 max_tokens = 8192
-# Temperature (0.0 = deterministic, 1.0 = creative)
 temperature = 0.0
 # Optional: custom base URL (for proxies)
 # base_url = "https://api.anthropic.com"
@@ -89,38 +91,67 @@ temperature = 0.0
 # Optional: organization ID
 # organization = "org-..."
 
+# ── Google Gemini ──────────────────────────────────────────
+
+[provider.google]
+api_key_env = "GOOGLE_API_KEY"
+model = "gemini-2.5-pro"
+max_tokens = 8192
+
+# ── Amazon Bedrock ─────────────────────────────────────────
+
+[provider.bedrock]
+# Uses AWS credentials (AWS_ACCESS_KEY_ID, etc.)
+model = "anthropic.claude-sonnet-4-20250514"
+region = "us-east-1"
+
+# ── Azure OpenAI ───────────────────────────────────────────
+
+[provider.azure]
+api_key_env = "AZURE_OPENAI_API_KEY"
+base_url = "https://your-resource.openai.azure.com"
+deployment = "gpt-4o"
+api_version = "2024-08-01"
+
 # ── Ollama (Local LLM) ────────────────────────────────────
 
 [provider.ollama]
 base_url = "http://localhost:11434"
 model = "codellama"
-# No API key needed for local models
+
+# ── Other Providers ────────────────────────────────────────
+
+[provider.cohere]
+api_key_env = "COHERE_API_KEY"
+model = "command-r-plus"
+
+[provider.mistral]
+api_key_env = "MISTRAL_API_KEY"
+model = "mistral-large-latest"
+
+# ── MCP Servers ────────────────────────────────────────────
+
+[[mcp_server]]
+name = "postgres"
+transport = "stdio"
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/mydb"]
 
 # ── Orchestration ──────────────────────────────────────────
 
 [orchestration]
-# Max reasoning iterations before stopping
 max_iterations = 3
-# Max tool calls per autonomous task
 max_tool_turns = 25
-# Total wall-clock timeout in seconds
 wall_clock_timeout_secs = 900
-# Minimum tool calls before considering the task done
 min_tool_calls_to_stop = 5
 
 # ── Permissions ────────────────────────────────────────────
 
 [permissions]
-# Files that require explicit approval to read or edit
 protected_paths = [
-    ".env",
-    "credentials.json",
-    "id_rsa",
-    "*.pem",
-    "Cargo.toml",
-    "package.json",
+    ".env", "credentials.json", "id_rsa", "*.pem",
+    "Cargo.toml", "package.json",
 ]
-# Commands that run without asking for approval
 auto_approve_commands = [
     "ls", "cat", "head", "tail", "wc",
     "find", "grep", "git status", "git log", "git diff",
@@ -176,23 +207,75 @@ api_key_env = "MY_PROXY_API_KEY"</code></pre>
       <tr><th>Model</th><th>Best For</th><th>Notes</th></tr>
       <tr><td><code>gpt-4o</code></td><td>General purpose coding</td><td>Best OpenAI model for code</td></tr>
       <tr><td><code>gpt-4o-mini</code></td><td>Quick tasks</td><td>Cheaper, faster</td></tr>
-      <tr><td><code>gpt-4-turbo</code></td><td>Longer context</td><td>128K context window</td></tr>
+      <tr><td><code>o3</code></td><td>Complex reasoning</td><td>Strongest reasoning model</td></tr>
     </table>
 
     <h3>4. Configure</h3>
-    <pre><code># Switch default provider to OpenAI
-[provider]
+    <pre><code>[provider]
 default = "openai"
 
 [provider.openai]
 model = "gpt-4o"</code></pre>
 
     <h3>5. OpenAI-Compatible Endpoints</h3>
-    <p>Works with any OpenAI-compatible API (Azure OpenAI, Together AI, Groq, etc.):</p>
+    <p>Works with any OpenAI-compatible API (Together AI, Groq, LiteLLM, etc.):</p>
     <pre><code>[provider.openai]
 base_url = "https://api.groq.com/openai/v1"
 api_key_env = "GROQ_API_KEY"
 model = "llama-3.1-70b-versatile"</code></pre>
+
+    <h2 id="google">Google Gemini Setup</h2>
+
+    <h3>1. Get an API Key</h3>
+    <p>Visit <a href="https://aistudio.google.com/apikey">Google AI Studio</a> and create an API key.</p>
+
+    <h3>2. Set the Key</h3>
+    <pre><code>export GOOGLE_API_KEY="AIza..."</code></pre>
+
+    <h3>3. Configure</h3>
+    <pre><code>[provider]
+default = "google"
+
+[provider.google]
+model = "gemini-2.5-pro"</code></pre>
+
+    <h2 id="bedrock">Amazon Bedrock Setup</h2>
+
+    <h3>1. Configure AWS Credentials</h3>
+    <pre><code># Using AWS CLI
+aws configure
+
+# Or set environment variables
+export AWS_ACCESS_KEY_ID="AKIA..."
+export AWS_SECRET_ACCESS_KEY="..."
+export AWS_REGION="us-east-1"</code></pre>
+
+    <h3>2. Configure</h3>
+    <pre><code>[provider]
+default = "bedrock"
+
+[provider.bedrock]
+model = "anthropic.claude-sonnet-4-20250514"
+region = "us-east-1"</code></pre>
+
+    <div class="tip">
+      <strong>Tip:</strong> Bedrock supports Claude models, Amazon Titan, and other foundation models. Use the Bedrock model ID format: <code>provider.model-name</code>.
+    </div>
+
+    <h2 id="azure">Azure OpenAI Setup</h2>
+
+    <h3>1. Get Credentials</h3>
+    <p>You need an Azure OpenAI resource with a deployed model. See <a href="https://learn.microsoft.com/en-us/azure/ai-services/openai/">Azure OpenAI docs</a>.</p>
+
+    <h3>2. Configure</h3>
+    <pre><code>[provider]
+default = "azure"
+
+[provider.azure]
+api_key_env = "AZURE_OPENAI_API_KEY"
+base_url = "https://your-resource.openai.azure.com"
+deployment = "gpt-4o"
+api_version = "2024-08-01"</code></pre>
 
     <h2 id="ollama">Ollama (Local LLM) Setup</h2>
     <p>Run models locally with no API costs. Great for offline work or sensitive codebases.</p>
@@ -222,14 +305,25 @@ model = "codellama"</code></pre>
       <strong>Note:</strong> Local models are less capable than Claude or GPT-4 for complex tasks. They work best for small, well-scoped edits and quick lookups.
     </div>
 
+    <h2 id="other-providers">Other Providers</h2>
+
+    <h3>Cohere</h3>
+    <pre><code>[provider.cohere]
+api_key_env = "COHERE_API_KEY"
+model = "command-r-plus"</code></pre>
+
+    <h3>Mistral</h3>
+    <pre><code>[provider.mistral]
+api_key_env = "MISTRAL_API_KEY"
+model = "mistral-large-latest"</code></pre>
+
+    <h3>LiteRT (Google Edge)</h3>
+    <pre><code>[provider.litert]
+api_key_env = "GOOGLE_API_KEY"
+model = "gemini-2.0-flash-lite"</code></pre>
+
     <h2 id="custom-endpoints">Custom Endpoints</h2>
     <p>Any provider with an OpenAI-compatible API works by setting <code>base_url</code>:</p>
-
-    <h3>Azure OpenAI</h3>
-    <pre><code>[provider.openai]
-base_url = "https://your-resource.openai.azure.com/openai/deployments/your-deployment"
-api_key_env = "AZURE_OPENAI_API_KEY"
-model = "gpt-4o"</code></pre>
 
     <h3>Together AI</h3>
     <pre><code>[provider.openai]
@@ -243,11 +337,39 @@ base_url = "https://api.groq.com/openai/v1"
 api_key_env = "GROQ_API_KEY"
 model = "llama-3.1-70b-versatile"</code></pre>
 
+    <h3>LiteLLM Proxy</h3>
+    <pre><code>[provider.openai]
+base_url = "http://localhost:4000/v1"
+api_key_env = "LITELLM_KEY"
+model = "claude-sonnet-4-6"</code></pre>
+
+    <h2 id="mcp-servers">MCP Server Configuration</h2>
+    <p>Add MCP servers to give RustyCode access to external tools and data. See <a href="skills-mcp-tools.html#mcp">Skills &amp; MCP</a> for the full guide.</p>
+
+    <h3>Example: PostgreSQL + GitHub</h3>
+    <pre><code>[[mcp_server]]
+name = "postgres"
+transport = "stdio"
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/mydb"]
+
+[[mcp_server]]
+name = "github"
+transport = "stdio"
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-github"]
+env = { GITHUB_PERSONAL_ACCESS_TOKEN = "ghp_..." }</code></pre>
+
     <h2 id="environment-variables">Environment Variables</h2>
     <table>
       <tr><th>Variable</th><th>Description</th><th>Example</th></tr>
       <tr><td><code>ANTHROPIC_API_KEY</code></td><td>Anthropic API key</td><td><code>sk-ant-api03-...</code></td></tr>
       <tr><td><code>OPENAI_API_KEY</code></td><td>OpenAI API key</td><td><code>sk-...</code></td></tr>
+      <tr><td><code>GOOGLE_API_KEY</code></td><td>Google Gemini API key</td><td><code>AIza...</code></td></tr>
+      <tr><td><code>AWS_ACCESS_KEY_ID</code></td><td>AWS credential (for Bedrock)</td><td><code>AKIA...</code></td></tr>
+      <tr><td><code>AWS_REGION</code></td><td>AWS region (for Bedrock)</td><td><code>us-east-1</code></td></tr>
+      <tr><td><code>COHERE_API_KEY</code></td><td>Cohere API key</td><td><code>...</code></td></tr>
+      <tr><td><code>MISTRAL_API_KEY</code></td><td>Mistral API key</td><td><code>...</code></td></tr>
       <tr><td><code>RUSTYCODE_PROVIDER</code></td><td>Override default provider</td><td><code>ollama</code></td></tr>
       <tr><td><code>RUSTYCODE_MODEL</code></td><td>Override default model</td><td><code>claude-opus-4-7</code></td></tr>
       <tr><td><code>RUSTYCODE_CONFIG</code></td><td>Path to config file</td><td><code>/path/to/config.toml</code></td></tr>
