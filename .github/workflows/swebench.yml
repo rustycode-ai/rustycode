@@ -116,8 +116,7 @@ jobs:
             cargo run -p rustycode-bench -- evaluate \
               --predictions /tmp/swebench-predictions.json \
               --instances ../release-repo/swebench-8instances.json \
-              --output /tmp/swebench-eval.json \
-              --format json
+              --output /tmp/swebench-eval.json
           fi
 
       - name: Upload results
