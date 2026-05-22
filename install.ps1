@@ -11,17 +11,27 @@ $ErrorActionPreference = "Stop"
 
 $Repo = "rustycode-ai/rustycode"
 $BinaryName = "rustycode.exe"
+$Headers = @{
+    "User-Agent" = "RustyCode-Installer"
+}
+
+function Get-LatestNightlyTag {
+    $Releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases?per_page=100" -Headers $Headers
+    $NightlyRelease = $Releases | Where-Object { $_.tag_name -like "nightly-*" } | Select-Object -First 1
+    return $NightlyRelease.tag_name
+}
 
 # Resolve version
 if ($Nightly) {
-    $Tag = "nightly"
+    $Tag = Get-LatestNightlyTag
 } else {
-    $Latest = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest"
+    $Latest = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -Headers $Headers
     $Tag = $Latest.tag_name
-    if (-not $Tag) {
-        Write-Error "Could not determine latest version"
-        exit 1
-    }
+}
+
+if (-not $Tag) {
+    Write-Error "Could not determine release version"
+    exit 1
 }
 
 Write-Host "Installing RustyCode $Tag for Windows x64..."
@@ -35,13 +45,13 @@ New-Item -ItemType Directory -Path $TempDir | Out-Null
 
 $ZipPath = Join-Path $TempDir $Filename
 Write-Host "Downloading $Url..."
-Invoke-WebRequest -Uri $Url -OutFile $ZipPath
+Invoke-WebRequest -Uri $Url -OutFile $ZipPath -Headers $Headers
 
 # Extract
 Expand-Archive -Path $ZipPath -DestinationPath $TempDir -Force
 
 # Find the binary
-$Binary = Get-ChildItem -Path $TempDir -Filter "*.exe" -Recurse | Where-Object { $_.Name -like "rustycode*" } | Select-Object -First 1
+$Binary = Get-ChildItem -Path $TempDir -Recurse -File | Where-Object { $_.Name -like "rustycode*" -and $_.Extension -eq ".exe" } | Select-Object -First 1
 
 if (-not $Binary) {
     Write-Error "Could not find rustycode binary in archive"
