@@ -27,9 +27,11 @@
         <li><a href="#effective-prompts">Writing Effective Prompts</a></li>
         <li><a href="#workflow-patterns">Workflow Patterns</a></li>
         <li><a href="#project-context">Setting Up Project Context</a></li>
+        <li><a href="#multi-provider">Using Multiple Providers</a></li>
         <li><a href="#debugging">Debugging with RustyCode</a></li>
         <li><a href="#refactoring">Refactoring Large Codebases</a></li>
         <li><a href="#performance">Performance Tips</a></li>
+        <li><a href="#protocols">Using MCP, ACP &amp; A2A</a></li>
         <li><a href="#common-issues">Common Issues &amp; Solutions</a></li>
       </ul>
     </div>
@@ -82,6 +84,15 @@ Don't implement the function yet."
 Focus on: error handling, SQL injection risks, and missing input validation.
 Don't make changes &mdash; just list the issues."</code></pre>
 
+    <h3>Autonomous Mode for Large Tasks</h3>
+    <pre><code># Let RustyCode plan and execute a multi-step task
+rustycode run "Implement a complete user registration flow:
+1. Create User model and migration
+2. Add POST /api/register endpoint with validation
+3. Add email verification token generation
+4. Write integration tests
+5. Verify everything compiles and tests pass"</code></pre>
+
     <h2 id="project-context">Setting Up Project Context</h2>
 
     <h3>CLAUDE.md / Project Instructions</h3>
@@ -107,6 +118,29 @@ This is a Rust web API using Axum with a PostgreSQL database.
       RustyCode automatically reads <code>CLAUDE.md</code> when it opens your project, so it understands your conventions from the start.
     </div>
 
+    <h2 id="multi-provider">Using Multiple Providers</h2>
+
+    <h3>Switch Providers Per Task</h3>
+    <pre><code># Use Claude for complex reasoning
+rustycode run --provider anthropic --model claude-opus-4-7 \
+  "Design the database schema for a multi-tenant SaaS app"
+
+# Use a cheaper model for simple edits
+rustycode run --provider anthropic --model claude-haiku-4-5 \
+  "Fix the typo in the README"
+
+# Use a local model for offline work
+rustycode run --provider ollama "Format this file"</code></pre>
+
+    <h3>Model Selection Guide</h3>
+    <table>
+      <tr><th>Task</th><th>Recommended Model</th><th>Why</th></tr>
+      <tr><td>Quick fixes, simple edits</td><td>Haiku / gpt-4o-mini</td><td>Fast, cheap, good enough</td></tr>
+      <tr><td>Feature development</td><td>Sonnet / gpt-4o</td><td>Best balance of speed and quality</td></tr>
+      <tr><td>Architecture, debugging</td><td>Opus / o3</td><td>Deepest reasoning</td></tr>
+      <tr><td>Offline / sensitive code</td><td>Ollama (local)</td><td>No data leaves your machine</td></tr>
+    </table>
+
     <h2 id="debugging">Debugging with RustyCode</h2>
 
     <h3>Paste Error Messages</h3>
@@ -121,6 +155,10 @@ Help me fix it."</code></pre>
     <pre><code>"Users are reporting 500 errors on the /api/orders endpoint.
 Look at the handler code and database queries to find the root cause.
 Don't fix it yet &mdash; just tell me what's wrong."</code></pre>
+
+    <h3>Use LSP Tools for Navigation</h3>
+    <pre><code>"Use lsp_references to find all callers of process_payment,
+then show me the call hierarchy with lsp_incoming_calls."</code></pre>
 
     <h2 id="refactoring">Refactoring Large Codebases</h2>
 
@@ -143,20 +181,43 @@ Update every call site."</code></pre>
 
     <h2 id="performance">Performance Tips</h2>
 
-    <h3>Use the Right Model</h3>
-    <table>
-      <tr><th>Task</th><th>Recommended Model</th><th>Why</th></tr>
-      <tr><td>Quick fixes, simple edits</td><td>Haiku</td><td>Fast, cheap, good enough</td></tr>
-      <tr><td>Feature development</td><td>Sonnet</td><td>Best balance of speed and quality</td></tr>
-      <tr><td>Architecture, debugging</td><td>Opus</td><td>Deepest reasoning</td></tr>
-    </table>
-
     <h3>Reduce Context Noise</h3>
     <pre><code># Instead of reading the whole project
 "Focus only on src/auth/ and src/middleware/. Ignore everything else."
 
 # Be explicit about what to skip
 "Don't read test files or generated code. Only look at src/lib/ and src/services/."</code></pre>
+
+    <h3>Use Headless Mode for Automation</h3>
+    <pre><code># Run as part of a CI pipeline
+rustycode run --timeout 120 "Review the staged changes and suggest improvements"
+
+# Batch processing
+for file in src/*.rs; do
+  rustycode run --timeout 60 "Add documentation comments to $file"
+done</code></pre>
+
+    <h2 id="protocols">Using MCP, ACP &amp; A2A</h2>
+
+    <h3>MCP for External Tools</h3>
+    <p>Connect databases, APIs, and services via MCP servers:</p>
+    <pre><code># In .rustycode/config.toml
+[[mcp_server]]
+name = "postgres"
+transport = "stdio"
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/mydb"]</code></pre>
+    <p>Once configured, RustyCode can query your database directly. See <a href="skills-mcp-tools.html#mcp">Skills &amp; MCP</a> for full setup.</p>
+
+    <h3>ACP for IDE Integration</h3>
+    <pre><code># Start the ACP server for IDE connection
+rustycode serve</code></pre>
+
+    <h3>A2A for Multi-Agent Coordination</h3>
+    <pre><code># Enable A2A in config
+[a2a]
+enabled = true
+port = 8080</code></pre>
 
     <h2 id="common-issues">Common Issues &amp; Solutions</h2>
 
@@ -182,6 +243,14 @@ function starting with 'fn handle_request'."</code></pre>
       <li>Use <code>MIN_TOOL_CALLS_TO_STOP = 5</code> (default) to avoid excessive API calls</li>
       <li>Reduce <code>MAX_TOOL_TURNS</code> to 15</li>
       <li>Switch to a provider with higher rate limits</li>
+    </ul>
+
+    <h3>MCP server not connecting</h3>
+    <ul>
+      <li>Ensure Node.js is installed (<code>node --version</code>)</li>
+      <li>Check the command and args in your config</li>
+      <li>Try running the MCP server command manually</li>
+      <li>Check <code>~/.rustycode/logs/</code> for connection errors</li>
     </ul>
   </div>
 
