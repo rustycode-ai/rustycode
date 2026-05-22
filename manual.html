@@ -25,10 +25,13 @@
       <strong>Contents</strong>
       <ul>
         <li><a href="#cli-reference">CLI Reference</a></li>
+        <li><a href="#tui">Terminal UI</a></li>
+        <li><a href="#web-ui">Web UI</a></li>
         <li><a href="#tools">Built-in Tools</a></li>
         <li><a href="#autonomous-mode">Autonomous Mode</a></li>
         <li><a href="#llm-providers">LLM Providers</a></li>
         <li><a href="#permissions">Permission System</a></li>
+        <li><a href="#sandbox">Sandboxing</a></li>
         <li><a href="#benchmark">Benchmark Runner</a></li>
       </ul>
     </div>
@@ -40,6 +43,8 @@
       <tr><th>Command</th><th>Description</th></tr>
       <tr><td><code>rustycode tui</code></td><td>Start the interactive terminal UI</td></tr>
       <tr><td><code>rustycode run &lt;prompt&gt;</code></td><td>Run a task in headless mode</td></tr>
+      <tr><td><code>rustycode web</code></td><td>Start the web-based interface</td></tr>
+      <tr><td><code>rustycode serve</code></td><td>Start the API server (ACP + A2A)</td></tr>
       <tr><td><code>rustycode --version</code></td><td>Show version</td></tr>
       <tr><td><code>rustycode --help</code></td><td>Show help</td></tr>
     </table>
@@ -47,15 +52,58 @@
     <h3>Global Flags</h3>
     <table>
       <tr><th>Flag</th><th>Description</th></tr>
-      <tr><td><code>--provider &lt;name&gt;</code></td><td>LLM provider: anthropic, openai, ollama</td></tr>
-      <tr><td><code>--model &lt;name&gt;</code></td><td>Model name (e.g., claude-sonnet-4-6, gpt-4o)</td></tr>
+      <tr><td><code>--provider &lt;name&gt;</code></td><td>LLM provider: anthropic, openai, google, bedrock, azure, ollama, cohere, mistral</td></tr>
+      <tr><td><code>--model &lt;name&gt;</code></td><td>Model name (e.g., claude-sonnet-4-6, gpt-4o, gemini-2.5-pro)</td></tr>
       <tr><td><code>--timeout &lt;secs&gt;</code></td><td>Wall-clock timeout for headless mode</td></tr>
       <tr><td><code>--config &lt;path&gt;</code></td><td>Path to config file</td></tr>
       <tr><td><code>--no-default-features</code></td><td>Disable default feature flags (build time)</td></tr>
     </table>
 
+    <h2 id="tui">Terminal UI</h2>
+
+    <h3>Keyboard Shortcuts</h3>
+    <table>
+      <tr><th>Key</th><th>Action</th></tr>
+      <tr><td><code>Enter</code></td><td>Send message / Confirm action</td></tr>
+      <tr><td><code>Escape</code></td><td>Cancel / Go back</td></tr>
+      <tr><td><code>Ctrl+C</code></td><td>Stop current operation</td></tr>
+      <tr><td><code>Ctrl+Q</code></td><td>Quit RustyCode</td></tr>
+      <tr><td><code>Ctrl+B</code></td><td>Toggle sidebar</td></tr>
+      <tr><td><code>Ctrl+K</code></td><td>Open command palette</td></tr>
+      <tr><td><code>Ctrl+F</code></td><td>Search messages</td></tr>
+      <tr><td><code>Ctrl+1-9</code></td><td>Switch between sessions</td></tr>
+    </table>
+
+    <h3>Features</h3>
+    <ul>
+      <li>Streaming LLM responses with syntax highlighting</li>
+      <li>Cost tracking per session</li>
+      <li>Multi-session support with tab switching</li>
+      <li>Tool approval prompts with auto-approve option</li>
+      <li>Command palette for quick actions</li>
+    </ul>
+
+    <h2 id="web-ui">Web UI</h2>
+    <p>RustyCode includes a React-based web interface:</p>
+    <pre><code># Start the web server
+rustycode web
+
+# Start with API server mode (ACP + A2A)
+rustycode serve</code></pre>
+
+    <h3>Web UI Features</h3>
+    <ul>
+      <li>Chat interface with streaming responses</li>
+      <li>Session sidebar with multi-session support</li>
+      <li>Tool approval modals</li>
+      <li>Command palette (<code>Ctrl+K</code>)</li>
+      <li>Search across messages</li>
+      <li>Model selector</li>
+      <li>Settings panel</li>
+    </ul>
+
     <h2 id="tools">Built-in Tools</h2>
-    <p>RustyCode provides the LLM with a set of tools to interact with your codebase:</p>
+    <p>RustyCode provides the LLM with 20+ tools to interact with your codebase:</p>
 
     <h3>File Operations</h3>
     <table>
@@ -69,7 +117,7 @@
     <h3>Search &amp; Navigation</h3>
     <table>
       <tr><th>Tool</th><th>Description</th></tr>
-      <tr><td><code>grep</code></td><td>Search file contents with regex. Supports <code>-i</code> (case-insensitive), <code>type</code> (file filter), <code>context</code>, <code>head_limit</code>.</td></tr>
+      <tr><td><code>grep</code></td><td>Search file contents with regex. Supports <code>-i</code>, <code>type</code>, <code>context</code>, <code>head_limit</code>.</td></tr>
       <tr><td><code>glob</code></td><td>Find files matching a glob pattern.</td></tr>
       <tr><td><code>list_directory</code></td><td>List directory contents.</td></tr>
     </table>
@@ -95,6 +143,9 @@
       <tr><th>Tool</th><th>Description</th></tr>
       <tr><td><code>web_fetch</code></td><td>Fetch web content with optional <code>prompt</code> parameter for focused extraction.</td></tr>
     </table>
+
+    <h3>MCP Tools</h3>
+    <p>Any tools discovered from configured MCP servers are automatically available. See <a href="skills-mcp-tools.html#mcp">Skills &amp; MCP</a> for configuration.</p>
 
     <h2 id="autonomous-mode">Autonomous Mode</h2>
     <p>RustyCode's autonomous mode uses structured reasoning to plan and execute multi-step tasks:</p>
@@ -125,10 +176,17 @@
     </ul>
     <p>When stuck, RustyCode surfaces a warning and may ask for clarification.</p>
 
+    <h3>Milestone Sequencing</h3>
+    <p>Large tasks can be broken into milestones with dependencies:</p>
+    <pre><code># Milestones are defined in the plan phase
+# Each milestone contains multiple plans
+# Plans within a milestone can run in parallel
+# Milestones run sequentially based on dependencies</code></pre>
+
     <h2 id="llm-providers">LLM Providers</h2>
 
-    <h3>Anthropic Claude</h3>
-    <p>Recommended provider. Best reasoning quality for code tasks.</p>
+    <h3>Anthropic Claude (Recommended)</h3>
+    <p>Best reasoning quality for code tasks.</p>
     <pre><code>export ANTHROPIC_API_KEY="sk-ant-..."
 rustycode tui --provider anthropic</code></pre>
 
@@ -136,11 +194,30 @@ rustycode tui --provider anthropic</code></pre>
     <pre><code>export OPENAI_API_KEY="sk-..."
 rustycode tui --provider openai</code></pre>
 
+    <h3>Google Gemini</h3>
+    <pre><code>export GOOGLE_API_KEY="AIza..."
+rustycode tui --provider google</code></pre>
+
+    <h3>Amazon Bedrock</h3>
+    <pre><code>aws configure
+rustycode tui --provider bedrock</code></pre>
+
+    <h3>Azure OpenAI</h3>
+    <pre><code>export AZURE_OPENAI_API_KEY="..."
+rustycode tui --provider azure</code></pre>
+
     <h3>Ollama (Local)</h3>
-    <p>Run LLMs locally with no API key required:</p>
     <pre><code>ollama serve
 ollama pull codellama
 rustycode tui --provider ollama</code></pre>
+
+    <h3>Other Providers</h3>
+    <table>
+      <tr><th>Provider</th><th>Flag</th><th>Env Variable</th></tr>
+      <tr><td>Cohere</td><td><code>--provider cohere</code></td><td><code>COHERE_API_KEY</code></td></tr>
+      <tr><td>Mistral</td><td><code>--provider mistral</code></td><td><code>MISTRAL_API_KEY</code></td></tr>
+      <tr><td>LiteRT</td><td><code>--provider litert</code></td><td><code>GOOGLE_API_KEY</code></td></tr>
+    </table>
 
     <h2 id="permissions">Permission System</h2>
     <p>RustyCode validates all operations through its security layer:</p>
@@ -149,12 +226,21 @@ rustycode tui --provider ollama</code></pre>
       <li><strong>Command validation</strong> &mdash; Validates shell commands before execution</li>
       <li><strong>Secret sanitization</strong> &mdash; API keys are stripped from logs and debug output</li>
       <li><strong>Eval blocking</strong> &mdash; Blocks <code>-c</code>/<code>-e</code> flags for interpreters</li>
+      <li><strong>Filename blocking</strong> &mdash; Blocks <code>credentials.json</code>, <code>id_rsa</code>, <code>terraform.tfstate</code>, etc.</li>
     </ul>
 
     <h3>Blocked File Patterns</h3>
     <pre><code>.env, .env.*, credentials.json, config.json,
 id_rsa, id_ed25519, *.pem, *.key,
 terraform.tfstate, *.tfstate.backup</code></pre>
+
+    <h2 id="sandbox">Sandboxing</h2>
+    <p>RustyCode supports OS-level sandboxing for command execution:</p>
+    <table>
+      <tr><th>Platform</th><th>Mechanism</th><th>Description</th></tr>
+      <tr><td>macOS</td><td>Seatbelt</td><td>Apple's sandbox-exec profile restricts file system and network access</td></tr>
+      <tr><td>Linux</td><td>Landlock</td><td>Kernel-level file system access control (kernel 5.13+)</td></tr>
+    </table>
 
     <h2 id="benchmark">Benchmark Runner</h2>
     <p><code>rtk-bench</code> evaluates agent performance on standardized coding tasks:</p>
@@ -171,6 +257,15 @@ cargo run -p rustycode-bench -- --native --include "regex-.*" --timeout 120
 # Output formats
 cargo run -p rustycode-bench -- --native --output json
 cargo run -p rustycode-bench -- --native --report markdown</code></pre>
+
+    <h3>Features</h3>
+    <ul>
+      <li>Native and Docker execution modes</li>
+      <li>Exception-based retry filtering (include/exclude regex)</li>
+      <li>Result history store with diff comparison</li>
+      <li>Multiple output formats: pretty, JSON, CSV, Markdown</li>
+      <li>Composite dataset merging with deduplication</li>
+    </ul>
   </div>
 
   <footer>
