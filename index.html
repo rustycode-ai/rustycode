@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RustyCode - AI-Powered Autonomous Development</title>
+  <meta name="description" content="Rust-native AI-powered autonomous development framework. Multi-provider LLM, TUI, web UI, MCP/ACP/A2A protocols, 20+ tools.">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -23,53 +24,65 @@
       <h1>RustyCode</h1>
       <p>AI-powered autonomous development framework. Built in Rust for speed, reliability, and full control over your codebase.</p>
       <a class="cta" href="getting-started.html">Get Started</a>
-      <a class="cta secondary" href="https://github.com/rustycode-ai/rustycode/releases/tag/v0.1.0">Download v0.1.0</a>
+      <a class="cta secondary" href="https://github.com/rustycode-ai/rustycode/releases/latest">Download</a>
     </div>
+
+    <h2>One-Line Install</h2>
+    <pre><code># macOS / Linux
+curl -fsSL https://rustycode-ai.github.io/install.sh | sh
+
+# Windows (PowerShell)
+irm https://rustycode-ai.github.io/install.ps1 | iex</code></pre>
+
+    <h2>Features</h2>
 
     <div class="features">
       <div class="feature">
         <div class="icon">&#9889;</div>
-        <h3>Blazing Fast</h3>
-        <p>Native Rust binary. No Node.js, no Python runtime. Starts instantly, runs efficiently.</p>
+        <h3>Autonomous Mode</h3>
+        <p>Plan, execute, and verify tasks autonomously with structured reasoning, quality gates, and checkpoint recovery.</p>
       </div>
       <div class="feature">
         <div class="icon">&#129302;</div>
-        <h3>Multi-Provider LLM</h3>
-        <p>Anthropic Claude, OpenAI GPT, Ollama, and more. Switch providers without changing your workflow.</p>
-      </div>
-      <div class="feature">
-        <div class="icon">&#128736;</div>
-        <h3>Autonomous Mode</h3>
-        <p>Let RustyCode plan, execute, and verify tasks autonomously with structured reasoning and quality gates.</p>
+        <h3>12+ LLM Providers</h3>
+        <p>Anthropic Claude, OpenAI GPT, Google Gemini, Amazon Bedrock, Azure, Ollama, Cohere, Mistral, and more.</p>
       </div>
       <div class="feature">
         <div class="icon">&#128187;</div>
         <h3>Terminal UI</h3>
-        <p>Beautiful ratatui-based TUI with real-time streaming, conversation history, and tool execution monitoring.</p>
+        <p>Beautiful ratatui-based TUI with streaming, cost tracking, multi-session support, and keyboard shortcuts.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#127760;</div>
+        <h3>Web UI</h3>
+        <p>React-based web interface with session management, tool approvals, command palette, and search.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128279;</div>
+        <h3>Multi-Protocol</h3>
+        <p>MCP client, ACP server for IDE integration, and A2A for agent-to-agent communication.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128295;</div>
+        <h3>20+ Built-in Tools</h3>
+        <p>File read/write/edit, bash execution, grep, glob, LSP, web fetch, git operations, and notebook editing.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128218;</div>
+        <h3>Skill System</h3>
+        <p>YAML frontmatter-based skill discovery with marketplace integration and dynamic loading.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128209;</div>
+        <h3>Wiki &amp; Learning</h3>
+        <p>Built-in wiki with FTS5 search, knowledge management, and citation tracking across sessions.</p>
       </div>
       <div class="feature">
         <div class="icon">&#128274;</div>
         <h3>Security First</h3>
-        <p>Permission system validates all file and command operations. API keys stay secret. No unsafe code by default.</p>
-      </div>
-      <div class="feature">
-        <div class="icon">&#128640;</div>
-        <h3>Benchmark Suite</h3>
-        <p>Built-in benchmark runner (rtk-bench) for evaluating agent performance on standardized tasks.</p>
+        <p>Permission system, path validation, command sandboxing, secret sanitization, and macOS/Linux sandboxes.</p>
       </div>
     </div>
-
-    <h2>Quick Install</h2>
-    <pre><code># macOS (arm64)
-curl -LO https://github.com/rustycode-ai/rustycode/releases/download/v0.1.0/rustycode-macos-arm64.tar.gz
-tar xzf rustycode-macos-arm64.tar.gz
-chmod +x rustycode-macos-arm64
-sudo mv rustycode-macos-arm64 /usr/local/bin/rustycode
-
-# Windows (x64)
-curl -LO https://github.com/rustycode-ai/rustycode/releases/download/v0.1.0/rustycode-windows-x64.zip
-Expand-Archive rustycode-windows-x64.zip
-# Move rustycode-windows-x86_64.exe to your PATH</code></pre>
 
     <h2>Quick Start</h2>
     <pre><code># Set your API key
@@ -79,35 +92,66 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 rustycode tui
 
 # Or run headless
-rustycode run "Fix the bug in src/main.rs"</code></pre>
+rustycode run "Fix the bug in src/main.rs"
+
+# Start web interface
+rustycode web</code></pre>
 
     <h2>Architecture</h2>
-    <p>RustyCode is organized as a modular workspace of focused crates:</p>
+    <p>RustyCode is a modular workspace of 60+ focused crates:</p>
 
     <div class="card-grid">
       <div class="card">
         <h3>CLI &amp; TUI</h3>
-        <p>Interactive terminal interface with streaming responses, tool monitoring, and keyboard shortcuts.</p>
+        <p>Interactive terminal and web interfaces with streaming, tool monitoring, multi-session, and keyboard shortcuts.</p>
       </div>
       <div class="card">
         <h3>Orchestration</h3>
-        <p>Autonomous execution engine with reasoning loops, quality gates, and strategy management.</p>
+        <p>Autonomous execution with reasoning loops, quality gates, AST pipeline, session handoff, and milestone sequencing.</p>
       </div>
       <div class="card">
         <h3>LLM Providers</h3>
-        <p>Unified provider trait supporting Anthropic, OpenAI, Ollama, and custom endpoints.</p>
+        <p>Unified provider trait supporting 12+ providers with model routing, token budgets, and streaming state management.</p>
       </div>
       <div class="card">
-        <h3>Tools</h3>
-        <p>File editing, bash execution, grep, glob, LSP integration, and extensible tool framework.</p>
+        <h3>Tools &amp; Skills</h3>
+        <p>20+ built-in tools, extensible framework, YAML skills with marketplace, and MCP server discovery.</p>
       </div>
       <div class="card">
-        <h3>Event Bus</h3>
-        <p>Publish/subscribe event system for real-time communication between components.</p>
+        <h3>Protocols</h3>
+        <p>MCP client for tool discovery, ACP server for IDE integration, A2A for inter-agent communication.</p>
       </div>
       <div class="card">
-        <h3>Benchmark</h3>
-        <p>rtk-bench: native and Docker-based benchmark runner for agent evaluation.</p>
+        <h3>Storage &amp; Session</h3>
+        <p>SQLite persistence for sessions, artifacts, handoff history, and wiki. Event bus for real-time pub/sub.</p>
+      </div>
+      <div class="card">
+        <h3>Security</h3>
+        <p>Permission system, path validation, command sandboxing (Seatbelt/landlock), and secret sanitization.</p>
+      </div>
+      <div class="card">
+        <h3>Team &amp; Bench</h3>
+        <p>Multi-agent coordination, task profiling, and rtk-bench for native/Docker benchmark evaluation.</p>
+      </div>
+    </div>
+
+    <h2>Stats</h2>
+    <div class="card-grid">
+      <div class="card" style="text-align:center">
+        <h3>60+</h3>
+        <p>Crates</p>
+      </div>
+      <div class="card" style="text-align:center">
+        <h3>10,000+</h3>
+        <p>Tests</p>
+      </div>
+      <div class="card" style="text-align:center">
+        <h3>650K+</h3>
+        <p>Lines of Rust</p>
+      </div>
+      <div class="card" style="text-align:center">
+        <h3>12+</h3>
+        <p>LLM Providers</p>
       </div>
     </div>
   </div>
