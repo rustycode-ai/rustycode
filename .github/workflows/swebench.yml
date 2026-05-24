@@ -24,6 +24,14 @@ on:
       timeout:
         description: "Per-instance timeout (seconds)"
         default: "900"
+      no-symbol-tools:
+        description: "Disable tree-sitter symbol tools for A/B testing"
+        type: boolean
+        default: false
+      no-thinking-guide:
+        description: "Disable thinking_guide tool for A/B testing"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -103,6 +111,8 @@ jobs:
             --max-turns ${{ github.event.inputs.max-turns || '30' }} \
             --verify-retries ${{ github.event.inputs.verify-retries || '1' }} \
             --timeout ${{ github.event.inputs.timeout || '900' }} \
+            ${{ github.event.inputs.no-symbol-tools == 'true' && '--no-symbol-tools' || '' }} \
+            ${{ github.event.inputs.no-thinking-guide == 'true' && '--no-thinking-guide' || '' }} \
             --output /tmp/swebench-predictions.json \
             --format json
 
@@ -124,7 +134,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: swebench-results
+          name: swebench-results-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             /tmp/swebench-predictions.json
             /tmp/swebench-eval.json
