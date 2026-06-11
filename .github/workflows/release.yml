@@ -20,6 +20,7 @@ env:
   CARGO_TERM_COLOR: always
   BINARY_NAME: rustycode
   DEV_REPO: luengnat/rustycode
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   determine-version:
