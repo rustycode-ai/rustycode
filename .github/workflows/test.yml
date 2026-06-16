@@ -85,10 +85,17 @@ jobs:
           shared-key: test-${{ matrix.os-label }}-${{ matrix.toolchain }}
 
       - name: Build workspace
-        run: cargo build --workspace --locked
+        # rustycode-tauri is a desktop GUI stub; its Tauri 2 build script needs
+        # WebView2 (Windows) tooling not present on Windows runners, so skip it
+        # there. It builds normally on Linux/macOS.
+        env:
+          EXCLUDE_WINDOWS: ${{ runner.os == 'Windows' && '--exclude rustycode-tauri' || '' }}
+        run: cargo build --workspace --locked ${{ env.EXCLUDE_WINDOWS }}
 
       - name: Run workspace tests
-        run: cargo test --workspace --locked
+        env:
+          EXCLUDE_WINDOWS: ${{ runner.os == 'Windows' && '--exclude rustycode-tauri' || '' }}
+        run: cargo test --workspace --locked ${{ env.EXCLUDE_WINDOWS }}
 
   quality:
     name: Quality
