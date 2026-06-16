@@ -19,6 +19,10 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   BINARY_NAME: rustycode
+  # Computer-use MCP backend — shipped alongside the main binary so end users
+  # get desktop-control tools out of the box. Resolved as a sibling binary by
+  # rustycode's MCP backend discovery (sibling-of-exe, then PATH).
+  BINARY2_NAME: rustycode-mcp-computer-use
   DEV_REPO: luengnat/rustycode
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -103,7 +107,14 @@ jobs:
 
       - name: Install Linux system dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler pkg-config libssl-dev
+        # X11/XCB/xtst/xdo libs: rustycode-mcp-computer-use (enigo + xcap), now
+        # shipped in release artifacts. Linux targets are native builds, so the
+        # apt packages match the build arch.
+        run: >
+          sudo apt-get update && sudo apt-get install -y
+          protobuf-compiler pkg-config libssl-dev
+          libxtst-dev libx11-dev libxdo-dev libxkbcommon-dev
+          libxcb1-dev libxcb-randr0-dev libxcb-shape0-dev libxcb-xfixes0-dev
 
       - name: Install macOS system dependencies
         if: runner.os == 'macOS'
@@ -125,20 +136,20 @@ jobs:
           shared-key: release-${{ matrix.target }}
 
       - name: Build
-        run: cargo build --release -p rustycode-cli --target ${{ matrix.target }} --locked
+        run: cargo build --release -p rustycode-cli -p ${{ env.BINARY2_NAME }} --target ${{ matrix.target }} --locked
 
       - name: Package (Unix)
         if: runner.os != 'Windows'
         run: |
           cd target/${{ matrix.target }}/release
-          tar czf ${{ matrix.artifact }}.tar.gz ${{ env.BINARY_NAME }}
+          tar czf ${{ matrix.artifact }}.tar.gz ${{ env.BINARY_NAME }} ${{ env.BINARY2_NAME }}
           mv ${{ matrix.artifact }}.tar.gz ${{ github.workspace }}/
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
         run: |
           cd target/${{ matrix.target }}/release
-          Compress-Archive -Path ${{ env.BINARY_NAME }}.exe -DestinationPath ${{ github.workspace }}/${{ matrix.artifact }}.zip
+          Compress-Archive -Path ${{ env.BINARY_NAME }}.exe, ${{ env.BINARY2_NAME }}.exe -DestinationPath ${{ github.workspace }}/${{ matrix.artifact }}.zip
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
