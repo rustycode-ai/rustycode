@@ -1,0 +1,78 @@
+name: Agent Benchmark
+
+# Runs on the release repo; checks out source from the private dev repo via PAT.
+# Manual dispatch only (no schedule) to keep token usage opt-in.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Dev-repo branch/tag to build from"
+        default: "main"
+      dataset:
+        description: "Dataset name or path"
+        default: "ci-native"
+      agent:
+        description: "Agent type (oracle, code)"
+        default: "oracle"
+      model:
+        description: "Model for code agent"
+        default: "claude-sonnet-4-6"
+      timeout:
+        description: "Per-trial timeout (seconds)"
+        default: "120"
+
+permissions:
+  contents: read
+
+env:
+  DEV_REPO: luengnat/rustycode
+
+defaults:
+  run:
+    working-directory: dev-repo
+
+jobs:
+  benchmark:
+    name: Run Agent Benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout dev repo
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ env.DEV_REPO }}
+          ref: ${{ inputs.ref }}
+          token: ${{ secrets.PRIVATE_REPO_PAT }}
+          path: dev-repo
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Cache build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: dev-repo
+          shared-key: agent-bench
+
+      - name: Build CLI
+        run: cargo build -p rustycode-cli --release --locked
+
+      - name: Run benchmark
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          ./target/release/rustycode bench run \
+            --dataset ${{ inputs.dataset }} \
+            --agent ${{ inputs.agent }} \
+            --model ${{ inputs.model }} \
+            --env native \
+            --timeout ${{ inputs.timeout }} \
+            --output json
+
+      - name: Upload results
+        uses: actions/upload-artifact@v5
+        with:
+          name: bench-results
+          path: dev-repo/bench-results.json
+          retention-days: 90
