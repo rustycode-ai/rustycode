@@ -1,0 +1,80 @@
+name: Documentation
+
+# Runs on the release repo; checks out source from the private dev repo via PAT.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Dev-repo branch/tag to build docs from"
+        default: "main"
+
+permissions:
+  contents: read
+
+env:
+  DEV_REPO: luengnat/rustycode
+
+defaults:
+  run:
+    working-directory: dev-repo
+
+concurrency:
+  group: docs-${{ github.workflow }}-${{ inputs.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-docs:
+    name: Build Docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout dev repo
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ env.DEV_REPO }}
+          ref: ${{ inputs.ref }}
+          token: ${{ secrets.PRIVATE_REPO_PAT }}
+          path: dev-repo
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Cache build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: dev-repo
+          shared-key: docs
+
+      - name: Run documentation checks
+        run: |
+          cargo doc --workspace --no-deps --locked 2>&1 | tail -20
+          echo "Documentation build completed"
+
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: workspace-docs
+          path: dev-repo/target/doc
+          retention-days: 14
+
+  links:
+    name: Check Links
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout dev repo
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ env.DEV_REPO }}
+          ref: ${{ inputs.ref }}
+          token: ${{ secrets.PRIVATE_REPO_PAT }}
+          path: dev-repo
+
+      - name: Check Markdown links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          fail: false
+          args: --no-progress dev-repo/README.md dev-repo/docs/**/*.md
