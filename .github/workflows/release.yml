@@ -37,7 +37,7 @@ jobs:
       ref: ${{ steps.version.outputs.ref }}
     steps:
       - name: Checkout dev repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ env.DEV_REPO }}
           ref: ${{ github.event.inputs.ref }}
@@ -90,7 +90,7 @@ jobs:
 
     steps:
       - name: Checkout dev repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ env.DEV_REPO }}
           ref: ${{ needs.determine-version.outputs.ref }}
@@ -127,8 +127,8 @@ jobs:
           $protocUrl = "https://github.com/protocolbuffers/protobuf/releases/download/v29.5/protoc-29.5-win64.zip"
           Invoke-WebRequest -Uri $protocUrl -OutFile protoc.zip
           Expand-Archive -Path protoc.zip -DestinationPath C:\protoc
-          echo "C:\protoc\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          C:\protoc\bin\protoc.exe --version
+          echo "C:\protocin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          C:\protocin\protoc.exe --version
 
       - name: Cache build artifacts
         uses: Swatinem/rust-cache@v2
@@ -164,7 +164,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout dev repo (for CHANGELOG.md)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ env.DEV_REPO }}
           ref: ${{ needs.determine-version.outputs.ref }}
