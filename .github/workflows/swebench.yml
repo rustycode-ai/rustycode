@@ -46,7 +46,7 @@ jobs:
     timeout-minutes: 180
     steps:
       - name: Checkout dev repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ env.DEV_REPO }}
           ref: ${{ github.event.inputs.ref }}
@@ -54,7 +54,7 @@ jobs:
           path: dev-repo
 
       - name: Checkout release repo (for data files)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: rustycode-ai/rustycode
           path: release-repo
