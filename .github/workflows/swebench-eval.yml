@@ -19,13 +19,13 @@ jobs:
 
     steps:
       - name: Checkout release repo (for artifacts)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: rustycode-ai/rustycode
           path: release-repo
 
       - name: Checkout dev repo (source code)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: luengnat/rustycode
           token: ${{ secrets.PRIVATE_REPO_PAT }}
