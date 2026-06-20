@@ -219,6 +219,82 @@ headers = { Authorization = "Bearer your-token" }</code></pre>
       <tr><td><code>@modelcontextprotocol/server-memory</code></td><td>Persistent key-value memory</td></tr>
     </table>
 
+    <h3>Built-in MCP Servers</h3>
+    <p>RustyCode ships with four MCP server backends that extend the agent's capabilities:</p>
+
+    <table>
+      <tr><th>Server</th><th>Tools</th><th>Description</th></tr>
+      <tr>
+        <td><code>rustycode-mcp-browser</code></td>
+        <td>7</td>
+        <td>Browser automation via Chromium CDP: navigate, screenshot, click, type, evaluate JS, get content/text</td>
+      </tr>
+      <tr>
+        <td><code>rustycode-mcp-docker</code></td>
+        <td>7</td>
+        <td>Docker management: build, run, stop, logs, inspect, images, with path traversal protection</td>
+      </tr>
+      <tr>
+        <td><code>rustycode-mcp-web</code></td>
+        <td>2</td>
+        <td>Web fetch (HTML-to-markdown) and search via Wikipedia, DuckDuckGo, or Exa APIs</td>
+      </tr>
+      <tr>
+        <td><code>rustycode-mcp-computer-use</code></td>
+        <td>15</td>
+        <td>Desktop control: screenshots, click, type, scroll, drag, key press, app listing, surface-aware routing</td>
+      </tr>
+    </table>
+
+    <h3>Computer Use (Desktop Control)</h3>
+    <p>The <code>rustycode-mcp-computer-use</code> server provides agents with desktop control capabilities &mdash; screenshots, input injection (click, type, scroll, drag), and application state inspection. It communicates via JSON-RPC over stdio.</p>
+
+    <h4>15 Tools</h4>
+    <table>
+      <tr><th>Tool</th><th>Description</th></tr>
+      <tr><td><code>list_apps</code></td><td>List running applications with surface classification (terminal, web, gui)</td></tr>
+      <tr><td><code>get_app_state</code></td><td>Get window state, position, and surface routing hints</td></tr>
+      <tr><td><code>screenshot</code></td><td>Capture a screenshot of the screen or a specific region</td></tr>
+      <tr><td><code>click</code></td><td>Click at a screen coordinate</td></tr>
+      <tr><td><code>right_click</code></td><td>Right-click at a screen coordinate</td></tr>
+      <tr><td><code>double_click</code></td><td>Double-click at a screen coordinate</td></tr>
+      <tr><td><code>mouse_move</code></td><td>Move the mouse cursor to a position</td></tr>
+      <tr><td><code>type_text</code></td><td>Type text at the current cursor position</td></tr>
+      <tr><td><code>press_key</code></td><td>Press a keyboard key or key combination</td></tr>
+      <tr><td><code>scroll</code></td><td>Scroll at a screen coordinate</td></tr>
+      <tr><td><code>drag</code></td><td>Drag from one coordinate to another</td></tr>
+      <tr><td><code>perform_action</code></td><td>Perform a system action (e.g., open app, switch window)</td></tr>
+      <tr><td><code>wait</code></td><td>Wait for a specified duration</td></tr>
+      <tr><td><code>get_cursor_position</code></td><td>Get current cursor position</td></tr>
+      <tr><td><code>get_screen_size</code></td><td>Get screen dimensions</td></tr>
+    </table>
+
+    <h4>Surface-Aware Routing</h4>
+    <p>The computer use server classifies each application window by <em>surface type</em> &mdash; terminal, web browser, or GUI app &mdash; and suggests the best control plane for the agent:</p>
+    <pre><code># Example list_apps output with surface routing
+#12 pid 204 Safari   "Welcome"  [0,0,1440,900]   surface=web      prefer=page_*
+#30 pid 950 iTerm2   "notes"    [100,100,600,400]  surface=terminal  prefer=terminal.*
+#40 pid 960 TextEdit "doc"      [0,0,10,10]        surface=gui       prefer=computer-use</code></pre>
+    <p>The model reads these hints and chooses the most appropriate MCP tools &mdash; terminal tools for terminals, browser tools for web, or computer-use for GUI apps.</p>
+
+    <h4>Configuration</h4>
+    <pre><code># In config.toml
+[[mcp_server]]
+name = "computer-use"
+transport = "stdio"
+command = "rustycode-mcp-computer-use"</code></pre>
+
+    <h4>Read-Only Mode</h4>
+    <p>For safety, set <code>RUSTYCODE_COMPUTER_USE_READONLY=1</code> to expose only safe operations (screenshots, app listing, cursor/size queries). Input tools are hidden.</p>
+
+    <h4>Platform Support</h4>
+    <table>
+      <tr><th>Platform</th><th>Requirements</th></tr>
+      <tr><td>macOS</td><td>Screen Recording + Accessibility permissions</td></tr>
+      <tr><td>Linux</td><td>X11 session, <code>libxdo0</code></td></tr>
+      <tr><td>Windows</td><td>Interactive desktop session</td></tr>
+    </table>
+
     <h2 id="acp">Agent Client Protocol (ACP)</h2>
     <p>RustyCode includes an <strong>ACP server</strong> for IDE integration. ACP lets editors like VS Code and JetBrains connect to RustyCode as a coding agent.</p>
 
