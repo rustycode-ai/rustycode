@@ -2,7 +2,7 @@ name: Trigger CI/CD
 
 on:
   repository_dispatch:
-    types: [trigger-ci, release]
+    types: [trigger-ci]
 
 permissions:
   contents: write
