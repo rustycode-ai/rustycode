@@ -3,33 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RustyCode — AI-Powered Autonomous Development Framework</title>
-  <meta name="description" content="Rust-native autonomous development framework. 12+ LLM providers, terminal &amp; web UIs, MCP/ACP/A2A protocols, 20+ tools, security-first sandboxing.">
+  <title>RustyCode - AI-Powered Autonomous Development</title>
+  <meta name="description" content="Rust-native AI-powered autonomous development framework. 15+ LLM providers, terminal & web UIs, MCP/ACP/A2A protocols, computer use, 20+ tools.">
   <link rel="stylesheet" href="style.css">
-  <style>
-    .hero-tagline { font-size: clamp(1.15rem, 2.5vw, 1.45rem); color: var(--accent-strong); margin: 0 0 0.5rem; font-weight: 600; letter-spacing: 0.01em; }
-    .hero-sub { max-width: 58ch; margin: 0 0 1.75rem; color: var(--muted); font-size: 1.08rem; line-height: 1.65; }
-    .badge-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
-    .badge-row .badge { margin: 0; }
-    .section-intro { max-width: 68ch; color: var(--muted); margin: 0 0 1.25rem; line-height: 1.6; }
-    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin: 1rem 0 2.5rem; }
-    @media (max-width: 720px) { .two-col { grid-template-columns: 1fr; } }
-    .workflow-step { display: flex; gap: 1rem; align-items: flex-start; margin: 0.75rem 0; }
-    .workflow-step .step-num { flex-shrink: 0; width: 2rem; height: 2rem; display: grid; place-items: center; border-radius: 999px; background: linear-gradient(180deg, var(--accent), #5f7df3); color: #fff; font-weight: 800; font-size: 0.9rem; }
-    .workflow-step .step-body h4 { margin: 0.15rem 0 0.25rem; color: #fff; }
-    .workflow-step .step-body p { margin: 0; color: var(--muted); font-size: 0.93rem; line-height: 1.5; }
-    .comparison-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1rem 0 2.5rem; }
-    @media (max-width: 720px) { .comparison-grid { grid-template-columns: 1fr; } }
-    .comparison-grid .card { text-align: center; }
-    .comparison-grid .card h3 { font-size: 1.8rem; margin: 0; color: var(--accent-strong); }
-    .comparison-grid .card p { margin: 0.35rem 0 0; }
-    .use-case { border-left: 3px solid var(--accent); padding-left: 1rem; margin: 1rem 0; }
-    .use-case h4 { margin: 0 0 0.25rem; color: #fff; }
-    .use-case p { margin: 0; color: var(--muted); font-size: 0.93rem; }
-    .provider-list { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0 1.5rem; }
-    .provider-chip { padding: 0.3rem 0.75rem; border-radius: 999px; border: 1px solid var(--border); background: rgba(18,29,51,0.6); color: var(--text); font-size: 0.85rem; }
-    .divider { border: none; border-top: 1px solid var(--border); margin: 2.5rem 0; }
-  </style>
 </head>
 <body>
   <nav>
@@ -45,15 +21,9 @@
 
   <div class="container">
     <div class="hero">
-      <div class="badge-row">
-        <span class="badge">v0.7.8</span>
-        <span class="badge">MIT License</span>
-        <span class="badge">Rust 2021</span>
-      </div>
       <h1>RustyCode</h1>
-      <p class="hero-tagline">Your AI development partner — not just a chat interface.</p>
-      <p class="hero-sub">An autonomous development framework that plans, reasons, writes code, runs tests, and iterates until the job is done. Built in Rust for speed, reliability, and full control over your codebase.</p>
-      <a class="cta" href="getting-started.html">Get Started &rarr;</a>
+      <p>AI-powered autonomous development framework. Built in Rust for speed, reliability, and full control over your codebase.</p>
+      <a class="cta" href="getting-started.html">Get Started</a>
       <a class="cta secondary" href="https://github.com/rustycode-ai/rustycode/releases/latest">Download</a>
     </div>
 
@@ -64,241 +34,139 @@ curl -fsSL https://rustycode-ai.github.io/install.sh | sh
 # Windows (PowerShell)
 irm https://rustycode-ai.github.io/install.ps1 | iex</code></pre>
 
-    <hr class="divider">
-
-    <h2>What RustyCode Does</h2>
-    <p class="section-intro">RustyCode isn't a chat wrapper — it's a complete development agent. Give it a task and it will reason through the problem, make changes, run tests, and verify the result. It works across your entire codebase with structured planning and quality gates.</p>
-
-    <div class="workflow-step">
-      <div class="step-num">1</div>
-      <div class="step-body">
-        <h4>Plan &amp; Reason</h4>
-        <p>Analyzes your codebase, breaks tasks into steps, and creates an execution plan with dependencies and milestones.</p>
-      </div>
-    </div>
-    <div class="workflow-step">
-      <div class="step-num">2</div>
-      <div class="step-body">
-        <h4>Execute &amp; Iterate</h4>
-        <p>Reads files, writes code, runs commands, and edits with flexible matching. Each step is verified before moving on.</p>
-      </div>
-    </div>
-    <div class="workflow-step">
-      <div class="step-num">3</div>
-      <div class="step-body">
-        <h4>Verify &amp; Recover</h4>
-        <p>Runs your tests, checks diagnostics, and validates changes. If something goes wrong, it recovers from checkpoints.</p>
-      </div>
-    </div>
-    <div class="workflow-step">
-      <div class="step-num">4</div>
-      <div class="step-body">
-        <h4>Report &amp; Notify</h4>
-        <p>Summarizes what changed, what passed, and what needs attention. Get notified via Discord, Slack, or Telegram.</p>
-      </div>
-    </div>
-
-    <hr class="divider">
-
-    <h2>Key Capabilities</h2>
+    <h2>Features</h2>
 
     <div class="features">
       <div class="feature">
         <div class="icon">&#9889;</div>
         <h3>Autonomous Mode</h3>
-        <p>Hand off a task and let RustyCode run. Structured reasoning loops, quality gates, budget tracking, and checkpoint recovery keep things on track.</p>
+        <p>Plan, execute, and verify tasks autonomously with structured reasoning, quality gates, and checkpoint recovery.</p>
       </div>
       <div class="feature">
-        <div class="icon">&#127918;</div>
-        <h3>Cross-Provider Validation</h3>
-        <p>Ask multiple LLMs the same question in parallel, then synthesize the best answer. Catch mistakes one provider would miss.</p>
+        <div class="icon">&#129302;</div>
+        <h3>15+ LLM Providers</h3>
+        <p>Anthropic Claude, OpenAI GPT, Google Gemini, Amazon Bedrock, Azure, Ollama, Cohere, Mistral, GitHub Copilot, Together AI, Perplexity, Hugging Face, and more.</p>
       </div>
       <div class="feature">
         <div class="icon">&#128187;</div>
         <h3>Terminal UI</h3>
-        <p>Full-featured ratatui TUI with streaming output, cost tracking, multi-session, tool monitoring, and keyboard shortcuts.</p>
+        <p>Beautiful ratatui-based TUI with streaming, cost tracking, multi-session support, and keyboard shortcuts.</p>
       </div>
       <div class="feature">
         <div class="icon">&#127760;</div>
         <h3>Web UI</h3>
-        <p>React-based interface with session management, tool approvals, command palette, and full search capabilities.</p>
+        <p>React-based web interface with session management, tool approvals, command palette, and search.</p>
       </div>
       <div class="feature">
         <div class="icon">&#128279;</div>
         <h3>Multi-Protocol</h3>
-        <p>MCP client for tool discovery, ACP server for IDE integration, A2A for agent-to-agent communication — all built in.</p>
+        <p>MCP client, ACP server for IDE integration, and A2A for agent-to-agent communication.</p>
       </div>
       <div class="feature">
         <div class="icon">&#128295;</div>
         <h3>20+ Built-in Tools</h3>
-        <p>File read/write/edit with flexible matching, bash execution, grep, glob, LSP integration, web fetch, git, and notebook editing.</p>
-      </div>
-      <div class="feature">
-        <div class="icon">&#128101;</div>
-        <h3>Team Orchestration</h3>
-        <p>Coordinate multiple agents with task profiling, parallel execution, and shared state. Built for complex multi-step workflows.</p>
+        <p>File read/write/edit, bash execution, grep, glob, LSP, web fetch, git operations, and notebook editing.</p>
       </div>
       <div class="feature">
         <div class="icon">&#128218;</div>
         <h3>Skill System</h3>
-        <p>YAML frontmatter-based skill discovery with marketplace integration, dynamic loading, and lifecycle management.</p>
+        <p>YAML frontmatter-based skill discovery with marketplace integration and dynamic loading.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#127769;</div>
+        <h3>Computer Use</h3>
+        <p>Desktop control via MCP: screenshots, clicks, typing, scrolling, and drag. Multi-platform (macOS, Linux, Windows) with surface-aware routing.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128722;</div>
+        <h3>Marketplace</h3>
+        <p>Browse, install, and update skills, tools, and MCP servers from a community marketplace. npm and git-based installation.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128640;</div>
+        <h3>Workflow Engine</h3>
+        <p>Static DAG and dynamic Rhai-scripted workflows with parallel agents, adversarial verification, and blind judge scoring.</p>
       </div>
       <div class="feature">
         <div class="icon">&#128209;</div>
         <h3>Wiki &amp; Learning</h3>
-        <p>Built-in wiki with full-text search, knowledge management, and citation tracking that persists across sessions.</p>
+        <p>Built-in wiki with FTS5 search, knowledge management, and citation tracking across sessions.</p>
       </div>
       <div class="feature">
         <div class="icon">&#128274;</div>
         <h3>Security First</h3>
-        <p>Permission system, path validation, command sandboxing (macOS Seatbelt, Linux landlock), and secret sanitization.</p>
-      </div>
-      <div class="feature">
-        <div class="icon">&#128276;</div>
-        <h3>Notifications</h3>
-        <p>Get notified when autonomous sessions complete or fail — Discord, Slack, and Telegram webhooks built in.</p>
-      </div>
-      <div class="feature">
-        <div class="icon">&#128200;</div>
-        <h3>Rate Limit Handling</h3>
-        <p>Automatic rate-limit detection with server-specified retry-after. Keeps working without manual intervention.</p>
+        <p>Permission system, path validation, command sandboxing, secret sanitization, and macOS/Linux sandboxes.</p>
       </div>
     </div>
-
-    <hr class="divider">
-
-    <h2>12+ LLM Providers</h2>
-    <p class="section-intro">One unified interface. Switch providers with a config change — or use them all simultaneously with fallback chains and cross-provider validation.</p>
-    <div class="provider-list">
-      <span class="provider-chip">Anthropic Claude</span>
-      <span class="provider-chip">OpenAI GPT</span>
-      <span class="provider-chip">Google Gemini</span>
-      <span class="provider-chip">Amazon Bedrock</span>
-      <span class="provider-chip">Azure OpenAI</span>
-      <span class="provider-chip">Ollama</span>
-      <span class="provider-chip">Cohere</span>
-      <span class="provider-chip">Mistral</span>
-      <span class="provider-chip">LiteRT</span>
-      <span class="provider-chip">OpenRouter</span>
-      <span class="provider-chip">Zhipu</span>
-      <span class="provider-chip">Custom OpenAI-compatible</span>
-    </div>
-
-    <hr class="divider">
-
-    <h2>Use Cases</h2>
-
-    <div class="two-col">
-      <div>
-        <div class="use-case">
-          <h4>Bug Fixes</h4>
-          <p>Point RustyCode at a failing test or error log. It traces the root cause, applies the fix, and verifies tests pass.</p>
-        </div>
-        <div class="use-case">
-          <h4>Feature Implementation</h4>
-          <p>Describe the feature. RustyCode plans the implementation, writes code across multiple files, and runs the test suite.</p>
-        </div>
-        <div class="use-case">
-          <h4>Code Review</h4>
-          <p>Feed a PR diff. RustyCode identifies bugs, security issues, style violations, and suggests improvements.</p>
-        </div>
-      </div>
-      <div>
-        <div class="use-case">
-          <h4>Refactoring</h4>
-          <p>Rename symbols, extract modules, migrate patterns — all verified by tests at each step.</p>
-        </div>
-        <div class="use-case">
-          <h4>Documentation</h4>
-          <p>Generate README files, API docs, inline comments, and architecture docs from your actual codebase.</p>
-        </div>
-        <div class="use-case">
-          <h4>Security Auditing</h4>
-          <p>Scan for hardcoded secrets, injection vulnerabilities, and misconfigurations with built-in security tools.</p>
-        </div>
-      </div>
-    </div>
-
-    <hr class="divider">
 
     <h2>Quick Start</h2>
     <pre><code># Set your API key
 export ANTHROPIC_API_KEY="sk-ant-..."
 
-# Interactive TUI — the full experience
+# Start the TUI
 rustycode tui
 
-# Headless — run a single task
-rustycode run "Fix the off-by-one error in src/parser.rs"
+# Or run headless
+rustycode run "Fix the bug in src/main.rs"
 
-# Web interface — browser-based
+# Start web interface
 rustycode web</code></pre>
 
-    <hr class="divider">
-
     <h2>Architecture</h2>
-    <p class="section-intro">60+ focused crates. Clean dependency graph. No circular dependencies. Each crate has a single responsibility.</p>
+    <p>RustyCode is a modular workspace of 71 focused crates:</p>
 
     <div class="card-grid">
       <div class="card">
+        <h3>CLI &amp; TUI</h3>
+        <p>Interactive terminal and web interfaces with streaming, tool monitoring, multi-session, and keyboard shortcuts.</p>
+      </div>
+      <div class="card">
         <h3>Orchestration</h3>
         <p>Autonomous execution with reasoning loops, quality gates, AST pipeline, session handoff, and milestone sequencing.</p>
-        <span class="tag">rustycode-orchestration</span>
       </div>
       <div class="card">
         <h3>LLM Providers</h3>
-        <p>Unified provider trait, fallback chains, rate-limit handling, streaming, token budgets, and cross-provider advisor.</p>
-        <span class="tag">rustycode-llm</span>
+        <p>Unified provider trait supporting 15+ providers with model routing, token budgets, and streaming state management.</p>
       </div>
       <div class="card">
         <h3>Tools &amp; Skills</h3>
         <p>20+ built-in tools, extensible framework, YAML skills with marketplace, and MCP server discovery.</p>
-        <span class="tag">rustycode-tools</span>
       </div>
       <div class="card">
         <h3>Protocols</h3>
         <p>MCP client for tool discovery, ACP server for IDE integration, A2A for inter-agent communication.</p>
-        <span class="tag">rustycode-mcp · rustycode-acp · rustycode-a2a</span>
       </div>
       <div class="card">
         <h3>Storage &amp; Session</h3>
-        <p>SQLite persistence, event bus for real-time pub/sub, session handoff, and wiki with full-text search.</p>
-        <span class="tag">rustycode-storage · rustycode-bus</span>
+        <p>SQLite persistence for sessions, artifacts, handoff history, and wiki. Event bus for real-time pub/sub.</p>
       </div>
       <div class="card">
         <h3>Security</h3>
         <p>Permission system, path validation, command sandboxing (Seatbelt/landlock), and secret sanitization.</p>
-        <span class="tag">rustycode-sandbox · rustycode-tools-security</span>
+      </div>
+      <div class="card">
+        <h3>Team &amp; Bench</h3>
+        <p>Multi-agent coordination, task profiling, and rtk-bench for native/Docker benchmark evaluation.</p>
       </div>
     </div>
 
-    <hr class="divider">
-
-    <h2>By the Numbers</h2>
-    <div class="comparison-grid">
-      <div class="card">
-        <h3>60+</h3>
+    <h2>Stats</h2>
+    <div class="card-grid">
+      <div class="card" style="text-align:center">
+        <h3>71</h3>
         <p>Crates</p>
       </div>
-      <div class="card">
-        <h3>10,800+</h3>
+      <div class="card" style="text-align:center">
+        <h3>10,000+</h3>
         <p>Tests</p>
       </div>
-      <div class="card">
-        <h3>650K+</h3>
+      <div class="card" style="text-align:center">
+        <h3>774K+</h3>
         <p>Lines of Rust</p>
       </div>
-      <div class="card">
-        <h3>12+</h3>
+      <div class="card" style="text-align:center">
+        <h3>15+</h3>
         <p>LLM Providers</p>
-      </div>
-      <div class="card">
-        <h3>20+</h3>
-        <p>Built-in Tools</p>
-      </div>
-      <div class="card">
-        <h3>0</h3>
-        <p>Clippy Warnings</p>
       </div>
     </div>
   </div>
