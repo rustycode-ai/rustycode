@@ -73,7 +73,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler libssl-dev pkg-config \
-            wcslib-dev libcfitsio-dev liberfa-dev libxml2-dev libxslt1-dev
+            wcslib-dev libcfitsio-dev liberfa-dev libxml2-dev libxslt1-dev libdbus-1-dev
 
       - name: Setup Python 3.11
         uses: actions/setup-python@v5
