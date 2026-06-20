@@ -1,0 +1,89 @@
+name: Trigger CI/CD
+
+on:
+  repository_dispatch:
+    types: [trigger-ci, release]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  BINARY_NAME: rustycode
+  BINARY2_NAME: rustycode-mcp-computer-use
+  DEV_REPO: luengnat/rustycode
+
+jobs:
+  run-ci:
+    if: github.event.client_payload.ref != '' && !startsWith(github.event.client_payload.ref, 'v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout dev repo
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ env.DEV_REPO }}
+          ref: ${{ github.event.client_payload.ref }}
+          token: ${{ secrets.PRIVATE_REPO_PAT }}
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler libssl-dev pkg-config \
+            libwebkit2gtk-4.1-dev libgtk-4-dev libayatana-appindicator3-dev \
+            librsvg2-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev \
+            libxtst-dev libx11-dev libxdo-dev libxkbcommon-dev
+
+      - name: Build
+        run: cargo build --workspace --locked
+
+      - name: Test
+        run: cargo test --workspace --locked
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Format check
+        run: cargo fmt --all --check
+
+  build-release:
+    if: startsWith(github.event.client_payload.ref, 'v')
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - name: Checkout dev repo
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ env.DEV_REPO }}
+          ref: ${{ github.event.client_payload.ref }}
+          token: ${{ secrets.PRIVATE_REPO_PAT }}
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=${{ github.event.client_payload.ref }}" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION  Tag: ${{ github.event.client_payload.ref }}"
+
+      - name: Generate changelog
+        run: |
+          if [ -f CHANGELOG.md ]; then
+            head -100 CHANGELOG.md
+          else
+            echo "Release ${{ github.event.client_payload.ref }}"
+          fi > release_notes.md
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.client_payload.ref }}
+          name: "RustyCode ${{ github.event.client_payload.ref }}"
+          body_path: release_notes.md
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
