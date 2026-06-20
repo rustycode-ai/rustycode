@@ -137,7 +137,7 @@ jobs:
           shared-key: release-${{ matrix.target }}
 
       - name: Build
-        run: cargo build --release -p rustycode-cli -p ${{ env.BINARY2_NAME }} --target ${{ matrix.target }} --locked
+        run: cargo build --release -p rustycode-cli -p ${{ env.BINARY2_NAME }} --target ${{ matrix.target }} 
 
       - name: Package (Unix)
         if: runner.os != 'Windows'
