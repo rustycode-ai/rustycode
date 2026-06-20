@@ -3,9 +3,6 @@ name: Release
 on:
   repository_dispatch:
     types: [release]
-  push:
-    branches: [main]
-    paths: [".github/workflows/release.yml"]
   workflow_dispatch:
     inputs:
       ref:
