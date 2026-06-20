@@ -21,9 +21,6 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   BINARY_NAME: rustycode
-  # Computer-use MCP backend — shipped alongside the main binary so end users
-  # get desktop-control tools out of the box. Resolved as a sibling binary by
-  # rustycode's MCP backend discovery (sibling-of-exe, then PATH).
   BINARY2_NAME: rustycode-mcp-computer-use
   DEV_REPO: luengnat/rustycode
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -38,11 +35,20 @@ jobs:
       is_stable: ${{ steps.version.outputs.is_stable }}
       ref: ${{ steps.version.outputs.ref }}
     steps:
+      - name: Resolve inputs
+        id: resolve
+        run: |
+          REF="${{ github.event.client_payload.ref || github.event.inputs.ref }}"
+          TYPE="${{ github.event.client_payload.release_type || github.event.inputs.release_type || 'stable' }}"
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+          echo "release_type=$TYPE" >> "$GITHUB_OUTPUT"
+          echo "Resolved: ref=$REF type=$TYPE"
+
       - name: Checkout dev repo
         uses: actions/checkout@v5
         with:
           repository: ${{ env.DEV_REPO }}
-          ref: ${{ github.event.inputs.ref }}
+          ref: ${{ steps.resolve.outputs.ref }}
           token: ${{ secrets.PRIVATE_REPO_PAT }}
 
       - name: Extract version
@@ -50,9 +56,8 @@ jobs:
         run: |
           VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "ref=${{ github.event.inputs.ref }}" >> "$GITHUB_OUTPUT"
-
-          if [ "${{ github.event.inputs.release_type }}" = "nightly" ]; then
+          echo "ref=${{ steps.resolve.outputs.ref }}" >> "$GITHUB_OUTPUT"
+          if [ "${{ steps.resolve.outputs.release_type }}" = "nightly" ]; then
             DATE=$(date +%Y%m%d)
             TAG="nightly-${DATE}"
             echo "tag=$TAG" >> "$GITHUB_OUTPUT"
@@ -62,8 +67,7 @@ jobs:
             echo "tag=$TAG" >> "$GITHUB_OUTPUT"
             echo "is_stable=true" >> "$GITHUB_OUTPUT"
           fi
-
-          echo "Version: $VERSION  Tag: $TAG  Ref: ${{ github.event.inputs.ref }}"
+          echo "Version: $VERSION  Tag: $TAG  Ref: ${{ steps.resolve.outputs.ref }}"
 
   build:
     name: Build ${{ matrix.target }}
@@ -103,15 +107,10 @@ jobs:
         with:
           toolchain: stable
           target: ${{ matrix.target }}
-          # Do not set -D warnings for release builds — pre-existing deprecation
-          # warnings in the codebase should not block binary artifact creation.
           rustflags: ""
 
       - name: Install Linux system dependencies
         if: runner.os == 'Linux'
-        # X11/XCB/xtst/xdo libs: rustycode-mcp-computer-use (enigo + xcap), now
-        # shipped in release artifacts. Linux targets are native builds, so the
-        # apt packages match the build arch.
         run: >
           sudo apt-get update && sudo apt-get install -y
           protobuf-compiler pkg-config libssl-dev
@@ -129,8 +128,8 @@ jobs:
           $protocUrl = "https://github.com/protocolbuffers/protobuf/releases/download/v29.5/protoc-29.5-win64.zip"
           Invoke-WebRequest -Uri $protocUrl -OutFile protoc.zip
           Expand-Archive -Path protoc.zip -DestinationPath C:\protoc
-          echo "C:\protocin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          C:\protocin\protoc.exe --version
+          echo "C:\protoc\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          C:\protoc\bin\protoc.exe --version
 
       - name: Cache build artifacts
         uses: Swatinem/rust-cache@v2
