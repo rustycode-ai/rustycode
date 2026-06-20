@@ -11,10 +11,12 @@ AI-powered autonomous development framework. Built in Rust for speed, reliabilit
 - **Autonomous Mode** — Plan, execute, and verify tasks with structured reasoning, quality gates, and checkpoint recovery
 - **Terminal UI** — Beautiful ratatui-based TUI with streaming, cost tracking, multi-session, and keyboard shortcuts
 - **Web UI** — React-based interface with session management, tool approvals, and command palette
-- **12+ LLM Providers** — Anthropic Claude, OpenAI GPT, Google Gemini, Amazon Bedrock, Azure, Ollama, Cohere, Mistral, LiteRT, and more
+- **15+ LLM Providers** — Anthropic Claude, OpenAI GPT, Google Gemini, Amazon Bedrock, Azure, Ollama, Cohere, Mistral, GitHub Copilot, Together AI, Perplexity, Hugging Face, LiteRT, and more
+- **Computer Use** — Desktop control via MCP: screenshots, clicks, typing, scrolling, drag. Multi-platform with surface-aware routing
 - **Multi-Protocol** — MCP client for tool discovery, ACP server for IDE integration, A2A for agent-to-agent communication
 - **20+ Built-in Tools** — File read/write/edit, bash execution, grep, glob, LSP integration, web fetch, git, notebook editing
-- **Skill System** — YAML frontmatter-based skill discovery with marketplace integration
+- **Skill System & Marketplace** — YAML frontmatter-based skill discovery with marketplace for browsing, installing, and updating skills, tools, and MCP servers
+- **Workflow Engine** — Static DAG and dynamic Rhai-scripted workflows with parallel agents, adversarial verification, and blind judge scoring
 - **Wiki & Learning** — Built-in wiki with FTS5 search, knowledge management, and citation tracking
 - **Security First** — Permission system, path validation, command sandboxing, secret sanitization
 
@@ -67,16 +69,17 @@ rustycode web
 
 ## Architecture
 
-RustyCode is a modular workspace of 60+ crates:
+RustyCode is a modular workspace of 71 crates:
 
 - **CLI & TUI** — Interactive terminal and web interfaces
-- **Orchestration** — Autonomous execution with reasoning loops and quality gates
-- **LLM Providers** — Unified provider trait supporting 12+ providers
-- **Tools & Skills** — 20+ built-in tools, extensible framework, YAML skills
+- **Orchestration** — Autonomous execution with reasoning loops, quality gates, AST pipeline, and milestone sequencing
+- **LLM Providers** — Unified provider trait supporting 15+ providers
+- **Tools & Skills** — 20+ built-in tools, extensible framework, YAML skills with marketplace
+- **MCP Servers** — Browser automation, Docker management, web fetch, and computer use (desktop control)
 - **Protocols** — MCP client, ACP server, A2A agent communication
 - **Storage & Session** — SQLite persistence, event bus, session handoff
 - **Security** — Permission system, sandboxing (macOS Seatbelt, Linux landlock)
-- **Team & Bench** — Multi-agent coordination and rtk-bench evaluation
+- **Team & Bench** — Multi-agent coordination and rtk-bench for native/Docker benchmark evaluation
 
 ## Configuration
 
