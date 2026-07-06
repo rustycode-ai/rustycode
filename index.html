@@ -9,22 +9,29 @@
 </head>
 <body>
   <nav>
-    <span class="brand">RustyCode</span>
-    <a href="index.html">Home</a>
-    <a href="getting-started.html">Getting Started</a>
-    <a href="manual.html">Manual</a>
-    <a href="configuration.html">Configuration</a>
-    <a href="skills-mcp-tools.html">Skills &amp; MCP</a>
-    <a href="tips-and-tricks.html">Tips &amp; Tricks</a>
-    <a href="https://github.com/rustycode-ai/rustycode">GitHub</a>
+    <div class="brand-container">
+      <span class="brand">RustyCode</span>
+    </div>
+    <div class="links">
+      <a href="index.html" class="active">Home</a>
+      <a href="getting-started.html">Getting Started</a>
+      <a href="manual.html">Manual</a>
+      <a href="configuration.html">Configuration</a>
+      <a href="skills-mcp-tools.html">Skills &amp; MCP</a>
+      <a href="tips-and-tricks.html">Tips &amp; Tricks</a>
+      <a href="https://github.com/rustycode-ai/rustycode" class="git-btn">GitHub</a>
+    </div>
   </nav>
 
   <div class="container">
     <div class="hero">
+      <span class="version-badge">v0.8.5 Available</span>
       <h1>RustyCode</h1>
       <p>AI-powered autonomous development framework. Built in Rust for speed, reliability, and full control over your codebase.</p>
-      <a class="cta" href="getting-started.html">Get Started</a>
-      <a class="cta secondary" href="https://github.com/rustycode-ai/rustycode/releases/latest">Download</a>
+      <div class="cta-group">
+        <a class="cta primary" href="getting-started.html">Get Started</a>
+        <a class="cta secondary" href="https://github.com/rustycode-ai/rustycode/releases/latest">Download Binary</a>
+      </div>
     </div>
 
     <h2>One-Line Install</h2>
@@ -35,67 +42,66 @@ curl -fsSL https://rustycode-ai.github.io/install.sh | sh
 irm https://rustycode-ai.github.io/install.ps1 | iex</code></pre>
 
     <h2>Features</h2>
-
-    <div class="features">
-      <div class="feature">
+    <div class="features-grid">
+      <div class="feature-card">
         <div class="icon">&#9889;</div>
         <h3>Autonomous Mode</h3>
         <p>Plan, execute, and verify tasks autonomously with structured reasoning, quality gates, and checkpoint recovery.</p>
       </div>
-      <div class="feature">
+      <div class="feature-card">
         <div class="icon">&#129302;</div>
         <h3>15+ LLM Providers</h3>
-        <p>Anthropic Claude, OpenAI GPT, Google Gemini, Amazon Bedrock, Azure, Ollama, Cohere, Mistral, GitHub Copilot, Together AI, Perplexity, Hugging Face, and more.</p>
+        <p>Full support for Anthropic Claude, OpenAI GPT, Google Gemini (including Vertex AI), Amazon Bedrock, Azure, Ollama, Cohere, Mistral, Together AI, and more.</p>
       </div>
-      <div class="feature">
+      <div class="feature-card">
         <div class="icon">&#128187;</div>
-        <h3>Terminal UI</h3>
-        <p>Beautiful ratatui-based TUI with streaming, cost tracking, multi-session support, and keyboard shortcuts.</p>
+        <h3>Terminal UI (TUI)</h3>
+        <p>A beautiful ratatui-based TUI with streaming, cost tracking, tabbed multi-session support, and keyboard shortcuts.</p>
       </div>
-      <div class="feature">
+      <div class="feature-card">
         <div class="icon">&#127760;</div>
-        <h3>Web UI</h3>
-        <p>React-based web interface with session management, tool approvals, command palette, and search.</p>
+        <h3>Web UI &amp; Vision</h3>
+        <p>React-based interface with session management, tool approvals, command palette, and image paste/upload with vision model support.</p>
       </div>
-      <div class="feature">
+      <div class="feature-card">
         <div class="icon">&#128279;</div>
-        <h3>Multi-Protocol</h3>
-        <p>MCP client, ACP server for IDE integration, and A2A for agent-to-agent communication.</p>
+        <h3>Multi-Agent Teams</h3>
+        <p>Coordinate multiple specialized agents in parallel (Ensemble Mode) with git worktree isolation and unified quality gate checking.</p>
       </div>
-      <div class="feature">
-        <div class="icon">&#128295;</div>
-        <h3>20+ Built-in Tools</h3>
-        <p>File read/write/edit, bash execution, grep, glob, LSP, web fetch, git operations, and notebook editing.</p>
-      </div>
-      <div class="feature">
-        <div class="icon">&#128218;</div>
-        <h3>Skill System</h3>
-        <p>YAML frontmatter-based skill discovery with marketplace integration and dynamic loading.</p>
-      </div>
-      <div class="feature">
-        <div class="icon">&#127769;</div>
-        <h3>Computer Use</h3>
-        <p>Desktop control via MCP: screenshots, clicks, typing, scrolling, and drag. Multi-platform (macOS, Linux, Windows) with surface-aware routing.</p>
-      </div>
-      <div class="feature">
-        <div class="icon">&#128722;</div>
-        <h3>Marketplace</h3>
-        <p>Browse, install, and update skills, tools, and MCP servers from a community marketplace. npm and git-based installation.</p>
-      </div>
-      <div class="feature">
+      <div class="feature-card">
         <div class="icon">&#128640;</div>
-        <h3>Workflow Engine</h3>
-        <p>Static DAG and dynamic Rhai-scripted workflows with parallel agents, adversarial verification, and blind judge scoring.</p>
+        <h3>Dynamic Workflows</h3>
+        <p>Run static DAGs or script dynamic tasks with Rhai-scripted workflows. Features adversarial review verification and blind judge scoring.</p>
       </div>
-      <div class="feature">
+      <div class="feature-card">
+        <div class="icon">&#128178;</div>
+        <h3>Model Tiering &amp; Advisor</h3>
+        <p>Consult a cheap model for standard tool execution loops, and spawn cost-effective senior consults using the <code>/advisor</code> command.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">&#128737;</div>
+        <h3>Intelligence Guards</h3>
+        <p>Avoid runaways and infinite loops with streaming repetition detection, repeated-failure blocks, context budgets, and stuck-loop warnings.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">&#127769;</div>
+        <h3>Advanced Computer Use</h3>
+        <p>Desktop control via MCP: screenshots, clicks, typing, and drag. Features macOS, Linux, and Windows surface-aware routing.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">&#128218;</div>
+        <h3>YAML Skill System</h3>
+        <p>Markdown and YAML frontmatter-based skill discovery. Browse, install, and update custom tools/skills from the marketplace.</p>
+      </div>
+      <div class="feature-card">
         <div class="icon">&#128209;</div>
         <h3>Wiki &amp; Learning</h3>
-        <p>Built-in wiki with FTS5 search, knowledge management, and citation tracking across sessions.</p>
+        <p>SQLite FTS5-powered wiki, cross-session knowledge consolidation, and citation tracking to retain fixes permanently.</p>
       </div>
-      <div class="feature">
+      <div class="feature-card">
         <div class="icon">&#128274;</div>
         <h3>Security First</h3>
-        <p>Permission system, path validation, command sandboxing, secret sanitization, and macOS/Linux sandboxes.</p>
+        <p>Command sandboxing (macOS Seatbelt, Linux Landlock), protected file path validations, secret sanitization, and manual tool approvals.</p>
       </div>
     </div>
 
@@ -106,67 +112,59 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 # Start the TUI
 rustycode tui
 
-# Or run headless
+# Run headless
 rustycode run "Fix the bug in src/main.rs"
 
-# Start web interface
+# Start the web interface
 rustycode web start</code></pre>
 
     <h2>Architecture</h2>
-    <p>RustyCode is a modular workspace of 70+ focused crates:</p>
-
-    <div class="card-grid">
-      <div class="card">
+    <p>RustyCode is a highly modular system structured across several layers in a workspace of 70+ crates:</p>
+    
+    <div class="features-grid">
+      <div class="feature-card">
         <h3>CLI &amp; TUI</h3>
-        <p>Interactive terminal and web interfaces with streaming, tool monitoring, multi-session, and keyboard shortcuts.</p>
+        <p>Interactive interfaces built with <code>ratatui</code> and React, featuring streaming outputs, cost monitors, and approval menus.</p>
       </div>
-      <div class="card">
+      <div class="feature-card">
         <h3>Orchestration</h3>
-        <p>Autonomous execution with reasoning loops, quality gates, AST pipeline, session handoff, and milestone sequencing.</p>
+        <p>Autonomous loops, AST validation pipelines, stuck loop diagnostics, and senior-junior model tiering.</p>
       </div>
-      <div class="card">
+      <div class="feature-card">
         <h3>LLM Providers</h3>
-        <p>Unified provider trait supporting 15+ providers with model routing, token budgets, and streaming state management.</p>
+        <p>Unified <code>LLMProvider</code> trait mapping to 15+ services with automatic model routing and token budget tracking.</p>
       </div>
-      <div class="card">
-        <h3>Tools &amp; Skills</h3>
-        <p>20+ built-in tools, extensible framework, YAML skills with marketplace, and MCP server discovery.</p>
+      <div class="feature-card">
+        <h3>Tools &amp; MCP</h3>
+        <p>20+ built-in file and search tools, dynamic MCP client, and built-in servers (browser, docker, web, computer-use).</p>
       </div>
-      <div class="card">
-        <h3>Protocols</h3>
-        <p>MCP client for tool discovery, ACP server for IDE integration, A2A for inter-agent communication.</p>
-      </div>
-      <div class="card">
+      <div class="feature-card">
         <h3>Storage &amp; Session</h3>
-        <p>SQLite persistence for sessions, artifacts, handoff history, and wiki. Event bus for real-time pub/sub.</p>
+        <p>SQLite persistence layer for conversations, artifacts, and search, tied together by a real-time event bus.</p>
       </div>
-      <div class="card">
-        <h3>Security</h3>
-        <p>Permission system, path validation, command sandboxing (Seatbelt/landlock), and secret sanitization.</p>
-      </div>
-      <div class="card">
-        <h3>Team &amp; Bench</h3>
-        <p>Multi-agent coordination, task profiling, and rustycode-bench for native/Docker benchmark evaluation.</p>
+      <div class="feature-card">
+        <h3>Security &amp; Protocols</h3>
+        <p>OS sandboxing, file/command validation, ACP server for IDE support, and A2A protocol for inter-agent communication.</p>
       </div>
     </div>
 
     <h2>Stats</h2>
-    <div class="card-grid">
-      <div class="card" style="text-align:center">
-        <h3>70+</h3>
-        <p>Crates</p>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="value">72</div>
+        <div class="label">Crates</div>
       </div>
-      <div class="card" style="text-align:center">
-        <h3>10,000+</h3>
-        <p>Tests</p>
+      <div class="stat-card">
+        <div class="value">2,111+</div>
+        <div class="label">Rust Files</div>
       </div>
-      <div class="card" style="text-align:center">
-        <h3>774K+</h3>
-        <p>Lines of Rust</p>
+      <div class="stat-card">
+        <div class="value">860K+</div>
+        <div class="label">Lines of Rust</div>
       </div>
-      <div class="card" style="text-align:center">
-        <h3>15+</h3>
-        <p>LLM Providers</p>
+      <div class="stat-card">
+        <div class="value">15+</div>
+        <div class="label">LLM Providers</div>
       </div>
     </div>
   </div>
