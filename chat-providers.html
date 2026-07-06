@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Remote Control - RustyCode</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav>
+    <div class="brand-container">
+      <span class="brand">RustyCode</span>
+    </div>
+    <div class="links">
+      <a href="index.html">Home</a>
+      <a href="getting-started.html">Getting Started</a>
+      <a href="manual.html">Manual</a>
+      <a href="configuration.html">Configuration</a>
+      <a href="skills-mcp-tools.html">Skills &amp; MCP</a>
+      <a href="chat-providers.html" class="active">Chat Control</a>
+      <a href="tips-and-tricks.html">Tips &amp; Tricks</a>
+      <a href="https://github.com/rustycode-ai/rustycode" class="git-btn">GitHub</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="docs-layout">
+      <div class="sidebar">
+        <div class="toc-title">Contents</div>
+        <ul>
+          <li><a href="#overview" class="active">Overview</a></li>
+          <li><a href="#fast-path">Fast Path Setup</a></li>
+          <li><a href="#round-trip">Remote Round-Trip</a></li>
+          <li><a href="#connection-models">Connection Models</a></li>
+          <li><a href="#allow-list">Allow-List Security</a></li>
+          <li><a href="#telegram">Telegram Bot</a></li>
+          <li><a href="#slack">Slack App</a></li>
+          <li><a href="#whatsapp">WhatsApp App</a></li>
+          <li><a href="#discord">Discord Bot</a></li>
+          <li><a href="#other-platforms">LINE &amp; Google Chat</a></li>
+          <li><a href="#troubleshooting">Troubleshooting</a></li>
+        </ul>
+      </div>
+
+      <div class="docs-content">
+        <h1>Chat Remote Control Setup Guide</h1>
+        <p>RustyCode can be remote-controlled from six chat platforms: **Telegram, WhatsApp, Slack, LINE, Google Chat, and Discord**. Send messages from your chat app to drive a live session—complete with tool approvals, interactive diffs, and console commands.</p>
+
+        <h2 id="overview">Overview</h2>
+        <p>The chat surface acts as a thin remote-control client over WebSockets—it is not a separate autonomous agent. Inbound messages are routed directly into the active session as user inputs; outbound events (assistant text, terminal outputs, tool requests) are rendered back into your chat client.</p>
+
+        <h2 id="fast-path">Fast Path Setup</h2>
+        <p>Set up your chat provider in a few commands using the built-in wizard:</p>
+        <pre><code># See all available chat transport providers
+rustycode chat list
+
+# Run the interactive configuration wizard (writes ~/.rustycode/config.toml)
+rustycode chat setup telegram
+
+# Print the TOML snippet and instructions without opening a browser
+rustycode chat setup slack --print
+
+# Run non-interactively (useful if env vars already provide credentials)
+rustycode chat setup slack --yes</code></pre>
+
+        <h2 id="round-trip">Remote Round-Trip</h2>
+        <p>Once you pair a chat client, session steering operates in three directions:</p>
+        <ul>
+          <li><strong>RECEIVE:</strong> Messages you send to the bot are ingested as user prompts in the session.</li>
+          <li><strong>SEND:</strong> Session events (Assistant text streams, file diffs, tool requests) are delivered to your chat.</li>
+          <li><strong>CONTROL:</strong> Interactive buttons allow you to steer the session. If buttons are not supported by the platform, use text commands: <code>/approve &lt;request_id&gt;</code> or <code>/reject &lt;request_id&gt;</code>.</li>
+        </ul>
+
+        <h2 id="connection-models">Connection Models</h2>
+        <p>Depending on the platform, RustyCode establishes connections in one of three ways:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Model</th><th>Supported Providers</th><th>Requirements</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Long-Poll</strong></td>
+                <td>Telegram</td>
+                <td>Bot token only</td>
+                <td>The local agent polls the platform API. <strong>No public URL/tunnel needed.</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Socket/Gateway</strong></td>
+                <td>Slack, Discord</td>
+                <td>App/Bot tokens</td>
+                <td>Establishes a persistent outbound WebSocket. <strong>No public URL/tunnel needed.</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Webhook</strong></td>
+                <td>LINE, Google Chat, WhatsApp Cloud API</td>
+                <td>Credentials + Public URL</td>
+                <td>Requires exposing the local webhook port to the internet via tunnels (e.g., Cloudflared or Ngrok).</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2 id="allow-list">Allow-List Security</h2>
+        <p>Transports <strong>fail closed</strong>: an empty allow-list blocks all incoming messages. You must explicitly configure allowed user IDs in the <code>[chat]</code> section of <code>~/.rustycode/config.toml</code>:</p>
+        <pre><code>[chat]
+enabled = true          # Must be set to true
+topology = "shared"
+allow = ["tg:123456789", "slack:U0123ABC", "discord:987654321"]
+
+# Optional: override models and directories for chat-specific runs
+[chat.session]
+model = "claude-sonnet-4-6"
+working_directory = "."</code></pre>
+
+        <h2 id="telegram">Telegram Bot Setup</h2>
+        <ol>
+          <li>Open <a href="https://t.me/BotFather">@BotFather</a> in Telegram and type <code>/newbot</code>. Copy the **Bot Token**.</li>
+          <li>Get your numeric user ID by messaging <a href="https://t.me/userinfobot">@userinfobot</a>.</li>
+          <li>Write the settings to your <code>~/.rustycode/config.toml</code>:</li>
+        </ol>
+        <pre><code>[chat]
+enabled = true
+allow = ["tg:&lt;your-numeric-id&gt;"]
+
+[chat.telegram]
+enabled = true
+bot_token = "123456789:ABCdef..."</code></pre>
+        <p>Start the remote control in the TUI using: <code>:remote telegram</code> (renders a pairing QR code).</p>
+
+        <h2 id="slack">Slack App Setup (Socket Mode)</h2>
+        <ol>
+          <li>Create a Slack application on the <a href="https://api.slack.com/apps">Slack Console</a>.</li>
+          <li>In <strong>OAuth &amp; Permissions</strong>, add scopes: <code>chat:write</code>, <code>im:history</code>, <code>channels:history</code>, and <code>app_mentions:read</code>.</li>
+          <li>Install the app to your workspace and copy the **Bot User OAuth Token** (starts with <code>xoxb-</code>).</li>
+          <li>In <strong>Basic Information</strong>, copy the **Signing Secret** and enable **Socket Mode** (copies an App Token starting with <code>xapp-</code>). Under Event Subscriptions, subscribe to events: <code>message.channels</code>, <code>message.im</code>, and <code>message.groups</code>.</li>
+          <li>Configure `~/.rustycode/config.toml`:</li>
+        </ol>
+        <pre><code>[chat]
+allow = ["slack:&lt;your-user-or-team-id&gt;"]
+
+[chat.slack]
+enabled = true
+app_token = "xapp-..."          # Socket Mode token
+bot_token = "xoxb-..."          # Bot OAuth token
+signing_secret = "..."          # Signing secret</code></pre>
+        <p>Start the connection in the TUI using: <code>:remote slack</code>.</p>
+
+        <h2 id="whatsapp">WhatsApp Setup</h2>
+        <p>WhatsApp supports two modes: **paired-device Web** session (uses a local headless browser session, no webhook needed) or **Cloud API** (webhook-fed for bidirectional flow).</p>
+        <pre><code>[chat]
+allow = ["wa:&lt;your-phone-number&gt;"]
+
+[chat.whatsapp]
+enabled = true
+mode = "web"                     # "web" for paired-device or "cloud" for Cloud API
+access_token = "..."             # Cloud API Token
+phone_number_id = "..."          # Cloud API Phone ID
+webhook_url = "https://yourtunnel.com/webhook/whatsapp"</code></pre>
+
+        <h2 id="discord">Discord Bot Setup</h2>
+        <ol>
+          <li>Create an application on the <a href="https://discord.com/developers/applications">Discord Developer Portal</a>. Add a Bot, copy the **Bot Token**, and enable **Message Content Intent** under the Bot menu.</li>
+          <li>Write settings to your TOML config:</li>
+        </ol>
+        <pre><code>[chat]
+allow = ["discord:&lt;your-discord-user-id&gt;"]
+
+[chat.discord]
+enabled = true
+bot_token = "&lt;your-bot-token&gt;"</code></pre>
+        <p>Run <code>:remote discord</code> in the TUI to establish a persistent Gateway WebSocket connection.</p>
+
+        <h2 id="other-platforms">LINE &amp; Google Chat Setup</h2>
+        
+        <h3>LINE Messenger</h3>
+        <p>Requires Channel Access Token and Channel Secret. Inbound messages are processed via webhooks:</p>
+        <pre><code>[chat.line]
+enabled = true
+channel_access_token = "..."
+channel_secret = "..."</code></pre>
+        <p>Expose your webhook and register <code>https://&lt;public-base&gt;/webhook/line</code> in the LINE console.</p>
+
+        <h3>Google Chat</h3>
+        <p>Google Chat uses Spaces incoming webhooks for outbound messages, and webhook endpoints for inbound HTTP apps:</p>
+        <pre><code>[chat.google_chat]
+enabled = true
+webhook_url = "https://chat.googleapis.com/v1/spaces/..."
+webhook_secret = "..."           # Shared key for HMAC verification</code></pre>
+
+        <h2 id="troubleshooting">Troubleshooting &amp; Security</h2>
+        <ul>
+          <li><strong>Slack `missing_scope` Errors:</strong> Ensure you are using the app's **Bot User OAuth Token** (starts with <code>xoxb-</code>) and not the User Token. Check that <code>chat:write</code> is granted.</li>
+          <li><strong>Allow-List Rejection:</strong> Verify your user IDs are correctly prefixed (e.g. <code>tg:</code>, <code>slack:</code>, <code>discord:</code>). Unlisted IDs are rejected by default.</li>
+          <li><strong>Google Chat/Discord Webhooks:</strong> Bare incoming webhooks are outbound-only by platform design. For bidirectional flow (RECEIVE/CONTROL), you must set up a full Discord application (Gateway mode) or a Google Chat HTTP app endpoint.</li>
+          <li><strong>HMAC Signature Verification:</strong> To secure public webhook endpoints, configure `webhook_secret` in `[chat.discord]` or `[chat.google_chat]` to enforce signature verification on inbound requests.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    &copy; 2026 RustyCode &middot; MIT License &middot; <a href="https://github.com/rustycode-ai/rustycode">GitHub</a>
+  </footer>
+
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          const id = entry.target.getAttribute('id');
+          if (entry.intersectionRatio > 0) {
+            document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+            const activeLink = document.querySelector(`.sidebar a[href="#${id}"]`);
+            if (activeLink) activeLink.classList.add('active');
+          }
+        });
+      }, { rootMargin: '0px 0px -60% 0px' });
+      
+      document.querySelectorAll('.docs-content h2').forEach(h2 => {
+        observer.observe(h2);
+      });
+    });
+  </script>
+</body>
+</html>
