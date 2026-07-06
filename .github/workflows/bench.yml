@@ -114,9 +114,11 @@ jobs:
 
       - name: Run benchmark suite
         run: |
-          # Use reduced sample size so CI completes in reasonable time while
-          # still producing a measurable baseline.
-          cargo bench -- --noplot --save-baseline main --sample-size 10
+          # Run each Criterion benchmark individually so Criterion-specific
+          # options are not passed to non-Criterion test binaries.
+          cargo bench --bench config_performance -- --save-baseline main --sample-size 10
+          cargo bench --bench defer_loading_bench -- --save-baseline main --sample-size 10
+          cargo bench --bench tui_performance -- --save-baseline main --sample-size 10
 
       - name: Upload criterion reports
         uses: actions/upload-artifact@v4
