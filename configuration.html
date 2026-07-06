@@ -3,420 +3,292 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Configuration - RustyCode</title>
+  <title>Configuration Reference - RustyCode</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <nav>
-    <span class="brand">RustyCode</span>
-    <a href="index.html">Home</a>
-    <a href="getting-started.html">Getting Started</a>
-    <a href="manual.html">Manual</a>
-    <a href="configuration.html">Configuration</a>
-    <a href="skills-mcp-tools.html">Skills &amp; MCP</a>
-    <a href="tips-and-tricks.html">Tips &amp; Tricks</a>
-    <a href="https://github.com/rustycode-ai/rustycode">GitHub</a>
+    <div class="brand-container">
+      <span class="brand">RustyCode</span>
+    </div>
+    <div class="links">
+      <a href="index.html">Home</a>
+      <a href="getting-started.html">Getting Started</a>
+      <a href="manual.html">Manual</a>
+      <a href="configuration.html" class="active">Configuration</a>
+      <a href="skills-mcp-tools.html">Skills &amp; MCP</a>
+      <a href="tips-and-tricks.html">Tips &amp; Tricks</a>
+      <a href="https://github.com/rustycode-ai/rustycode" class="git-btn">GitHub</a>
+    </div>
   </nav>
 
   <div class="container">
-    <h1>Configuration</h1>
+    <div class="docs-layout">
+      <div class="sidebar">
+        <div class="toc-title">Contents</div>
+        <ul>
+          <li><a href="#config-locations" class="active">Config Locations</a></li>
+          <li><a href="#full-toml">Full TOML Sample</a></li>
+          <li><a href="#providers">LLM Providers</a></li>
+          <li><a href="#mcp-config">MCP Configurations</a></li>
+          <li><a href="#permissions">Permissions &amp; Paths</a></li>
+          <li><a href="#orchestration">Orchestration &amp; Budgets</a></li>
+          <li><a href="#env-vars">Env Variables</a></li>
+        </ul>
+      </div>
 
-    <div class="toc">
-      <strong>Contents</strong>
-      <ul>
-        <li><a href="#config-location">Config File Locations</a></li>
-        <li><a href="#full-config">Full Config Reference</a></li>
-        <li><a href="#anthropic">Anthropic Claude Setup</a></li>
-        <li><a href="#openai">OpenAI GPT Setup</a></li>
-        <li><a href="#google">Google Gemini Setup</a></li>
-        <li><a href="#bedrock">Amazon Bedrock Setup</a></li>
-        <li><a href="#azure">Azure OpenAI Setup</a></li>
-        <li><a href="#ollama">Ollama (Local) Setup</a></li>
-        <li><a href="#other-providers">Other Providers</a></li>
-        <li><a href="#custom-endpoints">Custom Endpoints</a></li>
-        <li><a href="#mcp-servers">MCP Server Configuration</a></li>
-        <li><a href="#environment-variables">Environment Variables</a></li>
-        <li><a href="#tool-permissions">Tool Permissions</a></li>
-        <li><a href="#orchestration">Orchestration Tuning</a></li>
-      </ul>
-    </div>
+      <div class="docs-content">
+        <h1>Configuration Reference</h1>
+        <p>RustyCode is configured using TOML files and environment variables. This reference explains how to structure your configurations globally and locally.</p>
 
-    <h2 id="config-location">Config File Locations</h2>
-    <p>RustyCode uses a layered configuration system. Files are loaded in order, with later entries overriding earlier ones:</p>
+        <h2 id="config-locations">Config Locations</h2>
+        <p>RustyCode reads configuration files sequentially, applying project-level overrides on top of user-level defaults:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Priority</th><th>Path</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1 (Base)</td>
+                <td><code>~/.rustycode/config.toml</code></td>
+                <td>Global configurations. Put API keys and personal defaults here.</td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td><code>.rustycode/config.toml</code></td>
+                <td>Project-level overrides. Put project models and custom tools here.</td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td><code>CLAUDE.md</code></td>
+                <td>Workspace instructions. Read automatically to guide code style and paths.</td>
+              </tr>
+              <tr>
+                <td>4 (Highest)</td>
+                <td>Environment Variables</td>
+                <td>Keys prefixed with <code>RUSTYCODE_</code> override config file settings at runtime.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-    <table>
-      <tr><th>File</th><th>Purpose</th><th>Priority</th></tr>
-      <tr><td><code>~/.rustycode/config.toml</code></td><td>User-level defaults</td><td>Low (base)</td></tr>
-      <tr><td><code>.rustycode/config.toml</code></td><td>Project-level overrides</td><td>Medium</td></tr>
-      <tr><td><code>CLAUDE.md</code></td><td>Project instructions (auto-loaded)</td><td>Context only</td></tr>
-      <tr><td>Environment variables</td><td>Runtime overrides</td><td>High</td></tr>
-      <tr><td>CLI flags</td><td>One-shot overrides</td><td>Highest</td></tr>
-    </table>
-
-    <div class="tip">
-      <strong>Tip:</strong> Put API keys and personal preferences in <code>~/.rustycode/config.toml</code>. Put project-specific settings (model choice, custom tools) in <code>.rustycode/config.toml</code> within the project root. Commit <code>CLAUDE.md</code> to git for team-shared instructions.
-    </div>
-
-    <h2 id="full-config">Full Config Reference</h2>
-    <pre><code># ~/.rustycode/config.toml
-# RustyCode Configuration
+        <h2 id="full-toml">Full TOML Sample</h2>
+        <p>Here is a complete, fully featured <code>config.toml</code> showcasing all available tables:</p>
+        <pre><code># ~/.rustycode/config.toml
 
 # ── Provider Settings ──────────────────────────────────────
-
 [provider]
-# Which provider to use by default
-# Options: "anthropic", "openai", "google", "bedrock",
-#          "azure", "ollama", "cohere", "mistral", "litert"
+# Default active provider
 default = "anthropic"
 
 # ── Anthropic Claude ───────────────────────────────────────
-
 [provider.anthropic]
 api_key_env = "ANTHROPIC_API_KEY"
 model = "claude-sonnet-4-6"
 max_tokens = 8192
 temperature = 0.0
-# Optional: custom base URL (for proxies)
-# base_url = "https://api.anthropic.com"
 
 # ── OpenAI ─────────────────────────────────────────────────
-
 [provider.openai]
 api_key_env = "OPENAI_API_KEY"
 model = "gpt-4o"
 max_tokens = 4096
 temperature = 0.0
-# Optional: use a compatible endpoint
-# base_url = "https://api.openai.com/v1"
-# Optional: organization ID
-# organization = "org-..."
 
 # ── Google Gemini ──────────────────────────────────────────
-
 [provider.google]
 api_key_env = "GOOGLE_API_KEY"
 model = "gemini-2.5-pro"
 max_tokens = 8192
 
-# ── Amazon Bedrock ─────────────────────────────────────────
+# ── Google Cloud Vertex AI ─────────────────────────────────
+[provider.vertex]
+project_id = "your-gcp-project"
+location = "us-central1"
+model = "gemini-2.5-pro"
 
+# ── Amazon Bedrock ─────────────────────────────────────────
 [provider.bedrock]
-# Uses AWS credentials (AWS_ACCESS_KEY_ID, etc.)
 model = "anthropic.claude-sonnet-4-20250514"
 region = "us-east-1"
 
 # ── Azure OpenAI ───────────────────────────────────────────
-
 [provider.azure]
 api_key_env = "AZURE_OPENAI_API_KEY"
 base_url = "https://your-resource.openai.azure.com"
 deployment = "gpt-4o"
 api_version = "2024-08-01"
 
-# ── Ollama (Local LLM) ────────────────────────────────────
-
+# ── Ollama (Local) ─────────────────────────────────────────
 [provider.ollama]
 base_url = "http://localhost:11434"
-model = "codellama"
+model = "deepseek-coder-v2"
 
-# ── Other Providers ────────────────────────────────────────
-
-[provider.cohere]
-api_key_env = "COHERE_API_KEY"
-model = "command-r-plus"
-
-[provider.mistral]
-api_key_env = "MISTRAL_API_KEY"
-model = "mistral-large-latest"
-
-# ── MCP Servers ────────────────────────────────────────────
-
+# ── MCP Server Hookups ─────────────────────────────────────
 [[mcp_server]]
 name = "postgres"
 transport = "stdio"
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/mydb"]
 
-# ── Orchestration ──────────────────────────────────────────
+# ── Agent-to-Agent (A2A) ───────────────────────────────────
+[a2a]
+enabled = false
+port = 8080
 
-[orchestration]
-max_iterations = 3
-max_tool_turns = 25
-wall_clock_timeout_secs = 900
-min_tool_calls_to_stop = 5
-
-# ── Permissions ────────────────────────────────────────────
-
+# ── Security & Tool Permissions ─────────────────────────────
 [permissions]
+# Sensitive file extensions and directories blocked from agent access
 protected_paths = [
-    ".env", "credentials.json", "id_rsa", "*.pem",
-    "Cargo.toml", "package.json",
+  ".env", "*.pem", "*.key", "id_rsa", "credentials.json", "terraform.tfstate"
 ]
+# Commands the agent can execute without user approval
 auto_approve_commands = [
-    "ls", "cat", "head", "tail", "wc",
-    "find", "grep", "git status", "git log", "git diff",
-    "cargo check", "cargo test", "cargo clippy",
+  "ls", "cat", "head", "tail", "wc", "find", "grep",
+  "git status", "git log", "git diff", "cargo check", "cargo clippy"
 ]
 
-# ── TUI Settings ───────────────────────────────────────────
+# ── Orchestration Tuning ───────────────────────────────────
+[orchestration]
+# Maximum iterations the autonomous agent loop can run (default: 3)
+max_iterations = 3
+# Maximum tool turns per prompt iteration (default: 25)
+max_tool_turns = 25
+# Wall-clock timeout before forcing stop (default: 900 seconds)
+wall_clock_timeout_secs = 900
+# Minimum tool invocations before concluding a task (default: 5)
+min_tool_calls_to_stop = 5</code></pre>
 
-[tui]
-theme = "dark"
-scrollback = 10000</code></pre>
+        <h2 id="providers">LLM Providers</h2>
 
-    <h2 id="anthropic">Anthropic Claude Setup</h2>
+        <h3>Anthropic</h3>
+        <p>Recommended for its coding capability. Set <code>ANTHROPIC_API_KEY</code>. Recommended models:</p>
+        <ul>
+          <li><strong>claude-sonnet-4-6</strong>: Balanced model for feature development and editing.</li>
+          <li><strong>claude-opus-4-7</strong>: High-effort model for architecture and diagnostics.</li>
+          <li><strong>claude-haiku-4-5</strong>: Fast and cost-efficient option for simple, single-file patches.</li>
+        </ul>
 
-    <h3>1. Get an API Key</h3>
-    <p>Visit <a href="https://console.anthropic.com/">console.anthropic.com</a>, create an account, and generate an API key.</p>
-
-    <h3>2. Set the Key</h3>
-    <pre><code># Add to ~/.zshrc or ~/.bashrc
-export ANTHROPIC_API_KEY="sk-ant-api03-your-key-here"</code></pre>
-
-    <h3>3. Choose Your Model</h3>
-    <table>
-      <tr><th>Model</th><th>Best For</th><th>Speed</th><th>Cost</th></tr>
-      <tr><td><code>claude-haiku-4-5</code></td><td>Quick fixes, simple edits</td><td>Fastest</td><td>Lowest</td></tr>
-      <tr><td><code>claude-sonnet-4-6</code> <span class="badge">Recommended</span></td><td>Feature dev, refactoring</td><td>Fast</td><td>Medium</td></tr>
-      <tr><td><code>claude-opus-4-7</code></td><td>Architecture, deep analysis</td><td>Slower</td><td>Highest</td></tr>
-    </table>
-
-    <h3>4. Configure</h3>
-    <pre><code># Minimal (just use defaults)
-# Only ANTHROPIC_API_KEY is needed
-
-# Override model per-project in .rustycode/config.toml
-[provider.anthropic]
-model = "claude-opus-4-7"</code></pre>
-
-    <h3>5. Using a Proxy / Custom Endpoint</h3>
-    <pre><code>[provider.anthropic]
-base_url = "https://your-proxy.example.com/v1"
-api_key_env = "MY_PROXY_API_KEY"</code></pre>
-
-    <h2 id="openai">OpenAI GPT Setup</h2>
-
-    <h3>1. Get an API Key</h3>
-    <p>Visit <a href="https://platform.openai.com/api-keys">platform.openai.com/api-keys</a> and generate a key.</p>
-
-    <h3>2. Set the Key</h3>
-    <pre><code>export OPENAI_API_KEY="sk-your-key-here"</code></pre>
-
-    <h3>3. Choose Your Model</h3>
-    <table>
-      <tr><th>Model</th><th>Best For</th><th>Notes</th></tr>
-      <tr><td><code>gpt-4o</code></td><td>General purpose coding</td><td>Best OpenAI model for code</td></tr>
-      <tr><td><code>gpt-4o-mini</code></td><td>Quick tasks</td><td>Cheaper, faster</td></tr>
-      <tr><td><code>o3</code></td><td>Complex reasoning</td><td>Strongest reasoning model</td></tr>
-    </table>
-
-    <h3>4. Configure</h3>
-    <pre><code>[provider]
-default = "openai"
-
-[provider.openai]
-model = "gpt-4o"</code></pre>
-
-    <h3>5. OpenAI-Compatible Endpoints</h3>
-    <p>Works with any OpenAI-compatible API (Together AI, Groq, LiteLLM, etc.):</p>
-    <pre><code>[provider.openai]
-base_url = "https://api.groq.com/openai/v1"
-api_key_env = "GROQ_API_KEY"
-model = "llama-3.1-70b-versatile"</code></pre>
-
-    <h2 id="google">Google Gemini Setup</h2>
-
-    <h3>1. Get an API Key</h3>
-    <p>Visit <a href="https://aistudio.google.com/apikey">Google AI Studio</a> and create an API key.</p>
-
-    <h3>2. Set the Key</h3>
-    <pre><code>export GOOGLE_API_KEY="AIza..."</code></pre>
-
-    <h3>3. Configure</h3>
-    <pre><code>[provider]
-default = "google"
-
-[provider.google]
+        <h3>Google Cloud Vertex AI</h3>
+        <p>Utilize corporate Gemini models hosted via Google Cloud Vertex. Ensure the local environment has active credentials via <code>gcloud auth application-default login</code>, then set:</p>
+        <pre><code>[provider.vertex]
+project_id = "my-gcp-project-123"
+location = "us-central1"
 model = "gemini-2.5-pro"</code></pre>
 
-    <h2 id="bedrock">Amazon Bedrock Setup</h2>
+        <h3>Ollama</h3>
+        <p>Configure a custom model registry endpoint. Set <code>base_url</code> to your local port (default <code>http://localhost:11434</code>) and choose your downloaded model (e.g. <code>deepseek-coder-v2</code> or <code>codellama</code>).</p>
 
-    <h3>1. Configure AWS Credentials</h3>
-    <pre><code># Using AWS CLI
-aws configure
-
-# Or set environment variables
-export AWS_ACCESS_KEY_ID="AKIA..."
-export AWS_SECRET_ACCESS_KEY="..."
-export AWS_REGION="us-east-1"</code></pre>
-
-    <h3>2. Configure</h3>
-    <pre><code>[provider]
-default = "bedrock"
-
-[provider.bedrock]
-model = "anthropic.claude-sonnet-4-20250514"
-region = "us-east-1"</code></pre>
-
-    <div class="tip">
-      <strong>Tip:</strong> Bedrock supports Claude models, Amazon Titan, and other foundation models. Use the Bedrock model ID format: <code>provider.model-name</code>.
-    </div>
-
-    <h2 id="azure">Azure OpenAI Setup</h2>
-
-    <h3>1. Get Credentials</h3>
-    <p>You need an Azure OpenAI resource with a deployed model. See <a href="https://learn.microsoft.com/en-us/azure/ai-services/openai/">Azure OpenAI docs</a>.</p>
-
-    <h3>2. Configure</h3>
-    <pre><code>[provider]
-default = "azure"
-
-[provider.azure]
-api_key_env = "AZURE_OPENAI_API_KEY"
-base_url = "https://your-resource.openai.azure.com"
-deployment = "gpt-4o"
-api_version = "2024-08-01"</code></pre>
-
-    <h2 id="ollama">Ollama (Local LLM) Setup</h2>
-    <p>Run models locally with no API costs. Great for offline work or sensitive codebases.</p>
-
-    <h3>1. Install Ollama</h3>
-    <pre><code># macOS
-brew install ollama
-
-# Linux
-curl -fsSL https://ollama.com/install.sh | sh</code></pre>
-
-    <h3>2. Start Ollama and Pull a Model</h3>
-    <pre><code>ollama serve
-ollama pull codellama    # Code-focused model
-ollama pull llama3       # General purpose
-ollama pull deepseek-coder-v2  # Strong coding model</code></pre>
-
-    <h3>3. Configure RustyCode</h3>
-    <pre><code>[provider]
-default = "ollama"
-
-[provider.ollama]
-base_url = "http://localhost:11434"
-model = "codellama"</code></pre>
-
-    <div class="warning">
-      <strong>Note:</strong> Local models are less capable than Claude or GPT-4 for complex tasks. They work best for small, well-scoped edits and quick lookups.
-    </div>
-
-    <h2 id="other-providers">Other Providers</h2>
-
-    <h3>Cohere</h3>
-    <pre><code>[provider.cohere]
-api_key_env = "COHERE_API_KEY"
-model = "command-r-plus"</code></pre>
-
-    <h3>Mistral</h3>
-    <pre><code>[provider.mistral]
-api_key_env = "MISTRAL_API_KEY"
-model = "mistral-large-latest"</code></pre>
-
-    <h3>LiteRT (Google Edge)</h3>
-    <pre><code>[provider.litert]
-api_key_env = "GOOGLE_API_KEY"
-model = "gemini-2.0-flash-lite"</code></pre>
-
-    <h2 id="custom-endpoints">Custom Endpoints</h2>
-    <p>Any provider with an OpenAI-compatible API works by setting <code>base_url</code>:</p>
-
-    <h3>Together AI</h3>
-    <pre><code>[provider.openai]
-base_url = "https://api.together.xyz/v1"
-api_key_env = "TOGETHER_API_KEY"
-model = "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo"</code></pre>
-
-    <h3>Groq (Fast Inference)</h3>
-    <pre><code>[provider.openai]
-base_url = "https://api.groq.com/openai/v1"
-api_key_env = "GROQ_API_KEY"
-model = "llama-3.1-70b-versatile"</code></pre>
-
-    <h3>LiteLLM Proxy</h3>
-    <pre><code>[provider.openai]
-base_url = "http://localhost:4000/v1"
-api_key_env = "LITELLM_KEY"
-model = "claude-sonnet-4-6"</code></pre>
-
-    <h2 id="mcp-servers">MCP Server Configuration</h2>
-    <p>Add MCP servers to give RustyCode access to external tools and data. See <a href="skills-mcp-tools.html#mcp">Skills &amp; MCP</a> for the full guide.</p>
-
-    <h3>Example: PostgreSQL + GitHub</h3>
-    <pre><code>[[mcp_server]]
-name = "postgres"
-transport = "stdio"
-command = "npx"
-args = ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/mydb"]
-
-[[mcp_server]]
+        <h2 id="mcp-config">MCP Configurations</h2>
+        <p>Define third-party MCP servers under the <code>[[mcp_server]]</code> array. Define environment variables in an optional <code>env</code> table block:</p>
+        <pre><code>[[mcp_server]]
 name = "github"
 transport = "stdio"
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-github"]
 env = { GITHUB_PERSONAL_ACCESS_TOKEN = "ghp_..." }</code></pre>
 
-    <h2 id="environment-variables">Environment Variables</h2>
-    <table>
-      <tr><th>Variable</th><th>Description</th><th>Example</th></tr>
-      <tr><td><code>ANTHROPIC_API_KEY</code></td><td>Anthropic API key</td><td><code>sk-ant-api03-...</code></td></tr>
-      <tr><td><code>OPENAI_API_KEY</code></td><td>OpenAI API key</td><td><code>sk-...</code></td></tr>
-      <tr><td><code>GOOGLE_API_KEY</code></td><td>Google Gemini API key</td><td><code>AIza...</code></td></tr>
-      <tr><td><code>AWS_ACCESS_KEY_ID</code></td><td>AWS credential (for Bedrock)</td><td><code>AKIA...</code></td></tr>
-      <tr><td><code>AWS_REGION</code></td><td>AWS region (for Bedrock)</td><td><code>us-east-1</code></td></tr>
-      <tr><td><code>COHERE_API_KEY</code></td><td>Cohere API key</td><td><code>...</code></td></tr>
-      <tr><td><code>MISTRAL_API_KEY</code></td><td>Mistral API key</td><td><code>...</code></td></tr>
-      <tr><td><code>RUSTYCODE_PROVIDER</code></td><td>Override default provider</td><td><code>ollama</code></td></tr>
-      <tr><td><code>RUSTYCODE_MODEL</code></td><td>Override default model</td><td><code>claude-opus-4-7</code></td></tr>
-      <tr><td><code>RUSTYCODE_CONFIG</code></td><td>Path to config file</td><td><code>/path/to/config.toml</code></td></tr>
-    </table>
+        <h2 id="permissions">Permissions &amp; Paths</h2>
+        <p>Protect sensitive system configs and user directories using security tables:</p>
+        <ul>
+          <li><strong>protected_paths:</strong> Glob paths matches. If the agent attempts to read, write, or grep files matching these patterns, the security manager throws a validation error and aborts the operation.</li>
+          <li><strong>auto_approve_commands:</strong> Standard commands the agent runs automatically. Any shell command not in this list prompts the user with an explicit TUI/Web confirmation dialog before execution.</li>
+        </ul>
 
-    <h2 id="tool-permissions">Tool Permissions</h2>
+        <h2 id="orchestration">Orchestration &amp; Budgets</h2>
+        <p>Prevent runaway loops and coordinate agent workloads. Configurable options:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Setting</th><th>Default</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>max_iterations</code></td>
+                <td><code>3</code></td>
+                <td>Determines how many full reasoning attempts (planning, acting, verifying) the agent can perform.</td>
+              </tr>
+              <tr>
+                <td><code>max_tool_turns</code></td>
+                <td><code>25</code></td>
+                <td>Limits total tool execution loops per task run to prevent endless recursion.</td>
+              </tr>
+              <tr>
+                <td><code>wall_clock_timeout_secs</code></td>
+                <td><code>900</code></td>
+                <td>Hard wall-clock timeout. Forces the agent to shut down and output results.</td>
+              </tr>
+              <tr>
+                <td><code>min_tool_calls_to_stop</code></td>
+                <td><code>5</code></td>
+                <td>Ensures the agent doesn't quit immediately without performing sufficient validation.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-    <h3>How Permissions Work</h3>
-    <p>Every tool action goes through the permission system:</p>
-    <ol>
-      <li><strong>Auto-approve</strong> &mdash; Read-only commands like <code>ls</code>, <code>git status</code>, <code>cargo check</code></li>
-      <li><strong>Ask user</strong> &mdash; File writes, shell commands, anything that modifies state</li>
-      <li><strong>Block</strong> &mdash; Sensitive files (.env, SSH keys), dangerous commands (<code>rm -rf</code>)</li>
-    </ol>
-
-    <h3>Customizing Auto-Approve</h3>
-    <pre><code>[permissions]
-auto_approve_commands = [
-    # Existing defaults
-    "ls", "cat", "head", "tail", "wc", "find", "grep",
-    "git status", "git log", "git diff", "git branch",
-    "cargo check", "cargo test", "cargo clippy",
-    # Add your own
-    "docker ps",
-    "kubectl get pods",
-    "make lint",
-]</code></pre>
-
-    <h2 id="orchestration">Orchestration Tuning</h2>
-    <p>Fine-tune autonomous mode behavior:</p>
-
-    <table>
-      <tr><th>Setting</th><th>Default</th><th>What It Does</th></tr>
-      <tr><td><code>max_iterations</code></td><td>3</td><td>How many times the agent can reconsider its approach. Increase for complex tasks.</td></tr>
-      <tr><td><code>max_tool_turns</code></td><td>25</td><td>Maximum tool calls per task. Prevents runaway execution.</td></tr>
-      <tr><td><code>wall_clock_timeout_secs</code></td><td>900</td><td>Hard timeout in seconds. The agent stops no matter what after this.</td></tr>
-      <tr><td><code>min_tool_calls_to_stop</code></td><td>5</td><td>Prevents the agent from stopping too early. Must make at least this many tool calls.</td></tr>
-    </table>
-
-    <div class="tip">
-      <strong>For large refactors:</strong> Increase <code>max_tool_turns</code> to 40 and <code>wall_clock_timeout_secs</code> to 1800.
-      <strong>For quick fixes:</strong> Decrease <code>max_iterations</code> to 1 and <code>min_tool_calls_to_stop</code> to 2.
+        <h2 id="env-vars">Environment Variables</h2>
+        <p>Override TOML files at runtime using environment variables:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Variable</th><th>TOML Override</th><th>Example</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>RUSTYCODE_PROVIDER</code></td>
+                <td><code>provider.default</code></td>
+                <td><code>export RUSTYCODE_PROVIDER="google"</code></td>
+              </tr>
+              <tr>
+                <td><code>RUSTYCODE_MODEL_OVERRIDE</code></td>
+                <td>Active model name</td>
+                <td><code>export RUSTYCODE_MODEL_OVERRIDE="gpt-4o"</code></td>
+              </tr>
+              <tr>
+                <td><code>RUSTYCODE_EFFORT_OVERRIDE</code></td>
+                <td>Reasoning effort limit</td>
+                <td><code>export RUSTYCODE_EFFORT_OVERRIDE="medium"</code></td>
+              </tr>
+              <tr>
+                <td><code>RUSTYCODE_SKIP_PERMISSIONS</code></td>
+                <td>Skips security checks</td>
+                <td><code>export RUSTYCODE_SKIP_PERMISSIONS="true"</code></td>
+              </tr>
+              <tr>
+                <td><code>RUSTYCODE_CONFIG</code></td>
+                <td>Custom config file path</td>
+                <td><code>export RUSTYCODE_CONFIG="/tmp/config.toml"</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 
   <footer>
     &copy; 2026 RustyCode &middot; MIT License &middot; <a href="https://github.com/rustycode-ai/rustycode">GitHub</a>
   </footer>
+
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          const id = entry.target.getAttribute('id');
+          if (entry.intersectionRatio > 0) {
+            document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+            const activeLink = document.querySelector(`.sidebar a[href="#${id}"]`);
+            if (activeLink) activeLink.classList.add('active');
+          }
+        });
+      }, { rootMargin: '0px 0px -60% 0px' });
+      
+      document.querySelectorAll('.docs-content h2').forEach(h2 => {
+        observer.observe(h2);
+      });
+    });
+  </script>
 </body>
 </html>
