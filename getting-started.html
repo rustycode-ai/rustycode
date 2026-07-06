@@ -8,182 +8,232 @@
 </head>
 <body>
   <nav>
-    <span class="brand">RustyCode</span>
-    <a href="index.html">Home</a>
-    <a href="getting-started.html">Getting Started</a>
-    <a href="manual.html">Manual</a>
-    <a href="configuration.html">Configuration</a>
-    <a href="skills-mcp-tools.html">Skills &amp; MCP</a>
-    <a href="tips-and-tricks.html">Tips &amp; Tricks</a>
-    <a href="https://github.com/rustycode-ai/rustycode">GitHub</a>
+    <div class="brand-container">
+      <span class="brand">RustyCode</span>
+    </div>
+    <div class="links">
+      <a href="index.html">Home</a>
+      <a href="getting-started.html" class="active">Getting Started</a>
+      <a href="manual.html">Manual</a>
+      <a href="configuration.html">Configuration</a>
+      <a href="skills-mcp-tools.html">Skills &amp; MCP</a>
+      <a href="tips-and-tricks.html">Tips &amp; Tricks</a>
+      <a href="https://github.com/rustycode-ai/rustycode" class="git-btn">GitHub</a>
+    </div>
   </nav>
 
   <div class="container">
-    <h1>Getting Started</h1>
+    <div class="docs-layout">
+      <div class="sidebar">
+        <div class="toc-title">Contents</div>
+        <ul>
+          <li><a href="#prerequisites" class="active">Prerequisites</a></li>
+          <li><a href="#install">Installation</a></li>
+          <li><a href="#configure">Configure API Keys</a></li>
+          <li><a href="#first-run">Your First Run</a></li>
+          <li><a href="#tui-basics">TUI Basics</a></li>
+          <li><a href="#web-ui">Web UI &amp; Vision</a></li>
+          <li><a href="#headless-mode">Headless Mode</a></li>
+          <li><a href="#next-steps">Next Steps</a></li>
+        </ul>
+      </div>
 
-    <div class="toc">
-      <strong>Contents</strong>
-      <ul>
-        <li><a href="#prerequisites">Prerequisites</a></li>
-        <li><a href="#install">Installation</a></li>
-        <li><a href="#configure">Configure API Keys</a></li>
-        <li><a href="#first-run">Your First Run</a></li>
-        <li><a href="#tui-basics">TUI Basics</a></li>
-        <li><a href="#web-ui">Web UI</a></li>
-        <li><a href="#headless-mode">Headless Mode</a></li>
-        <li><a href="#next-steps">Next Steps</a></li>
-      </ul>
-    </div>
+      <div class="docs-content">
+        <h1>Getting Started</h1>
+        <p>Get up and running with RustyCode in a few minutes. We'll guide you through prerequisites, installation, API key configuration, and running your first task.</p>
 
-    <h2 id="prerequisites">Prerequisites</h2>
-    <table>
-      <tr><th>Requirement</th><th>Details</th></tr>
-      <tr><td>Operating System</td><td>macOS (arm64), Windows (x64), Linux (amd64/arm64)</td></tr>
-      <tr><td>API Key</td><td>Anthropic, OpenAI, or any supported provider &mdash; or use Ollama for free local models</td></tr>
-      <tr><td>Terminal</td><td>Any modern terminal with 256-color support</td></tr>
-    </table>
+        <h2 id="prerequisites">Prerequisites</h2>
+        <p>Ensure your system meets the following minimal requirements before running RustyCode:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Requirement</th><th>Details</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Operating System</td><td>macOS (Apple Silicon / Intel), Windows (x64), Linux (amd64 / arm64)</td></tr>
+              <tr><td>API Key</td><td>Anthropic Claude, OpenAI, Google Gemini, or Ollama (fully local models)</td></tr>
+              <tr><td>Terminal</td><td>Any modern terminal with TrueColor (24-bit) support (e.g., iTerm2, Alacritty, Kitty, Windows Terminal)</td></tr>
+              <tr><td>Optional Tools</td><td>Node.js &amp; npm (required to install and run third-party MCP servers)</td></tr>
+            </tbody>
+          </table>
+        </div>
 
-    <h2 id="install">Installation</h2>
+        <h2 id="install">Installation</h2>
 
-    <h3>One-Line Install (Recommended)</h3>
-    <pre><code># macOS / Linux
+        <h3>One-Line Install (Recommended)</h3>
+        <p>The easiest way to install RustyCode is using our official shell script or PowerShell script. This downloads the latest release binary for your platform and puts it in your path.</p>
+        <pre><code># macOS / Linux
 curl -fsSL https://rustycode-ai.github.io/install.sh | sh
 
 # Windows (PowerShell)
 irm https://rustycode-ai.github.io/install.ps1 | iex
 
-# Nightly channel
+# Nightly channel (installs the latest commit build)
 curl -fsSL https://rustycode-ai.github.io/install.sh | sh -s -- --nightly</code></pre>
 
-    <h3>Download Binary</h3>
-    <p>Download the latest release from <a href="https://github.com/rustycode-ai/rustycode/releases">GitHub Releases</a>:</p>
-    <table>
-      <tr><th>Platform</th><th>Asset</th></tr>
-      <tr><td>macOS (Apple Silicon)</td><td><code>rustycode-macos-arm64.tar.gz</code></td></tr>
-      <tr><td>Linux (x64)</td><td><code>rustycode-linux-x64.tar.gz</code></td></tr>
-      <tr><td>Linux (arm64)</td><td><code>rustycode-linux-arm64.tar.gz</code></td></tr>
-      <tr><td>Windows (x64)</td><td><code>rustycode-windows-x64.zip</code></td></tr>
-    </table>
+        <h3>Download Pre-built Binary</h3>
+        <p>Alternatively, fetch assets directly from the <a href="https://github.com/rustycode-ai/rustycode/releases">GitHub Releases Page</a>:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Platform</th><th>Asset Name</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>macOS (Apple Silicon)</td><td><code>rustycode-macos-arm64.tar.gz</code></td></tr>
+              <tr><td>Linux (x64)</td><td><code>rustycode-linux-x64.tar.gz</code></td></tr>
+              <tr><td>Linux (arm64)</td><td><code>rustycode-linux-arm64.tar.gz</code></td></tr>
+              <tr><td>Windows (x64)</td><td><code>rustycode-windows-x64.zip</code></td></tr>
+            </tbody>
+          </table>
+        </div>
 
-    <h3>Build from Source</h3>
-    <pre><code>git clone https://github.com/rustycode-ai/rustycode.git
+        <h3>Build from Source</h3>
+        <p>If you have the Rust toolchain installed, you can clone and build RustyCode manually. Make sure to target the main CLI crate:</p>
+        <pre><code>git clone https://github.com/luengnat/rustycode.git
 cd rustycode
 cargo build --release -p rustycode-cli
-# Binary at target/release/rustycode-cli</code></pre>
 
-    <h3>Verify Installation</h3>
-    <pre><code>rustycode --version</code></pre>
+# The compiled binary will be placed at:
+# target/release/rustycode-cli</code></pre>
 
-    <h2 id="configure">Configure API Keys</h2>
-    <p>RustyCode reads API keys from environment variables:</p>
+        <h3>Verify Installation</h3>
+        <pre><code>rustycode --version</code></pre>
 
-    <pre><code># For Anthropic Claude (recommended)
+        <h2 id="configure">Configure API Keys</h2>
+        <p>RustyCode reads API keys from environment variables. Export them in your shell session or save them to your profile (e.g., <code>~/.zshrc</code>, <code>~/.bashrc</code>):</p>
+
+        <pre><code># Anthropic Claude (recommended model: claude-sonnet-4-6)
 export ANTHROPIC_API_KEY="sk-ant-your-key-here"
 
-# For OpenAI GPT
-export OPENAI_API_KEY="sk-your-key-here"</code></pre>
+# OpenAI (recommended model: gpt-4o or o3)
+export OPENAI_API_KEY="sk-your-key-here"
 
-    <div class="tip">
-      <strong>Tip:</strong> Add the export to your <code>~/.zshrc</code> or <code>~/.bashrc</code> so it persists across sessions. Never commit API keys to source control.
-    </div>
+# Google Gemini (recommended model: gemini-2.5-pro)
+export GOOGLE_API_KEY="AIzaSyYourKeyHere"</code></pre>
 
-    <p>You can also use a local LLM via Ollama &mdash; no API key required:</p>
-    <pre><code># Install and start Ollama
+        <div class="alert tip">
+          <div class="alert-icon">&#128161;</div>
+          <div class="alert-content">
+            <strong>Tuning Settings:</strong>
+            <p>You can also customize default providers, models, and execution budgets in your global configuration file (located at <code>~/.rustycode/config.toml</code>). See the <a href="configuration.html">Configuration Guide</a> for more details.</p>
+          </div>
+        </div>
+
+        <h3>Ollama (Fully Local Setup)</h3>
+        <p>Run RustyCode completely offline. No API key or internet connection required:</p>
+        <pre><code># Install Ollama (https://ollama.com) and serve it
 ollama serve
-ollama pull codellama
 
-# Configure RustyCode to use Ollama (see configuration.html)</code></pre>
+# Pull a strong coding model
+ollama pull deepseek-coder-v2
 
-    <h2 id="first-run">Your First Run</h2>
+# Configure Ollama in ~/.rustycode/config.toml:
+# [provider]
+# default = "ollama"
+# [provider.ollama]
+# base_url = "http://localhost:11434"
+# model = "deepseek-coder-v2"</code></pre>
 
-    <h3>Interactive TUI Mode</h3>
-    <pre><code>cd your-project-directory
+        <h2 id="first-run">Your First Run</h2>
+        <p>Open a terminal, navigate to your codebase directory, and boot the framework:</p>
+
+        <h3>Interactive Terminal UI (TUI)</h3>
+        <pre><code>cd /path/to/your/project
 rustycode tui</code></pre>
+        <p>This boots RustyCode's interactive screen. Type your request and press <code>Enter</code>. The framework will:</p>
+        <ol>
+          <li>Analyze your repository structure and build a context map</li>
+          <li>Formulate a phase-by-phase execution plan</li>
+          <li>Execute edits and run validation checks using specialized tools</li>
+          <li>Prompt you for approval when performing stateful operations (like edits or shell executions)</li>
+        </ol>
 
-    <p>This opens the terminal UI. Type your request and press Enter. RustyCode will:</p>
-    <ol>
-      <li>Analyze your codebase context</li>
-      <li>Plan an approach using structured reasoning</li>
-      <li>Execute changes using file editing and shell tools</li>
-      <li>Show results and ask for confirmation when needed</li>
-    </ol>
+        <h2 id="tui-basics">TUI Basics</h2>
+        <p>Navigate the TUI environment using the following key bindings:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Shortcut</th><th>Action</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>Enter</code></td><td>Send message / Submit tool approval</td></tr>
+              <tr><td><code>Escape</code></td><td>Close help/overlay / Cancel mode transition</td></tr>
+              <tr><td><code>Ctrl+C</code></td><td>Stop/abort the current model streaming or running tool</td></tr>
+              <tr><td><code>Ctrl+Q</code></td><td>Quit RustyCode</td></tr>
+              <tr><td><code>Ctrl+B</code></td><td>Toggle sessions sidebar</td></tr>
+              <tr><td><code>Ctrl+K</code></td><td>Open command palette (quick actions)</td></tr>
+              <tr><td><code>Ctrl+F</code></td><td>Search within current conversation messages</td></tr>
+              <li><code>Ctrl+1-9</code></td><td>Switch tabs/sessions directly</td></tr>
+            </tbody>
+          </table>
+        </div>
 
-    <h3>Headless CLI Mode</h3>
-    <pre><code>rustycode run "Add error handling to the database connection function"</code></pre>
+        <h2 id="web-ui">Web UI &amp; Vision Support</h2>
+        <p>RustyCode has a built-in React web dashboard, providing a visual browser interface:</p>
+        <pre><code># Start the web UI server
+rustycode web start
 
-    <h2 id="tui-basics">TUI Basics</h2>
-
-    <h3>Keyboard Shortcuts</h3>
-    <table>
-      <tr><th>Key</th><th>Action</th></tr>
-      <tr><td><code>Enter</code></td><td>Send message / Confirm action</td></tr>
-      <tr><td><code>Escape</code></td><td>Cancel / Go back</td></tr>
-      <tr><td><code>Ctrl+C</code></td><td>Stop current operation</td></tr>
-      <tr><td><code>Ctrl+Q</code></td><td>Quit RustyCode</td></tr>
-      <tr><td><code>Ctrl+B</code></td><td>Toggle sidebar</td></tr>
-      <tr><td><code>Ctrl+K</code></td><td>Open command palette</td></tr>
-      <tr><td><code>Ctrl+F</code></td><td>Search messages</td></tr>
-      <tr><td><code>Ctrl+1-9</code></td><td>Switch between sessions</td></tr>
-    </table>
-
-    <h3>Tool Approvals</h3>
-    <p>When RustyCode wants to run a tool (edit a file, run a command), the TUI shows the proposed action and asks for your approval. You can:</p>
-    <ul>
-      <li><strong>Approve</strong> &mdash; let the tool execute</li>
-      <li><strong>Deny</strong> &mdash; block the action</li>
-      <li><strong>Auto-approve</strong> &mdash; approve all subsequent actions for this session</li>
-    </ul>
-
-    <h2 id="web-ui">Web UI</h2>
-    <p>RustyCode includes a web-based interface for browser-based development:</p>
-    <pre><code># Start the web server
-rustycode web
-
-# Or start with API server mode
+# Or start the unified backend API server (runs Web, ACP, and A2A servers)
 rustycode serve</code></pre>
+        <p>Access the panel at <code>http://localhost:3000</code>. Key features include:</p>
+        <ul>
+          <li><strong>Vision Input:</strong> Drag or paste images (screenshots, UI mockups) directly into the chat prompt to enable visual reasoning.</li>
+          <li><strong>Approval Panel:</strong> Interactive review overlays showing file diffs side-by-side.</li>
+          <li><strong>Command Palette:</strong> <code>Ctrl+K</code> menu to run shortcuts, load workflows, or toggle models.</li>
+        </ul>
 
-    <p>The web UI provides:</p>
-    <ul>
-      <li>Chat interface with streaming responses</li>
-      <li>Session sidebar with multi-session support</li>
-      <li>Tool approval modals</li>
-      <li>Command palette (<code>Ctrl+K</code>)</li>
-      <li>Search across messages</li>
-      <li>Model selector</li>
-      <li>Settings panel</li>
-    </ul>
+        <h2 id="headless-mode">Headless CLI Mode</h2>
+        <p>For script integration and one-shot execution, bypass the UI entirely:</p>
+        <pre><code># Run a quick fix
+rustycode run "Fix the syntax warnings in src/auth.rs"
 
-    <h2 id="headless-mode">Headless Mode</h2>
-    <p>Run RustyCode without a TUI for scripting and automation:</p>
+# Override model and provider for a specific run
+rustycode run --provider google --model gemini-2.5-pro "Generate unit tests for src/utils.rs"
 
-    <pre><code># Single task
-rustycode run "Fix the off-by-one error in parser.rs"
+# Run with a budget timeout (seconds)
+rustycode run --timeout 300 "Refactor the config loader to handle YAML format"</code></pre>
 
-# With specific provider
-rustycode run --provider openai "Refactor the auth module"
-
-# With timeout
-rustycode run --timeout 300 "Implement the full user registration flow"</code></pre>
-
-    <h2 id="next-steps">Next Steps</h2>
-    <div class="card-grid">
-      <a class="card" href="manual.html">
-        <h3>Full Manual</h3>
-        <p>Complete reference for all commands, tools, and modes.</p>
-      </a>
-      <a class="card" href="configuration.html">
-        <h3>Configuration</h3>
-        <p>Customize providers, permissions, and behavior.</p>
-      </a>
-      <a class="card" href="skills-mcp-tools.html">
-        <h3>Skills &amp; MCP</h3>
-        <p>Extend RustyCode with skills, MCP servers, and custom tools.</p>
-      </a>
+        <h2 id="next-steps">Next Steps</h2>
+        <div class="card-grid">
+          <a class="card-link" href="manual.html">
+            <h3>User Manual</h3>
+            <p>A comprehensive guide detailing commands, built-in tools, slash commands, and team modes.</p>
+          </a>
+          <a class="card-link" href="configuration.html">
+            <h3>Configuration</h3>
+            <p>Customize LLM providers, permission profiles, protected paths, and execution budgets.</p>
+          </a>
+          <a class="card-link" href="skills-mcp-tools.html">
+            <h3>Skills &amp; MCP</h3>
+            <p>Extend RustyCode with custom recipes, MCP server endpoints, and desktop automation.</p>
+          </a>
+        </div>
+      </div>
     </div>
   </div>
 
   <footer>
     &copy; 2026 RustyCode &middot; MIT License &middot; <a href="https://github.com/rustycode-ai/rustycode">GitHub</a>
   </footer>
+  
+  <script>
+    // Simple script to highlight the active section in the sidebar
+    window.addEventListener('DOMContentLoaded', () => {
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          const id = entry.target.getAttribute('id');
+          if (entry.intersectionRatio > 0) {
+            document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+            const activeLink = document.querySelector(`.sidebar a[href="#${id}"]`);
+            if (activeLink) activeLink.classList.add('active');
+          }
+        });
+      }, { rootMargin: '0px 0px -60% 0px' });
+      
+      document.querySelectorAll('.docs-content h2').forEach(h2 => {
+        observer.observe(h2);
+      });
+    });
+  </script>
 </body>
 </html>
