@@ -3,285 +3,302 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Manual - RustyCode</title>
+  <title>User Manual - RustyCode</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <nav>
-    <span class="brand">RustyCode</span>
-    <a href="index.html">Home</a>
-    <a href="getting-started.html">Getting Started</a>
-    <a href="manual.html">Manual</a>
-    <a href="configuration.html">Configuration</a>
-    <a href="skills-mcp-tools.html">Skills &amp; MCP</a>
-    <a href="tips-and-tricks.html">Tips &amp; Tricks</a>
-    <a href="https://github.com/rustycode-ai/rustycode">GitHub</a>
+    <div class="brand-container">
+      <span class="brand">RustyCode</span>
+    </div>
+    <div class="links">
+      <a href="index.html">Home</a>
+      <a href="getting-started.html">Getting Started</a>
+      <a href="manual.html" class="active">Manual</a>
+      <a href="configuration.html">Configuration</a>
+      <a href="skills-mcp-tools.html">Skills &amp; MCP</a>
+      <a href="tips-and-tricks.html">Tips &amp; Tricks</a>
+      <a href="https://github.com/rustycode-ai/rustycode" class="git-btn">GitHub</a>
+    </div>
   </nav>
 
   <div class="container">
-    <h1>Manual</h1>
+    <div class="docs-layout">
+      <div class="sidebar">
+        <div class="toc-title">Contents</div>
+        <ul>
+          <li><a href="#cli-commands" class="active">CLI Subcommands</a></li>
+          <li><a href="#global-flags">Global Flags</a></li>
+          <li><a href="#terminal-ui">Terminal UI &amp; Slash Cmds</a></li>
+          <li><a href="#web-ui">Web Interface</a></li>
+          <li><a href="#built-in-tools">Built-in Tools</a></li>
+          <li><a href="#reasoning-loop">Reasoning &amp; Tiering</a></li>
+          <li><a href="#intelligence-guards">Intelligence Guards</a></li>
+          <li><a href="#security-sandbox">Security &amp; Sandboxing</a></li>
+        </ul>
+      </div>
 
-    <div class="toc">
-      <strong>Contents</strong>
-      <ul>
-        <li><a href="#cli-reference">CLI Reference</a></li>
-        <li><a href="#tui">Terminal UI</a></li>
-        <li><a href="#web-ui">Web UI</a></li>
-        <li><a href="#tools">Built-in Tools</a></li>
-        <li><a href="#autonomous-mode">Autonomous Mode</a></li>
-        <li><a href="#llm-providers">LLM Providers</a></li>
-        <li><a href="#permissions">Permission System</a></li>
-        <li><a href="#sandbox">Sandboxing</a></li>
-        <li><a href="#benchmark">Benchmark Runner</a></li>
-      </ul>
+      <div class="docs-content">
+        <h1>User Manual</h1>
+        <p>This reference manual details the CLI command structure, TUI controls, Web interface, native tools, reasoning pipelines, and sandboxing architecture in RustyCode.</p>
+
+        <h2 id="cli-commands">CLI Subcommands</h2>
+        <p>The <code>rustycode</code> CLI is structured into specialized subcommands to manage sessions, workflows, providers, and local indexes.</p>
+        
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Subcommand</th><th>Usage</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>tui</code></td>
+                <td><code>rustycode tui [--resume] [--model &lt;m&gt;]</code></td>
+                <td>Launch the interactive, fullscreen Terminal UI.</td>
+              </tr>
+              <tr>
+                <td><code>run</code></td>
+                <td><code>rustycode run "&lt;prompt&gt;" [--mode &lt;m&gt;]</code></td>
+                <td>Execute a task directly in headless mode and output the results.</td>
+              </tr>
+              <tr>
+                <td><code>serve</code></td>
+                <td><code>rustycode serve [--port &lt;p&gt;]</code></td>
+                <td>Boot the backend API server carrying the Web UI, ACP endpoint, and A2A system.</td>
+              </tr>
+              <tr>
+                <td><code>doctor</code></td>
+                <td><code>rustycode doctor</code></td>
+                <td>Validate binary pathing, configs, local database logs, and check connectivity of providers.</td>
+              </tr>
+              <tr>
+                <td><code>repair</code></td>
+                <td><code>rustycode repair &lt;session-id&gt; --test-file &lt;t&gt;</code></td>
+                <td>Diagnose and auto-repair a failing agent run from its JSONL trace rollout.</td>
+              </tr>
+              <tr>
+                <td><code>checkpoint</code></td>
+                <td><code>rustycode checkpoint &lt;git-hash&gt; [-f &lt;files&gt;]</code></td>
+                <td>Roll back codebase workspace to a Git hash checkpoint, optionally restoring specific files.</td>
+              </tr>
+              <tr>
+                <td><code>ensemble</code></td>
+                <td><code>rustycode ensemble &lt;command&gt;</code></td>
+                <td>Execute consensus execution with isolated git worktrees across multiple reasoning agents.</td>
+              </tr>
+              <tr>
+                <td><code>workflow</code></td>
+                <td><code>rustycode workflow &lt;cmd&gt; --description &lt;task&gt;</code></td>
+                <td>Execute static DAG or dynamic Rhai-scripted multi-agent pipelines.</td>
+              </tr>
+              <tr>
+                <td><code>agent</code></td>
+                <td><code>rustycode agent new "&lt;task&gt;"</code></td>
+                <td>Start a single, standalone background reasoning session.</td>
+              </tr>
+              <tr>
+                <td><code>omo</code></td>
+                <td><code>rustycode omo &lt;command&gt;</code></td>
+                <td>Run multi-agent code analysis loops to survey architecture boundaries.</td>
+              </tr>
+              <tr>
+                <td><code>harness</code></td>
+                <td><code>rustycode harness run</code></td>
+                <td>Launch the persistent harness runner for SWE-bench evaluations.</td>
+              </tr>
+              <tr>
+                <td><code>worktree</code></td>
+                <td><code>rustycode worktree &lt;command&gt;</code></td>
+                <td>Manage isolated Git worktrees for parallel agent executions.</td>
+              </tr>
+              <tr>
+                <td><code>skills</code></td>
+                <td><code>rustycode skills install &lt;git/url&gt;</code></td>
+                <td>Manage YAML skills. Installs to <code>.agents/skills/</code> by default.</td>
+              </tr>
+              <tr>
+                <td><code>learnings</code></td>
+                <td><code>rustycode learnings show</code></td>
+                <td>Show, register, or clear memories learned across previous coding tasks.</td>
+              </tr>
+              <tr>
+                <td><code>wiki</code></td>
+                <td><code>rustycode wiki search "&lt;query&gt;"</code></td>
+                <td>Interact with project wikis (ingest logs, hybrid search, or query entries).</td>
+              </tr>
+              <tr>
+                <td><code>provider</code></td>
+                <td><code>rustycode provider list</code></td>
+                <td>Display configured LLM model registries and current capabilities.</td>
+              </tr>
+              <tr>
+                <td><code>history</code></td>
+                <td><code>rustycode history list</code></td>
+                <td>Manage past session histories (list, search, show, or export JSONL rolls).</td>
+              </tr>
+              <tr>
+                <td><code>acp</code></td>
+                <td><code>rustycode acp &lt;command&gt;</code></td>
+                <td>Manage the IDE integration server (Agent Client Protocol).</td>
+              </tr>
+              <tr>
+                <td><code>a2a</code></td>
+                <td><code>rustycode a2a &lt;command&gt;</code></td>
+                <td>Manage agent-to-agent communication links.</td>
+              </tr>
+              <tr>
+                <td><code>memory</code></td>
+                <td><code>rustycode memory stats</code></td>
+                <td>Print stats or prune keys within the vector memory database.</td>
+              </tr>
+              <tr>
+                <td><code>update</code></td>
+                <td><code>rustycode update [--nightly]</code></td>
+                <td>Self-update the local binary to the latest release or nightly build.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2 id="global-flags">Global Flags</h2>
+        <p>Apply these flags to any subcommand to override execution-wide defaults:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Flag</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>--yes</code></td><td>Bypasses all interactive confirmation gates (forced non-interactive mode).</td></tr>
+              <tr><td><code>--model &lt;name&gt;</code></td><td>Override provider defaults for the primary LLM (e.g. <code>--model claude-opus-4-7</code>).</td></tr>
+              <tr><td><code>--effort low|medium|high|xhigh|max</code></td><td>Specify reasoning token budgets or effort modes on supported models.</td></tr>
+              <tr><td><code>--format human|json</code></td><td>Stdout structure format (default: <code>human</code>). Use <code>json</code> for machine pipes.</td></tr>
+              <tr><td><code>--color always|never|auto</code></td><td>Configure ANSI color rendering in stdout logs.</td></tr>
+              <tr><td><code>--dangerously-skip-permissions</code></td><td>Disable security permission checks. Recommended only for isolated Docker/CI.</td></tr>
+              <tr><td><code>--verbose</code> / <code>--debug</code></td><td>Print detailed debug and tracing logs to the console.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2 id="terminal-ui">Terminal UI &amp; Slash Commands</h2>
+        <p>The Ratatui-based TUI supports rich rendering, tab-switching, and inline commands. Type a slash command in the message input bar to coordinate sessions:</p>
+        
+        <h3>Slash Commands</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Command</th><th>Purpose</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>/do &lt;prompt&gt;</code></td><td>Perform natural language mode routing (auto-select code, debug, or ask context).</td></tr>
+              <tr><td><code>/advisor &lt;query&gt;</code></td><td>Consult the senior model advisor about an issue without committing it to the main context history.</td></tr>
+              <tr><td><code>/workflow &lt;goal&gt;</code></td><td>Boot the dynamic workflow runner to generate and coordinate parallel task steps.</td></tr>
+              <tr><td><code>/goal &lt;task&gt;</code></td><td>Run a thorough autonomous session that persists until the goal is validated.</td></tr>
+              <tr><td><code>/grill-me</code></td><td>Start an interactive interview mode to clarify code options and align on a plan.</td></tr>
+              <tr><td><code>/teamwork-preview</code></td><td>Analyze the repository and preview how a team of specialized subagents would coordinate.</td></tr>
+              <tr><td><code>/learn</code></td><td>Instruct the agent to persist the current code fix/convention to the learning store.</td></tr>
+              <tr><td><code>/clear</code></td><td>Reset the current conversation, clear file caches, and release workspace guards.</td></tr>
+              <tr><td><code>/load &lt;path&gt;</code></td><td>Load a specific file or past conversation transcript into the active context.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2 id="web-ui">Web Interface</h2>
+        <p>Start the web server with <code>rustycode serve</code> or <code>rustycode web start</code>. Key dashboard widgets:</p>
+        <ul>
+          <li><strong>Chat View:</strong> Real-time streaming markdown renderer caching.</li>
+          <li><strong>Interactive Diff Pane:</strong> View code changes in side-by-side view with line-by-line acceptance.</li>
+          <li><strong>Vision Canvas:</strong> Drag and drop images/mockups. Handled securely with size limits and fed to vision-enabled LLMs.</li>
+          <li><strong>Command Palette:</strong> Hit <code>Ctrl+K</code> to change models, select skills, or search conversation history.</li>
+        </ul>
+
+        <h2 id="built-in-tools">Built-in Tools</h2>
+        <p>RustyCode equips agents with built-in tools. Each tool execution undergoes strict permission checks:</p>
+        <ul>
+          <li><strong>File Reading:</strong> <code>read_file</code> (with chunk offsets/limits for huge assets).</li>
+          <li><strong>File Writing:</strong> <code>write_file</code> and <code>edit_file</code> (incorporates exact, normalized, and trimmed match heuristics).</li>
+          <li><strong>Notebook Editing:</strong> <code>notebook_edit</code> to read/insert/delete Jupyter Notebook cells.</li>
+          <li><strong>Code Search:</strong> <code>grep</code> (regex, line context, file filters) and <code>glob</code> (path pattern expansion).</li>
+          <li><strong>Shell Execution:</strong> <code>bash</code> (background tasking, environment sandboxing, timeout limits).</li>
+          <li><strong>LSP Nav:</strong> <code>lsp_references</code>, <code>lsp_document_symbols</code>, <code>lsp_implementation</code>, <code>lsp_incoming_calls</code>, <code>lsp_outgoing_calls</code>.</li>
+          <li><strong>Web Fetch:</strong> <code>web_fetch</code> to pull URLs, automatically converting HTML pages into clean Markdown.</li>
+        </ul>
+
+        <h2 id="reasoning-loop">Reasoning &amp; Model Tiering</h2>
+        <p>To optimize execution speed and API expenses, RustyCode uses <strong>Senior/Junior Model Tiering</strong>:</p>
+        <pre><code>            ┌──────────────────────────────────────────┐
+            │        Junior Model (e.g. Haiku)         │
+            │  Standard reasoning & tool execution loop │
+            └────────────────────┬─────────────────────┘
+                                 │
+                     [Stuck / Complex Check]
+                                 │
+                                 ▼
+            ┌──────────────────────────────────────────┐
+            │       Senior Model (e.g. Sonnet/Opus)    │
+            │       Triggered via /advisor or gate     │
+            └──────────────────────────────────────────┘</code></pre>
+        <p>Standard editing loops run on lower-tier models. If the agent gets stuck (repeated tool failures or confidence dips), it makes a targeted query to a senior "advisor" model to break the deadlock, returning the instructions back to the junior execution thread.</p>
+
+        <h2 id="intelligence-guards">Intelligence Guards</h2>
+        <p>Four key guards validate agent trajectories in real time to prevent runaway loops and token drain:</p>
+        <ul>
+          <li><strong>Streaming Repetition Guard:</strong> Inspects streaming tokens for repeating loops and terminates early if detected.</li>
+          <li><strong>Repeated Failure Guard:</strong> Halts execution if a tool (like a test bash script) fails repeatedly with the same signature.</li>
+          <li><strong>Context Budget Guard:</strong> Monitors conversation length and triggers context compaction or pruning before hitting model limits.</li>
+          <li><strong>Completion Gate:</strong> An independent evaluator checks the output criteria against the original goal before concluding a session.</li>
+        </ul>
+
+        <h2 id="security-sandbox">Security &amp; Sandboxing</h2>
+        <p>To run untrusted scripts safely, RustyCode enforces OS-level sandboxing:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Operating System</th><th>Sandbox Driver</th><th>Restrictions</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>macOS</td>
+                <td>Seatbelt</td>
+                <td>Enforces strict <code>sandbox-exec</code> profiles blocking custom network pipes and restricting write paths.</td>
+              </tr>
+              <tr>
+                <td>Linux</td>
+                <td>Landlock</td>
+                <td>Kernel-level filesystem access restriction (requires Linux kernel 5.13+).</td>
+              </tr>
+              <tr>
+                <td>Windows / Containers</td>
+                <td>Podman/Docker fallback</td>
+                <td>Routes commands to isolated containers with path-traversal sanitizers.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
-
-    <h2 id="cli-reference">CLI Reference</h2>
-
-    <h3>Commands</h3>
-    <table>
-      <tr><th>Command</th><th>Description</th></tr>
-      <tr><td><code>rustycode</code></td><td>Run a task directly (equivalent to <code>rustycode run</code>)</td></tr>
-      <tr><td><code>rustycode tui</code></td><td>Start the interactive terminal UI</td></tr>
-      <tr><td><code>rustycode run &lt;prompt&gt;</code></td><td>Run a task in headless mode</td></tr>
-      <tr><td><code>rustycode agent new &lt;task&gt;</code></td><td>Start an autonomous agent session</td></tr>
-      <tr><td><code>rustycode harness run</code></td><td>Run the persistent agent harness</td></tr>
-      <tr><td><code>rustycode plan new &lt;task&gt;</code></td><td>Create and execute a plan</td></tr>
-      <tr><td><code>rustycode workflow --description &lt;task&gt;</code></td><td>Generate and run a workflow</td></tr>
-      <tr><td><code>rustycode provider list</code></td><td>List configured LLM providers</td></tr>
-      <tr><td><code>rustycode skills list</code></td><td>List installed skills</td></tr>
-      <tr><td><code>rustycode memory stats</code></td><td>Show memory subsystem statistics</td></tr>
-      <tr><td><code>rustycode wiki search &lt;query&gt;</code></td><td>Search the knowledge wiki</td></tr>
-      <tr><td><code>rustycode web start</code></td><td>Start the web-native interface</td></tr>
-      <tr><td><code>rustycode serve</code></td><td>Serve the web UI and API server</td></tr>
-      <tr><td><code>rustycode update</code></td><td>Self-update to the latest release</td></tr>
-      <tr><td><code>rustycode doctor</code></td><td>Diagnose installation and configuration</td></tr>
-    </table>
-
-    <h3>Global Flags</h3>
-    <table>
-      <tr><th>Flag</th><th>Description</th></tr>
-      <tr><td><code>--model &lt;name&gt;</code></td><td>Override the configured LLM model</td></tr>
-      <tr><td><code>--effort low|medium|high|xhigh|max</code></td><td>Override the effort level</td></tr>
-      <tr><td><code>--format human|json</code></td><td>Output format (default: human)</td></tr>
-      <tr><td><code>--color always|never|auto</code></td><td>Control colored output</td></tr>
-      <tr><td><code>--yes</code></td><td>Automatically answer yes to prompts</td></tr>
-      <tr><td><code>--verbose</code></td><td>Enable verbose logging</td></tr>
-      <tr><td><code>--debug</code></td><td>Enable debug logging</td></tr>
-      <tr><td><code>--dangerously-skip-permissions</code></td><td>Skip tool permission checks (trusted environments only)</td></tr>
-    </table>
-
-    <h2 id="tui">Terminal UI</h2>
-
-    <h3>Keyboard Shortcuts</h3>
-    <table>
-      <tr><th>Key</th><th>Action</th></tr>
-      <tr><td><code>Enter</code></td><td>Send message / Confirm action</td></tr>
-      <tr><td><code>Escape</code></td><td>Cancel / Go back</td></tr>
-      <tr><td><code>Ctrl+C</code></td><td>Stop current operation</td></tr>
-      <tr><td><code>Ctrl+Q</code></td><td>Quit RustyCode</td></tr>
-      <tr><td><code>Ctrl+B</code></td><td>Toggle sidebar</td></tr>
-      <tr><td><code>Ctrl+K</code></td><td>Open command palette</td></tr>
-      <tr><td><code>Ctrl+F</code></td><td>Search messages</td></tr>
-      <tr><td><code>Ctrl+1-9</code></td><td>Switch between sessions</td></tr>
-    </table>
-
-    <h3>Features</h3>
-    <ul>
-      <li>Streaming LLM responses with syntax highlighting</li>
-      <li>Cost tracking per session</li>
-      <li>Multi-session support with tab switching</li>
-      <li>Tool approval prompts with auto-approve option</li>
-      <li>Command palette for quick actions</li>
-    </ul>
-
-    <h2 id="web-ui">Web UI</h2>
-    <p>RustyCode includes a React-based web interface:</p>
-    <pre><code># Start the web server
-rustycode web start
-
-# Start the API server (web UI + ACP + A2A)
-rustycode serve</code></pre>
-
-    <h3>Web UI Features</h3>
-    <ul>
-      <li>Chat interface with streaming responses</li>
-      <li>Session sidebar with multi-session support</li>
-      <li>Tool approval modals</li>
-      <li>Command palette (<code>Ctrl+K</code>)</li>
-      <li>Search across messages</li>
-      <li>Model selector</li>
-      <li>Settings panel</li>
-    </ul>
-
-    <h2 id="tools">Built-in Tools</h2>
-    <p>RustyCode provides the LLM with 20+ tools to interact with your codebase:</p>
-
-    <h3>File Operations</h3>
-    <table>
-      <tr><th>Tool</th><th>Description</th></tr>
-      <tr><td><code>read_file</code></td><td>Read file contents. Supports <code>offset</code> and <code>limit</code> for large files.</td></tr>
-      <tr><td><code>write_file</code></td><td>Create or overwrite a file with new content.</td></tr>
-      <tr><td><code>edit_file</code></td><td>Apply targeted edits using exact, normalized, or trimmed matching.</td></tr>
-      <tr><td><code>notebook_edit</code></td><td>Edit Jupyter notebook cells (replace, insert, delete).</td></tr>
-    </table>
-
-    <h3>Search &amp; Navigation</h3>
-    <table>
-      <tr><th>Tool</th><th>Description</th></tr>
-      <tr><td><code>grep</code></td><td>Search file contents with regex. Supports <code>-i</code>, <code>type</code>, <code>context</code>, <code>head_limit</code>.</td></tr>
-      <tr><td><code>glob</code></td><td>Find files matching a glob pattern.</td></tr>
-      <tr><td><code>list_directory</code></td><td>List directory contents.</td></tr>
-    </table>
-
-    <h3>Execution</h3>
-    <table>
-      <tr><th>Tool</th><th>Description</th></tr>
-      <tr><td><code>bash</code></td><td>Execute shell commands. Supports <code>timeout</code> and <code>run_in_background</code>.</td></tr>
-    </table>
-
-    <h3>LSP Integration</h3>
-    <table>
-      <tr><th>Tool</th><th>Description</th></tr>
-      <tr><td><code>lsp_references</code></td><td>Find all references to a symbol.</td></tr>
-      <tr><td><code>lsp_document_symbols</code></td><td>List all symbols in a file.</td></tr>
-      <tr><td><code>lsp_implementation</code></td><td>Find implementations of an interface.</td></tr>
-      <tr><td><code>lsp_incoming_calls</code></td><td>Show callers of a function.</td></tr>
-      <tr><td><code>lsp_outgoing_calls</code></td><td>Show functions called by a function.</td></tr>
-    </table>
-
-    <h3>Web</h3>
-    <table>
-      <tr><th>Tool</th><th>Description</th></tr>
-      <tr><td><code>web_fetch</code></td><td>Fetch web content with optional <code>prompt</code> parameter for focused extraction.</td></tr>
-    </table>
-
-    <h3>MCP Tools</h3>
-    <p>Any tools discovered from configured MCP servers are automatically available. See <a href="skills-mcp-tools.html#mcp">Skills &amp; MCP</a> for configuration.</p>
-
-    <h2 id="autonomous-mode">Autonomous Mode</h2>
-    <p>RustyCode's autonomous mode uses structured reasoning to plan and execute multi-step tasks:</p>
-
-    <ol>
-      <li><strong>Analysis</strong> &mdash; Reads your codebase, identifies relevant files and context</li>
-      <li><strong>Planning</strong> &mdash; Creates a structured plan with phases and dependencies</li>
-      <li><strong>Execution</strong> &mdash; Runs tools in sequence, adapting based on results</li>
-      <li><strong>Verification</strong> &mdash; Runs tests, checks builds, validates changes</li>
-      <li><strong>Quality Gates</strong> &mdash; Ensures code quality before marking tasks complete</li>
-    </ol>
-
-    <h3>Execution Parameters</h3>
-    <table>
-      <tr><th>Parameter</th><th>Default</th><th>Description</th></tr>
-      <tr><td><code>MAX_ITERATIONS</code></td><td>3</td><td>Maximum reasoning iterations</td></tr>
-      <tr><td><code>MAX_TOOL_TURNS</code></td><td>25</td><td>Maximum tool calls per task</td></tr>
-      <tr><td><code>DEFAULT_WALL_CLOCK_TIMEOUT_SECS</code></td><td>900</td><td>15-minute wall-clock timeout</td></tr>
-      <tr><td><code>MIN_TOOL_CALLS_TO_STOP</code></td><td>5</td><td>Minimum tool calls before considering completion</td></tr>
-    </table>
-
-    <h3>Stuck Detection</h3>
-    <p>The autonomous engine detects when it's stuck via:</p>
-    <ul>
-      <li>Confidence stagnation over multiple iterations</li>
-      <li>Repetition of the same approach</li>
-      <li>Excessive reasoning phases without progress</li>
-    </ul>
-    <p>When stuck, RustyCode surfaces a warning and may ask for clarification.</p>
-
-    <h3>Milestone Sequencing</h3>
-    <p>Large tasks can be broken into milestones with dependencies:</p>
-    <pre><code># Milestones are defined in the plan phase
-# Each milestone contains multiple plans
-# Plans within a milestone can run in parallel
-# Milestones run sequentially based on dependencies</code></pre>
-
-    <h2 id="llm-providers">LLM Providers</h2>
-
-    <h3>Anthropic Claude (Recommended)</h3>
-    <p>Best reasoning quality for code tasks.</p>
-    <pre><code>export ANTHROPIC_API_KEY="sk-ant-..."
-rustycode tui --provider anthropic</code></pre>
-
-    <h3>OpenAI GPT</h3>
-    <pre><code>export OPENAI_API_KEY="sk-..."
-rustycode tui --provider openai</code></pre>
-
-    <h3>Google Gemini</h3>
-    <pre><code>export GOOGLE_API_KEY="AIza..."
-rustycode tui --provider google</code></pre>
-
-    <h3>Amazon Bedrock</h3>
-    <pre><code>aws configure
-rustycode tui --provider bedrock</code></pre>
-
-    <h3>Azure OpenAI</h3>
-    <pre><code>export AZURE_OPENAI_API_KEY="..."
-rustycode tui --provider azure</code></pre>
-
-    <h3>Ollama (Local)</h3>
-    <pre><code>ollama serve
-ollama pull codellama
-rustycode tui --provider ollama</code></pre>
-
-    <h3>Other Providers</h3>
-    <table>
-      <tr><th>Provider</th><th>Flag</th><th>Env Variable</th></tr>
-      <tr><td>Cohere</td><td><code>--provider cohere</code></td><td><code>COHERE_API_KEY</code></td></tr>
-      <tr><td>Mistral</td><td><code>--provider mistral</code></td><td><code>MISTRAL_API_KEY</code></td></tr>
-      <tr><td>LiteRT</td><td><code>--provider litert</code></td><td><code>GOOGLE_API_KEY</code></td></tr>
-    </table>
-
-    <h2 id="permissions">Permission System</h2>
-    <p>RustyCode validates all operations through its security layer:</p>
-    <ul>
-      <li><strong>Path validation</strong> &mdash; Blocks access to sensitive files (`.env`, credentials, SSH keys)</li>
-      <li><strong>Command validation</strong> &mdash; Validates shell commands before execution</li>
-      <li><strong>Secret sanitization</strong> &mdash; API keys are stripped from logs and debug output</li>
-      <li><strong>Eval blocking</strong> &mdash; Blocks <code>-c</code>/<code>-e</code> flags for interpreters</li>
-      <li><strong>Filename blocking</strong> &mdash; Blocks <code>credentials.json</code>, <code>id_rsa</code>, <code>terraform.tfstate</code>, etc.</li>
-    </ul>
-
-    <h3>Blocked File Patterns</h3>
-    <pre><code>.env, .env.*, credentials.json, config.json,
-id_rsa, id_ed25519, *.pem, *.key,
-terraform.tfstate, *.tfstate.backup</code></pre>
-
-    <h2 id="sandbox">Sandboxing</h2>
-    <p>RustyCode supports OS-level sandboxing for command execution:</p>
-    <table>
-      <tr><th>Platform</th><th>Mechanism</th><th>Description</th></tr>
-      <tr><td>macOS</td><td>Seatbelt</td><td>Apple's sandbox-exec profile restricts file system and network access</td></tr>
-      <tr><td>Linux</td><td>Landlock</td><td>Kernel-level file system access control (kernel 5.13+)</td></tr>
-    </table>
-
-    <h2 id="benchmark">Benchmark Runner</h2>
-    <p><code>rustycode-bench</code> evaluates agent performance on standardized coding tasks:</p>
-
-    <pre><code># Run benchmarks natively
-cargo run -p rustycode-bench -- --native --timeout 120
-
-# Run in Docker
-cargo run -p rustycode-bench -- --docker --timeout 300
-
-# Filter tasks with regex
-cargo run -p rustycode-bench -- --native --include "regex-.*" --timeout 120
-
-# Output formats
-cargo run -p rustycode-bench -- --native --output json
-cargo run -p rustycode-bench -- --native --report markdown</code></pre>
-
-    <h3>Features</h3>
-    <ul>
-      <li>Native and Docker execution modes</li>
-      <li>Exception-based retry filtering (include/exclude regex)</li>
-      <li>Result history store with diff comparison</li>
-      <li>Multiple output formats: pretty, JSON, CSV, Markdown</li>
-      <li>Composite dataset merging with deduplication</li>
-    </ul>
   </div>
 
   <footer>
     &copy; 2026 RustyCode &middot; MIT License &middot; <a href="https://github.com/rustycode-ai/rustycode">GitHub</a>
   </footer>
+  
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          const id = entry.target.getAttribute('id');
+          if (entry.intersectionRatio > 0) {
+            document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+            const activeLink = document.querySelector(`.sidebar a[href="#${id}"]`);
+            if (activeLink) activeLink.classList.add('active');
+          }
+        });
+      }, { rootMargin: '0px 0px -60% 0px' });
+      
+      document.querySelectorAll('.docs-content h2').forEach(h2 => {
+        observer.observe(h2);
+      });
+    });
+  </script>
 </body>
 </html>
