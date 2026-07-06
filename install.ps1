@@ -1,16 +1,16 @@
 # RustyCode installer for Windows
 # Usage: irm https://rustycode-ai.github.io/install.ps1 | iex
-#   or:  irm https://rustycode-ai.github.io/install.ps1 | iex; & $args[0] --nightly
+#   or:  iex "& { $(irm https://rustycode-ai.github.io/install.ps1) } -Bin rustycode-mcp-computer-use"
 
 param(
     [switch]$Nightly,
-    [string]$InstallDir = "$env:USERPROFILE\.local\bin"
+    [string]$InstallDir = "$env:USERPROFILE\.local\bin",
+    [string]$Bin = ""
 )
 
 $ErrorActionPreference = "Stop"
 
 $Repo = "rustycode-ai/rustycode"
-$BinaryName = "rustycode.exe"
 $Headers = @{
     "User-Agent" = "RustyCode-Installer"
 }
@@ -50,12 +50,22 @@ Invoke-WebRequest -Uri $Url -OutFile $ZipPath -Headers $Headers
 # Extract
 Expand-Archive -Path $ZipPath -DestinationPath $TempDir -Force
 
-# Find the binary
-$Binary = Get-ChildItem -Path $TempDir -Recurse -File | Where-Object { $_.Name -like "rustycode*" -and $_.Extension -eq ".exe" } | Select-Object -First 1
+# Find binaries
+$Binaries = Get-ChildItem -Path $TempDir -Recurse -File | Where-Object { $_.Name -like "rustycode*.exe" }
 
-if (-not $Binary) {
-    Write-Error "Could not find rustycode binary in archive"
+if (-not $Binaries) {
+    Write-Error "Could not find any RustyCode binaries in archive"
     exit 1
+}
+
+# Filter if --Bin was specified
+if ($Bin) {
+    $Selected = $Binaries | Where-Object { $_.Name -eq "$Bin.exe" }
+    if (-not $Selected) {
+        Write-Error "Binary '$Bin.exe' not found in archive. Available: $($Binaries.Name -join ', ')"
+        exit 1
+    }
+    $Binaries = $Selected
 }
 
 # Install
@@ -63,14 +73,17 @@ if (-not (Test-Path $InstallDir)) {
     New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 }
 
-$DestPath = Join-Path $InstallDir $BinaryName
-Copy-Item $Binary.FullName -Destination $DestPath -Force
+$Installed = @()
+foreach ($Binary in $Binaries) {
+    $DestPath = Join-Path $InstallDir $Binary.Name
+    Copy-Item $Binary.FullName -Destination $DestPath -Force
+    $Installed += $DestPath
+}
 
 # Add to PATH if not already there
 $PathDirs = $env:PATH -split ";"
 if ($PathDirs -notcontains $InstallDir) {
     $env:PATH = "$InstallDir;$env:PATH"
-    # Persist for future sessions
     $UserPath = [Environment]::GetEnvironmentVariable("PATH", "User")
     if ($UserPath -notlike "*$InstallDir*") {
         [Environment]::SetEnvironmentVariable("PATH", "$InstallDir;$UserPath", "User")
@@ -79,5 +92,7 @@ if ($PathDirs -notcontains $InstallDir) {
 }
 
 # Verify
-$Version = & $DestPath --version 2>$null
-Write-Host "RustyCode installed: $DestPath ($Version)"
+foreach ($DestPath in $Installed) {
+    $Version = & $DestPath --version 2>$null
+    Write-Host "Installed: $DestPath ($Version)"
+}
