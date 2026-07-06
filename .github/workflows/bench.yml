@@ -81,6 +81,7 @@ jobs:
     name: Full Benchmark Run
     runs-on: ubuntu-latest
     needs: compile
+    timeout-minutes: 90
     steps:
       - name: Checkout dev repo
         uses: actions/checkout@v5
@@ -109,10 +110,10 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: dev-repo
-          shared-key: full-bench
+          shared-key: benches
 
       - name: Run benchmark suite
-        run: cargo bench -- --save-baseline main
+        run: cargo bench -- --noplot --save-baseline main
 
       - name: Upload criterion reports
         uses: actions/upload-artifact@v4
