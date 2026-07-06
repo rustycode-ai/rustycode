@@ -8,439 +8,256 @@
 </head>
 <body>
   <nav>
-    <span class="brand">RustyCode</span>
-    <a href="index.html">Home</a>
-    <a href="getting-started.html">Getting Started</a>
-    <a href="manual.html">Manual</a>
-    <a href="configuration.html">Configuration</a>
-    <a href="skills-mcp-tools.html">Skills &amp; MCP</a>
-    <a href="tips-and-tricks.html">Tips &amp; Tricks</a>
-    <a href="https://github.com/rustycode-ai/rustycode">GitHub</a>
+    <div class="brand-container">
+      <span class="brand">RustyCode</span>
+    </div>
+    <div class="links">
+      <a href="index.html">Home</a>
+      <a href="getting-started.html">Getting Started</a>
+      <a href="manual.html">Manual</a>
+      <a href="configuration.html">Configuration</a>
+      <a href="skills-mcp-tools.html" class="active">Skills &amp; MCP</a>
+      <a href="tips-and-tricks.html">Tips &amp; Tricks</a>
+      <a href="https://github.com/rustycode-ai/rustycode" class="git-btn">GitHub</a>
+    </div>
   </nav>
 
   <div class="container">
-    <h1>Skills, MCP &amp; Tools</h1>
-
-    <div class="toc">
-      <strong>Contents</strong>
-      <ul>
-        <li><a href="#overview">Overview</a></li>
-        <li><a href="#skills">Skills</a></li>
-        <li><a href="#installing-skills">Installing Skills</a></li>
-        <li><a href="#creating-skills">Creating Custom Skills</a></li>
-        <li><a href="#mcp">Model Context Protocol (MCP)</a></li>
-        <li><a href="#installing-mcp">Installing MCP Servers</a></li>
-        <li><a href="#acp">Agent Client Protocol (ACP)</a></li>
-        <li><a href="#a2a">Agent-to-Agent (A2A)</a></li>
-        <li><a href="#built-in-tools">Built-in Tools</a></li>
-        <li><a href="#wiki">Wiki &amp; Knowledge</a></li>
-        <li><a href="#custom-tools">Creating Custom Tools</a></li>
-      </ul>
-    </div>
-
-    <h2 id="overview">Overview</h2>
-    <p>RustyCode's extensibility comes from multiple layers:</p>
-
-    <div class="card-grid">
-      <div class="card">
-        <h3>Skills</h3>
-        <p>Markdown instruction files that guide the LLM's behavior for specific tasks. Think of them as "recipes" the agent follows.</p>
+    <div class="docs-layout">
+      <div class="sidebar">
+        <div class="toc-title">Contents</div>
+        <ul>
+          <li><a href="#overview" class="active">Overview</a></li>
+          <li><a href="#skills">Skills System</a></li>
+          <li><a href="#built-in-mcp">Built-in MCP Servers</a></li>
+          <li><a href="#computer-use">Computer Use &amp; Routing</a></li>
+          <li><a href="#acp">ACP (IDE Integration)</a></li>
+          <li><a href="#a2a">A2A (Multi-Agent)</a></li>
+          <li><a href="#custom-tools">Creating Custom Tools</a></li>
+        </ul>
       </div>
-      <div class="card">
-        <h3>MCP Servers</h3>
-        <p>External tools and data sources connected via the Model Context Protocol. Add databases, APIs, and services.</p>
-      </div>
-      <div class="card">
-        <h3>ACP Server</h3>
-        <p>Agent Client Protocol server for IDE integration. Lets editors like VS Code and JetBrains connect to RustyCode.</p>
-      </div>
-      <div class="card">
-        <h3>A2A Protocol</h3>
-        <p>Agent-to-Agent communication over HTTP/JSON-RPC. Coordinate multiple AI agents on complex tasks.</p>
-      </div>
-      <div class="card">
-        <h3>Built-in Tools</h3>
-        <p>File editing, shell execution, search, LSP, web fetch &mdash; always available, no setup needed.</p>
-      </div>
-      <div class="card">
-        <h3>Wiki</h3>
-        <p>Built-in knowledge base with full-text search, citations, and cross-session memory.</p>
-      </div>
-    </div>
 
-    <h2 id="skills">Skills</h2>
-    <p>Skills are Markdown files with YAML frontmatter that teach RustyCode how to handle specific tasks. They live in <code>.rustycode/skills/</code> or <code>~/.rustycode/skills/</code>.</p>
+      <div class="docs-content">
+        <h1>Skills, MCP &amp; Tools</h1>
+        <p>RustyCode's modular tool ecosystem allows the agent to navigate directories, run browser tasks, control the host desktop, and interface with IDEs.</p>
 
-    <h3>What Skills Do</h3>
-    <ul>
-      <li>Provide step-by-step instructions for complex workflows</li>
-      <li>Define checklists and quality gates</li>
-      <li>Encapsulate domain knowledge (e.g., Rust patterns, testing strategies)</li>
-      <li>Enforce team conventions automatically</li>
-    </ul>
+        <h2 id="overview">Overview</h2>
+        <p>Capabilities are structured across several interfaces:</p>
+        <div class="features-grid">
+          <div class="feature-card">
+            <h3>Skills System</h3>
+            <p>Markdown files carrying YAML triggers that teach the agent specific coding patterns and quality checklists.</p>
+          </div>
+          <div class="feature-card">
+            <h3>MCP client</h3>
+            <p>Runs external server binaries via stdio or HTTP/SSE, bridging their tools directly into the LLM context.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Built-in MCP</h3>
+            <p>Four embedded servers for desktop control, headless browser tasks, container commands, and search queries.</p>
+          </div>
+          <div class="feature-card">
+            <h3>ACP Server</h3>
+            <p>Agent Client Protocol listener mapping JSON-RPC loops to IDE editors like VS Code and JetBrains.</p>
+          </div>
+          <div class="feature-card">
+            <h3>A2A Protocol</h3>
+            <p>Agent-to-Agent protocol enabling peer agents to hand off subtasks, query capacities, and merge results.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Custom Tools</h3>
+            <p>Rust-native tools written by implementing the <code>ToolExecutor</code> trait in the workspace registry.</p>
+          </div>
+        </div>
 
-    <h3>How Skills Are Loaded</h3>
-    <p>RustyCode automatically discovers skills when a session starts:</p>
-    <ol>
-      <li><strong>User skills</strong> from <code>~/.rustycode/skills/</code> &mdash; personal, apply everywhere</li>
-      <li><strong>Project skills</strong> from <code>.rustycode/skills/</code> &mdash; team-shared, project-specific</li>
-    </ol>
-    <p>Skills are matched by keywords in your prompt. If you say "debug the auth timeout", RustyCode loads the debugging skill and any auth-related project skills.</p>
+        <h2 id="skills">Skills System</h2>
+        <p>Skills represent procedural recipes. The agent automatically discovers skills when matching prompt tags and matches them against directories:</p>
+        <ul>
+          <li><strong>Workspace local:</strong> <code>.agents/skills/</code> (standard path) or <code>.rustycode/skills/</code> (legacy path).</li>
+          <li><strong>User global:</strong> <code>~/.rustycode/skills/</code>.</li>
+        </ul>
 
-    <h2 id="installing-skills">Installing Skills</h2>
+        <h3>Installing Skills</h3>
+        <p>Install skills from a local file, git repository, or HTTPS endpoint directly into your workspace:</p>
+        <pre><code># Install into default workspace directory (.agents/skills/)
+rustycode skills install https://github.com/luengnat/rustycode-skills/raw/main/rust-refactor.md
 
-    <h3>From a Repository</h3>
-    <pre><code># Clone skill files into your project
-mkdir -p .rustycode/skills
-curl -sL https://example.com/skills/rust-patterns.md \
-  -o .rustycode/skills/rust-patterns.md</code></pre>
+# Install into legacy directory (.rustycode/skills/)
+rustycode skills install https://example.com/skills/postgres-migration.md --legacy</code></pre>
 
-    <h3>Global (Personal) Skills</h3>
-    <pre><code># Skills available in all projects
-mkdir -p ~/.rustycode/skills
-cp my-custom-skill.md ~/.rustycode/skills/</code></pre>
-
-    <h3>Directory Structure</h3>
-    <pre><code>project/
-├── .rustycode/
-│   ├── config.toml
-│   └── skills/
-│       ├── code-review.md
-│       ├── testing.md
-│       └── deployment.md
-├── CLAUDE.md              # Auto-loaded project instructions
-└── src/</code></pre>
-
-    <h2 id="creating-skills">Creating Custom Skills</h2>
-    <p>Skills use YAML frontmatter for metadata and Markdown for instructions:</p>
-
-    <pre><code>---
-name: database-migration
-description: Guide for creating safe database migrations
+        <h3>Skill File Sample</h3>
+        <p>Skills use YAML headers to specify keywords (triggers) that prompt the agent to load them:</p>
+        <pre><code>---
+name: rust-refactor-helper
+description: Guidelines for refactoring Rust crates safely with LSP tools
 triggers:
-  - migration
-  - database
-  - schema change
+  - refactor
+  - rename symbol
+  - extract function
 tags:
-  - database
-  - postgresql
-  - migration
+  - rust
+  - refactor
 ---
 
-# Database Migration Skill
+# Rust Refactoring Checklist
 
-## Pre-Flight Checks
-1. Read the current schema from `migrations/schema.sql`
-2. Check if the migration has a corresponding down-migration
-3. Verify no other migration is in progress (check git branch)
+## Preparation
+1. Ensure the workspace is clean (`git status`).
+2. Run `cargo check` before starting to verify no pre-existing compiler errors.
 
-## Steps
-1. Create a new file `migrations/YYYYMMDD_description.sql`
-2. Write the up-migration with explicit column types
-3. Write the down-migration in the same file (commented)
-4. Test: `cargo test --test migration_test`
+## Refactor Loop
+1. Run `lsp_references` to count code references before modifying a struct or function signature.
+2. Edit target code using `edit_file`.
+3. Check the compiler: `cargo clippy --workspace --all-targets`.
+4. Run integration tests: `cargo test`.
 
-## Checklist
-- [ ] Migration is reversible (has a down-migration)
-- [ ] No data loss for existing rows (add columns as nullable first)
-- [ ] Indexes are created concurrently for large tables
-- [ ] Migration file name follows the date_description convention</code></pre>
+## Verify
+- [ ] No compilation warnings or errors.
+- [ ] Clippy warnings have been cleared.
+- [ ] Unit tests pass successfully.</code></pre>
 
-    <h3>Skill Anatomy</h3>
-    <table>
-      <tr><th>Frontmatter Field</th><th>Required</th><th>Description</th></tr>
-      <tr><td><code>name</code></td><td>Yes</td><td>Unique identifier for the skill</td></tr>
-      <tr><td><code>description</code></td><td>Yes</td><td>What the skill does (used for matching)</td></tr>
-      <tr><td><code>triggers</code></td><td>No</td><td>Keywords that activate this skill</td></tr>
-      <tr><td><code>tags</code></td><td>No</td><td>Categories for organization</td></tr>
-    </table>
+        <h2 id="built-in-mcp">Built-in MCP Servers</h2>
+        <p>RustyCode embeds four Model Context Protocol backends to extend the agent's capabilities:</p>
+        
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Crate/Server</th><th>Tools</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>rustycode-mcp-browser</code></td>
+                <td>7</td>
+                <td>Automate Chromium processes: navigate, screenshot page, click coordinates, enter text, evaluate JavaScript, and retrieve raw HTML/text.</td>
+              </tr>
+              <tr>
+                <td><code>rustycode-mcp-docker</code></td>
+                <td>7</td>
+                <td>Manage docker images and containers: build, run, stop, inspect, and extract container logs. Features Podman fallback and path traversal safety.</td>
+              </tr>
+              <tr>
+                <td><code>rustycode-mcp-web</code></td>
+                <td>2</td>
+                <td>Fetch URLs (automatically converting HTML to clean Markdown) and run search queries using Wikipedia, DuckDuckGo, or Exa APIs.</td>
+              </tr>
+              <tr>
+                <td><code>rustycode-mcp-computer-use</code></td>
+                <td>15</td>
+                <td>Inject keyboard and mouse inputs, capture screenshots, and query window positions with platform-aware surface routing.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-    <h2 id="mcp">Model Context Protocol (MCP)</h2>
-    <p>MCP is an open protocol that lets RustyCode connect to external tools and data sources. MCP servers provide:</p>
-    <ul>
-      <li><strong>Tools</strong> &mdash; Actions the LLM can take (query a database, call an API)</li>
-      <li><strong>Resources</strong> &mdash; Data the LLM can read (files, database schemas)</li>
-      <li><strong>Prompts</strong> &mdash; Pre-built prompt templates</li>
-    </ul>
+        <h2 id="computer-use">Computer Use &amp; Surface Routing</h2>
+        <p>The <code>rustycode-mcp-computer-use</code> server gives agents visual and interactive control over the host desktop. It uses <strong>Surface-Aware Routing</strong> to help the agent decide how to interact with different windows:</p>
 
-    <h3>How MCP Works</h3>
-    <pre><code>┌─────────────┐     stdio/SSE     ┌──────────────┐
-│  RustyCode   │ ◄───────────────► │  MCP Server   │
-│  (Client)    │                   │  (e.g., Postgres)
-└─────────────┘                   └──────────────┘</code></pre>
-    <p>RustyCode starts MCP servers as subprocesses and communicates via JSON-RPC over stdio (or HTTP/SSE for remote servers). Discovered MCP tools are wrapped as native <code>Tool</code> trait implementations via <code>McpToolBridge</code>.</p>
+        <ol>
+          <li><strong>Terminal:</strong> If the active window is classified as a terminal (e.g. iTerm2, cmd.exe, xterm), the agent routes commands to the native <code>bash</code> tool instead of clicking coordinates.</li>
+          <li><strong>Web Browser:</strong> If the window is a browser (e.g. Safari, Chrome), the agent chooses headless browser CDP tools for faster, coordinate-free scraping.</li>
+          <li><strong>GUI Application:</strong> For standard GUI applications, the agent falls back to mouse coordinate clicking, typing, and drag actions.</li>
+        </ol>
 
-    <h2 id="installing-mcp">Installing MCP Servers</h2>
-    <p>Configure MCP servers in your config file:</p>
+        <div class="alert warning">
+          <div class="alert-icon">&#9888;</div>
+          <div class="alert-content">
+            <strong>Platform Permissions Required:</strong>
+            <p><strong>macOS:</strong> Open System Settings &gt; Privacy &amp; Security. Grant "Screen Recording" and "Accessibility" permissions to the terminal or app hosting RustyCode.<br>
+            <strong>Linux:</strong> Requires an active X11 desktop session and the <code>libxdo0</code> package installed.<br>
+            <strong>Windows:</strong> Runs in any interactive user session.</p>
+          </div>
+        </div>
 
-    <h3>PostgreSQL Server</h3>
-    <pre><code># In ~/.rustycode/config.toml or .rustycode/config.toml
+        <h2 id="acp">ACP (IDE Integration)</h2>
+        <p>The <strong>Agent Client Protocol (ACP)</strong> server bridges RustyCode directly into IDE editors (like VS Code or JetBrains) over JSON-RPC. This allows you to interact with the agent within your editor. Start the background daemon:</p>
+        <pre><code># Serve the web client and ACP handler concurrently
+rustycode serve --port 3000
 
-[[mcp_server]]
-name = "postgres"
-transport = "stdio"
-command = "npx"
-args = ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/mydb"]</code></pre>
+# Or start the ACP service separately
+rustycode acp start</code></pre>
 
-    <h3>Filesystem Server</h3>
-    <pre><code>[[mcp_server]]
-name = "filesystem"
-transport = "stdio"
-command = "npx"
-args = ["-y", "@modelcontextprotocol/server-filesystem", "/home/user/projects"]</code></pre>
+        <h2 id="a2a">A2A (Multi-Agent Protocol)</h2>
+        <p>The <strong>Agent-to-Agent (A2A)</strong> protocol enables multi-agent teamwork over HTTP and JSON-RPC. In A2A environments, agents advertise their capabilities using a standardized JSON schema at <code>/.well-known/agent-card.json</code>. This allows:
+        <ul>
+          <li><strong>Handoffs:</strong> A general coding agent can spawn a specialized database subagent.</li>
+          <li><strong>Parallel Teams:</strong> Dividing large features into separate worktree modules managed by distinct agents.</li>
+          <li><strong>Scoring:</strong> Verifying code modifications using blind judges scoring.</li>
+        </ul>
 
-    <h3>GitHub Server</h3>
-    <pre><code>[[mcp_server]]
-name = "github"
-transport = "stdio"
-command = "npx"
-args = ["-y", "@modelcontextprotocol/server-github"]
-env = { GITHUB_PERSONAL_ACCESS_TOKEN = "ghp_..." }</code></pre>
+        <h2 id="custom-tools">Creating Custom Tools</h2>
+        <p>Create native tools by implementing the <code>ToolExecutor</code> trait from the <code>rustycode-tools-api</code> crate. Register your struct with the tool registry:</p>
 
-    <h3>Remote Server (SSE)</h3>
-    <pre><code>[[mcp_server]]
-name = "custom-api"
-transport = "sse"
-url = "https://mcp.example.com/v1/sse"
-headers = { Authorization = "Bearer your-token" }</code></pre>
-
-    <div class="tip">
-      <strong>Tip:</strong> Use <code>npx -y</code> in the command to auto-install the MCP package on first run. This avoids a separate install step.
-    </div>
-
-    <h3>Popular MCP Servers</h3>
-    <table>
-      <tr><th>Server</th><th>What It Provides</th></tr>
-      <tr><td><code>@modelcontextprotocol/server-postgres</code></td><td>Query PostgreSQL databases</td></tr>
-      <tr><td><code>@modelcontextprotocol/server-filesystem</code></td><td>Controlled file access</td></tr>
-      <tr><td><code>@modelcontextprotocol/server-github</code></td><td>GitHub API (issues, PRs, repos)</td></tr>
-      <tr><td><code>@modelcontextprotocol/server-gitlab</code></td><td>GitLab API</td></tr>
-      <tr><td><code>@modelcontextprotocol/server-brave-search</code></td><td>Web search via Brave</td></tr>
-      <tr><td><code>@modelcontextprotocol/server-memory</code></td><td>Persistent key-value memory</td></tr>
-    </table>
-
-    <h3>Built-in MCP Servers</h3>
-    <p>RustyCode ships with four MCP server backends that extend the agent's capabilities:</p>
-
-    <table>
-      <tr><th>Server</th><th>Tools</th><th>Description</th></tr>
-      <tr>
-        <td><code>rustycode-mcp-browser</code></td>
-        <td>7</td>
-        <td>Browser automation via Chromium CDP: navigate, screenshot, click, type, evaluate JS, get content/text</td>
-      </tr>
-      <tr>
-        <td><code>rustycode-mcp-docker</code></td>
-        <td>7</td>
-        <td>Docker management: build, run, stop, logs, inspect, images, with path traversal protection</td>
-      </tr>
-      <tr>
-        <td><code>rustycode-mcp-web</code></td>
-        <td>2</td>
-        <td>Web fetch (HTML-to-markdown) and search via Wikipedia, DuckDuckGo, or Exa APIs</td>
-      </tr>
-      <tr>
-        <td><code>rustycode-mcp-computer-use</code></td>
-        <td>15</td>
-        <td>Desktop control: screenshots, click, type, scroll, drag, key press, app listing, surface-aware routing</td>
-      </tr>
-    </table>
-
-    <h3>Computer Use (Desktop Control)</h3>
-    <p>The <code>rustycode-mcp-computer-use</code> server provides agents with desktop control capabilities &mdash; screenshots, input injection (click, type, scroll, drag), and application state inspection. It communicates via JSON-RPC over stdio.</p>
-
-    <h4>15 Tools</h4>
-    <table>
-      <tr><th>Tool</th><th>Description</th></tr>
-      <tr><td><code>list_apps</code></td><td>List running applications with surface classification (terminal, web, gui)</td></tr>
-      <tr><td><code>get_app_state</code></td><td>Get window state, position, and surface routing hints</td></tr>
-      <tr><td><code>screenshot</code></td><td>Capture a screenshot of the screen or a specific region</td></tr>
-      <tr><td><code>click</code></td><td>Click at a screen coordinate</td></tr>
-      <tr><td><code>right_click</code></td><td>Right-click at a screen coordinate</td></tr>
-      <tr><td><code>double_click</code></td><td>Double-click at a screen coordinate</td></tr>
-      <tr><td><code>mouse_move</code></td><td>Move the mouse cursor to a position</td></tr>
-      <tr><td><code>type_text</code></td><td>Type text at the current cursor position</td></tr>
-      <tr><td><code>press_key</code></td><td>Press a keyboard key or key combination</td></tr>
-      <tr><td><code>scroll</code></td><td>Scroll at a screen coordinate</td></tr>
-      <tr><td><code>drag</code></td><td>Drag from one coordinate to another</td></tr>
-      <tr><td><code>perform_action</code></td><td>Perform a system action (e.g., open app, switch window)</td></tr>
-      <tr><td><code>wait</code></td><td>Wait for a specified duration</td></tr>
-      <tr><td><code>get_cursor_position</code></td><td>Get current cursor position</td></tr>
-      <tr><td><code>get_screen_size</code></td><td>Get screen dimensions</td></tr>
-    </table>
-
-    <h4>Surface-Aware Routing</h4>
-    <p>The computer use server classifies each application window by <em>surface type</em> &mdash; terminal, web browser, or GUI app &mdash; and suggests the best control plane for the agent:</p>
-    <pre><code># Example list_apps output with surface routing
-#12 pid 204 Safari   "Welcome"  [0,0,1440,900]   surface=web      prefer=page_*
-#30 pid 950 iTerm2   "notes"    [100,100,600,400]  surface=terminal  prefer=terminal.*
-#40 pid 960 TextEdit "doc"      [0,0,10,10]        surface=gui       prefer=computer-use</code></pre>
-    <p>The model reads these hints and chooses the most appropriate MCP tools &mdash; terminal tools for terminals, browser tools for web, or computer-use for GUI apps.</p>
-
-    <h4>Configuration</h4>
-    <pre><code># In config.toml
-[[mcp_server]]
-name = "computer-use"
-transport = "stdio"
-command = "rustycode-mcp-computer-use"</code></pre>
-
-    <h4>Read-Only Mode</h4>
-    <p>For safety, set <code>RUSTYCODE_COMPUTER_USE_READONLY=1</code> to expose only safe operations (screenshots, app listing, cursor/size queries). Input tools are hidden.</p>
-
-    <h4>Platform Support</h4>
-    <table>
-      <tr><th>Platform</th><th>Requirements</th></tr>
-      <tr><td>macOS</td><td>Screen Recording + Accessibility permissions</td></tr>
-      <tr><td>Linux</td><td>X11 session, <code>libxdo0</code></td></tr>
-      <tr><td>Windows</td><td>Interactive desktop session</td></tr>
-    </table>
-
-    <h2 id="acp">Agent Client Protocol (ACP)</h2>
-    <p>RustyCode includes an <strong>ACP server</strong> for IDE integration. ACP lets editors like VS Code and JetBrains connect to RustyCode as a coding agent.</p>
-
-    <h3>How ACP Works</h3>
-    <pre><code>┌─────────────┐     ACP (JSON-RPC)     ┌──────────────┐
-│  IDE/Editor  │ ◄─────────────────────► │  RustyCode    │
-│  (VS Code)   │                         │  (ACP Server) │
-└─────────────┘                         └──────────────┘</code></pre>
-
-    <p>The ACP server handles session lifecycle, tool approvals, and streaming responses. It reads model and provider settings from your RustyCode config.</p>
-
-    <h3>Starting the ACP Server</h3>
-    <pre><code># Start RustyCode with ACP enabled
-rustycode serve</code></pre>
-
-    <h2 id="a2a">Agent-to-Agent (A2A)</h2>
-    <p>RustyCode supports the <strong>A2A protocol</strong> for inter-agent communication over HTTP/JSON-RPC. This enables multi-agent coordination where different AI agents collaborate on complex tasks.</p>
-
-    <h3>How A2A Works</h3>
-    <pre><code>┌──────────────┐     A2A (HTTP/JSON-RPC)     ┌──────────────┐
-│  RustyCode    │ ◄──────────────────────────► │  Other Agent  │
-│  (A2A Server) │                              │  (any A2A)    │
-└──────────────┘                              └──────────────┘</code></pre>
-
-    <p>The A2A server uses a 3-phase state machine for task execution. Agent capabilities are advertised via an agent card at <code>/.well-known/agent-card.json</code>.</p>
-
-    <h3>Configuration</h3>
-    <pre><code># Enable A2A in config.toml
-[a2a]
-enabled = true
-port = 8080</code></pre>
-
-    <h2 id="built-in-tools">Built-in Tools</h2>
-    <p>These tools are always available without any configuration:</p>
-
-    <h3>File Operations</h3>
-    <table>
-      <tr><th>Tool</th><th>Description</th><th>Key Parameters</th></tr>
-      <tr><td><code>read_file</code></td><td>Read file contents</td><td><code>path</code>, <code>offset</code>, <code>limit</code></td></tr>
-      <tr><td><code>write_file</code></td><td>Create or overwrite a file</td><td><code>path</code>, <code>content</code></td></tr>
-      <tr><td><code>edit_file</code></td><td>Apply targeted edits (3 matching strategies)</td><td><code>path</code>, <code>old_text</code>, <code>new_text</code></td></tr>
-      <tr><td><code>notebook_edit</code></td><td>Edit Jupyter notebook cells</td><td><code>path</code>, <code>cell_id</code>, <code>new_source</code></td></tr>
-      <tr><td><code>list_directory</code></td><td>List directory contents</td><td><code>path</code></td></tr>
-    </table>
-
-    <h3>Search &amp; Navigation</h3>
-    <table>
-      <tr><th>Tool</th><th>Description</th><th>Key Parameters</th></tr>
-      <tr><td><code>grep</code></td><td>Search file contents with regex</td><td><code>pattern</code>, <code>-i</code>, <code>type</code>, <code>context</code>, <code>head_limit</code></td></tr>
-      <tr><td><code>glob</code></td><td>Find files matching a pattern</td><td><code>pattern</code>, <code>path</code></td></tr>
-    </table>
-
-    <h3>Execution</h3>
-    <table>
-      <tr><th>Tool</th><th>Description</th><th>Key Parameters</th></tr>
-      <tr><td><code>bash</code></td><td>Execute shell commands</td><td><code>command</code>, <code>timeout</code>, <code>run_in_background</code></td></tr>
-    </table>
-
-    <h3>LSP Integration</h3>
-    <table>
-      <tr><th>Tool</th><th>Description</th></tr>
-      <tr><td><code>lsp_references</code></td><td>Find all references to a symbol</td></tr>
-      <tr><td><code>lsp_document_symbols</code></td><td>List all symbols in a file</td></tr>
-      <tr><td><code>lsp_implementation</code></td><td>Find implementations of an interface</td></tr>
-      <tr><td><code>lsp_incoming_calls</code></td><td>Show callers of a function</td></tr>
-      <tr><td><code>lsp_outgoing_calls</code></td><td>Show functions called by a function</td></tr>
-    </table>
-
-    <h3>Web</h3>
-    <table>
-      <tr><th>Tool</th><th>Description</th></tr>
-      <tr><td><code>web_fetch</code></td><td>Fetch web content with optional prompt for focused extraction</td></tr>
-    </table>
-
-    <h2 id="wiki">Wiki &amp; Knowledge</h2>
-    <p>RustyCode includes a built-in wiki for persistent knowledge across sessions:</p>
-
-    <h3>Features</h3>
-    <ul>
-      <li><strong>Full-text search</strong> via SQLite FTS5</li>
-      <li><strong>Citation tracking</strong> &mdash; link wiki pages to source files and decisions</li>
-      <li><strong>Categorized pages</strong> &mdash; architecture, decisions, patterns, debugging, conventions</li>
-      <li><strong>Cross-session persistence</strong> &mdash; knowledge survives session restarts</li>
-    </ul>
-
-    <h3>Wiki Location</h3>
-    <pre><code># Project wiki
-.rustycode/wiki/
-
-# User-level wiki
-~/.rustycode/wiki/</code></pre>
-
-    <h2 id="custom-tools">Creating Custom Tools</h2>
-    <p>You can extend RustyCode with custom tools by implementing the <code>ToolExecutor</code> trait from <code>rustycode-tools-api</code>:</p>
-
-    <h3>1. Create a Tool Module</h3>
-    <pre><code>// src/my_tool.rs
+        <pre><code>// crates/rustycode-tools/src/providers/my_custom_tool.rs
+use anyhow::Result;
 use rustycode_tools_api::{ToolExecutor, ToolResult, ToolContext};
+use serde_json::{json, Value};
 
-pub struct MyTool;
+pub struct PortScannerTool;
 
-impl ToolExecutor for MyTool {
-    fn name(&amp;str) -> &amp;str {
-        "my_tool"
+impl ToolExecutor for PortScannerTool {
+    fn name(&amp;self) -> &amp;str {
+        "scan_ports"
     }
 
     fn description(&amp;self) -> &amp;str {
-        "Does something custom with the codebase"
+        "Check if specific ports are open on the local host"
     }
 
-    fn parameters(&amp;self) -> serde_json::Value {
-        serde_json::json!({
+    fn parameters(&amp;self) -> Value {
+        json!({
             "type": "object",
             "properties": {
-                "input": {
-                    "type": "string",
-                    "description": "What to process"
-                }
+                "host": { "type": "string", "description": "Host domain or IP" },
+                "ports": { "type": "array", "items": { "type": "integer" } }
             },
-            "required": ["input"]
+            "required": ["host", "ports"]
         })
     }
 
     async fn execute(&amp;self, ctx: &amp;ToolContext) -> Result&lt;ToolResult&gt; {
-        let input = ctx.param("input")?;
-        // Your logic here
-        Ok(ToolResult::text(format!("Processed: {}", input)))
+        let host = ctx.param_str("host")?;
+        let ports: Vec&lt;u16&gt; = ctx.param_as("ports")?;
+        
+        let mut results = Vec::new();
+        for port in ports {
+            let address = format!("{}:{}", host, port);
+            let is_open = tokio::net::TcpStream::connect(&amp;address).await.is_ok();
+            results.push(format!("Port {}: {}", port, if is_open { "OPEN" } else { "CLOSED" }));
+        }
+
+        Ok(ToolResult::text(results.join("\n")))
     }
 }</code></pre>
 
-    <h3>2. Register the Tool</h3>
-    <pre><code>// In your tool registry or main.rs
-use rustycode_tools::executor::ToolRegistry;
-
-let mut registry = ToolRegistry::new();
-registry.register(Box::new(MyTool));</code></pre>
-
-    <h3>3. Add Security Validation (if needed)</h3>
-    <pre><code>// If your tool touches files or runs commands, add validation
-use rustycode_tools::security::validate_path;
-
-let path = validate_path(&amp;requested_path)?;</code></pre>
+        <h3>Register the custom tool</h3>
+        <p>Add the tool to the registry initialization in <code>crates/rustycode-tools/src/lib.rs</code>:</p>
+        <pre><code>let mut registry = ToolRegistry::new();
+registry.register(Box::new(PortScannerTool));</code></pre>
+      </div>
+    </div>
   </div>
 
   <footer>
     &copy; 2026 RustyCode &middot; MIT License &middot; <a href="https://github.com/rustycode-ai/rustycode">GitHub</a>
   </footer>
+
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          const id = entry.target.getAttribute('id');
+          if (entry.intersectionRatio > 0) {
+            document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+            const activeLink = document.querySelector(`.sidebar a[href="#${id}"]`);
+            if (activeLink) activeLink.classList.add('active');
+          }
+        });
+      }, { rootMargin: '0px 0px -60% 0px' });
+      
+      document.querySelectorAll('.docs-content h2').forEach(h2 => {
+        observer.observe(h2);
+      });
+    });
+  </script>
 </body>
 </html>
