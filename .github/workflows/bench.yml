@@ -113,7 +113,10 @@ jobs:
           shared-key: benches
 
       - name: Run benchmark suite
-        run: cargo bench -- --noplot --save-baseline main
+        run: |
+          # Use reduced sample size so CI completes in reasonable time while
+          # still producing a measurable baseline.
+          cargo bench -- --noplot --save-baseline main --sample-size 10
 
       - name: Upload criterion reports
         uses: actions/upload-artifact@v4
