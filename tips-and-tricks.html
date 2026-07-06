@@ -8,254 +8,162 @@
 </head>
 <body>
   <nav>
-    <span class="brand">RustyCode</span>
-    <a href="index.html">Home</a>
-    <a href="getting-started.html">Getting Started</a>
-    <a href="manual.html">Manual</a>
-    <a href="configuration.html">Configuration</a>
-    <a href="skills-mcp-tools.html">Skills &amp; MCP</a>
-    <a href="tips-and-tricks.html">Tips &amp; Tricks</a>
-    <a href="https://github.com/rustycode-ai/rustycode">GitHub</a>
+    <div class="brand-container">
+      <span class="brand">RustyCode</span>
+    </div>
+    <div class="links">
+      <a href="index.html">Home</a>
+      <a href="getting-started.html">Getting Started</a>
+      <a href="manual.html">Manual</a>
+      <a href="configuration.html">Configuration</a>
+      <a href="skills-mcp-tools.html">Skills &amp; MCP</a>
+      <a href="tips-and-tricks.html" class="active">Tips &amp; Tricks</a>
+      <a href="https://github.com/rustycode-ai/rustycode" class="git-btn">GitHub</a>
+    </div>
   </nav>
 
   <div class="container">
-    <h1>Tips &amp; Tricks</h1>
+    <div class="docs-layout">
+      <div class="sidebar">
+        <div class="toc-title">Contents</div>
+        <ul>
+          <li><a href="#effective-prompts" class="active">Effective Prompts</a></li>
+          <li><a href="#advisor-mode">Optimizing API Costs</a></li>
+          <li><a href="#teamwork-patterns">Multi-Agent Teams</a></li>
+          <li><a href="#project-context">Project Context</a></li>
+          <li><a href="#debugging">Debugging Tips</a></li>
+          <li><a href="#common-issues">Common Issues</a></li>
+        </ul>
+      </div>
 
-    <div class="toc">
-      <strong>Contents</strong>
-      <ul>
-        <li><a href="#effective-prompts">Writing Effective Prompts</a></li>
-        <li><a href="#workflow-patterns">Workflow Patterns</a></li>
-        <li><a href="#project-context">Setting Up Project Context</a></li>
-        <li><a href="#multi-provider">Using Multiple Providers</a></li>
-        <li><a href="#debugging">Debugging with RustyCode</a></li>
-        <li><a href="#refactoring">Refactoring Large Codebases</a></li>
-        <li><a href="#performance">Performance Tips</a></li>
-        <li><a href="#protocols">Using MCP, ACP &amp; A2A</a></li>
-        <li><a href="#common-issues">Common Issues &amp; Solutions</a></li>
-      </ul>
-    </div>
+      <div class="docs-content">
+        <h1>Tips &amp; Tricks</h1>
+        <p>Get the most out of RustyCode. These patterns, commands, and strategies will help you develop faster, optimize token costs, and coordinate multi-agent teams.</p>
 
-    <h2 id="effective-prompts">Writing Effective Prompts</h2>
+        <h2 id="effective-prompts">Writing Effective Prompts</h2>
+        <p>Providing clear and structured instructions prevents the agent from making unnecessary tool calls and wandering off course.</p>
 
-    <h3>Be Specific About Files</h3>
-    <pre><code># Vague
-"Fix the bug"
+        <h3>Use /do Command for Auto-Routing</h3>
+        <p>Rather than manually specifying modes, type <code>/do &lt;your request&gt;</code> in the TUI. The model classifies the intent and automatically routes it to the best prompt template (e.g. <code>code</code> for changes, <code>debug</code> for investigation, <code>ask</code> for lookups).</p>
 
-# Better
-"Fix the null pointer dereference in src/auth/session.rs line 47
-where user.profile can be None after account deletion"</code></pre>
+        <h3>Be Explicit About Files and Scope</h3>
+        <p>Limit the agent's search space to minimize context pollution and speed up execution:</p>
+        <pre><code># Vague
+"Look at why the email sending is failing."
 
-    <h3>Specify the Outcome</h3>
-    <pre><code># Vague
-"Make it better"
+# Recommended
+"Look at the email handler in src/api/handlers.rs. Check only lines 80-140.
+Ignore tests, configuration files, and other routes."</code></pre>
 
-# Better
-"Add input validation to the register endpoint:
-- email must be valid format
-- password must be 8+ chars with uppercase and number
-- return 400 with specific error messages for each failure"</code></pre>
+        <h3>Provide Clear Constraints</h3>
+        <pre><code>"Refactor the authentication handler in src/routes/auth.rs:
+- Do not introduce new dependencies.
+- Ensure all errors use the anyhow crate.
+- Write unit tests under tests/auth_tests.rs.
+- Verify changes compile before finishing."</code></pre>
 
-    <h3>Provide Context</h3>
-    <pre><code># Let RustyCode know about constraints
-"This project uses PostgreSQL 15 and we can't add new dependencies.
-The solution should use only the existing 'tokio-postgres' crate."</code></pre>
+        <h2 id="advisor-mode">Optimizing API Costs (Model Tiering)</h2>
+        <p>Using large reasoning models (like Claude Opus or o3) for every simple edit is expensive. RustyCode supports Junior/Senior Model Tiering to balance cost and quality:</p>
 
-    <h2 id="workflow-patterns">Workflow Patterns</h2>
+        <ol>
+          <li><strong>Set a Cheap Default:</strong> Configure your default provider/model to a faster, cost-efficient model (e.g. <code>claude-haiku-4-5</code>, <code>gpt-4o-mini</code>, or <code>deepseek-coder-v2</code>).</li>
+          <li><strong>Consult the Advisor:</strong> Use the <code>/advisor &lt;question&gt;</code> slash command in the TUI. This makes a one-shot query to your configured senior model (e.g. <code>claude-sonnet-4-6</code> or <code>claude-opus-4-7</code>) for high-level guidance without cluttering your chat history.</li>
+          <li><strong>Apply Advice Locally:</strong> The junior model takes the senior advisor's guidance and handles the actual tool execution (editing files, running compilers).</li>
+        </ol>
 
-    <h3>Incremental Development</h3>
-    <p>Break large features into small, verifiable steps:</p>
-    <pre><code>Step 1: "Create the User struct with fields: id, email, created_at"
-Step 2: "Add a UserRepository with CRUD methods using our existing PostgresPool"
-Step 3: "Add unit tests for UserRepository covering create, find, and delete"
-Step 4: "Wire the repository into the user routes"</code></pre>
+        <div class="alert tip">
+          <div class="alert-icon">&#128161;</div>
+          <div class="alert-content">
+            <strong>Budget Control:</strong>
+            <p>You can enforce strict token limits and max turns in your local <code>config.toml</code> to prevent runaway loops from draining your API credits. See the <a href="configuration.html">Configuration Guide</a>.</p>
+          </div>
+        </div>
 
-    <h3>Test-First Workflow</h3>
-    <pre><code># Ask RustyCode to write the test first
-"Write a test for a function that validates email addresses.
-It should accept user@example.com and reject 'invalid' and '@nouser.com'.
-Don't implement the function yet."
+        <h2 id="teamwork-patterns">Multi-Agent Teams (Ensemble Mode)</h2>
+        <p>For complex features, coordinate a team of specialized subagents working in parallel:</p>
 
-# Then implement
-"Now implement the validate_email function to make those tests pass."</code></pre>
+        <h3>1. Preview the Team Structure</h3>
+        <p>Type <code>/teamwork-preview &lt;task&gt;</code> in the TUI. The orchestrator analyzes the task complexity and details the team role mapping (e.g., Code Researcher, DB Debugger, Test Writer) before launching them.</p>
 
-    <h3>Code Review</h3>
-    <pre><code>"Review the changes in src/api/handlers.rs since the last commit.
-Focus on: error handling, SQL injection risks, and missing input validation.
-Don't make changes &mdash; just list the issues."</code></pre>
+        <h3>2. Run in Ensemble Mode</h3>
+        <pre><code># Run parallel teams using git worktree isolation
+rustycode run --mode ensemble "Refactor the invoice calculation system"</code></pre>
+        <p>This spawns multiple agents in parallel. Each agent works in an isolated Git worktree to avoid conflicts. Changes are merged only after passing validation and quality gates.</p>
 
-    <h3>Autonomous Mode for Large Tasks</h3>
-    <pre><code># Let RustyCode plan and execute a multi-step task
-rustycode run "Implement a complete user registration flow:
-1. Create User model and migration
-2. Add POST /api/register endpoint with validation
-3. Add email verification token generation
-4. Write integration tests
-5. Verify everything compiles and tests pass"</code></pre>
+        <h2 id="project-context">Project Context (CLAUDE.md)</h2>
+        <p>Add a <code>CLAUDE.md</code> file in your project root. RustyCode reads this file automatically at startup to understand your codebase conventions:</p>
+        <pre><code># CLAUDE.md
 
-    <h2 id="project-context">Setting Up Project Context</h2>
-
-    <h3>CLAUDE.md / Project Instructions</h3>
-    <p>Create a <code>CLAUDE.md</code> file in your project root with project-specific instructions:</p>
-    <pre><code># CLAUDE.md
-
-## Project
-This is a Rust web API using Axum with a PostgreSQL database.
-
-## Conventions
-- Use `anyhow` for errors in handlers, `thiserror` for library crates
-- All routes go in `src/routes/`
-- Tests use `#[tokio::test]` with a test database
-- Never use `unwrap()` in production code
+## Build and Test Commands
+- Build project: `cargo build`
+- Run clippy: `cargo clippy --workspace --all-targets`
+- Run tests: `cargo test --test auth_tests`
 
 ## Architecture
-- `src/routes/` - HTTP handlers
-- `src/models/` - Database models
-- `src/services/` - Business logic
-- `src/repo/` - Data access layer</code></pre>
+- `crates/core/` - Main database models and service layer
+- `crates/api/` - Axum route handlers and middleware
 
-    <div class="tip">
-      RustyCode automatically reads <code>CLAUDE.md</code> when it opens your project, so it understands your conventions from the start.
+## Code Style
+- Use `anyhow::Result` for fallible functions.
+- Never use `unwrap()` or `expect()` in production code.
+- Prefer async/await over spawning thread blocks.
+- Add comments explaining safety on any `unsafe` block.</code></pre>
+
+        <h2 id="debugging">Debugging Tips</h2>
+
+        <h3>Provide Compiler Error Logs</h3>
+        <p>If a build fails, pass the exact compiler output to the agent:</p>
+        <pre><code>"I got this build error:
+error[E0382]: borrow of moved value: `user`
+   --> src/auth/session.rs:42:15
+
+Fix this borrow checker error."</code></pre>
+
+        <h3>Use LSP Tools for Symbol Lookups</h3>
+        <p>Instruct the agent to use LSP tools to find definitions, implementations, and incoming/outgoing call hierarchies before changing signatures:</p>
+        <pre><code>"Use lsp_incoming_calls to find where `process_billing` is called,
+then list all its references before refactoring it."</code></pre>
+
+        <h2 id="common-issues">Common Issues &amp; Solutions</h2>
+
+        <h3>"Edit target not found" errors</h3>
+        <p>This error occurs when the editor tool cannot find the exact line range to replace. To resolve this:</p>
+        <ul>
+          <li>Instruct the agent to use <code>read_file</code> on the specific lines first to verify the code snippet before applying edits.</li>
+          <li>The editor automatically tries three matching strategies (exact match, line-ending-normalized match, and trimmed match). If it still fails, specify the file name and the target function name explicitly in your prompt.</li>
+        </ul>
+
+        <h3>Token limits / context budget warnings</h3>
+        <p>If a session runs too long, the Context Budget Guard will trigger a warning. To free up context:</p>
+        <ul>
+          <li>Type <code>/clear</code> to reset the chat history. Your file changes will remain intact.</li>
+          <li>Tell the agent to focus only on specific modules and ignore unrelated directories.</li>
+        </ul>
+      </div>
     </div>
-
-    <h2 id="multi-provider">Using Multiple Providers</h2>
-
-    <h3>Switch Providers Per Task</h3>
-    <pre><code># Use Claude for complex reasoning
-rustycode run --provider anthropic --model claude-opus-4-7 \
-  "Design the database schema for a multi-tenant SaaS app"
-
-# Use a cheaper model for simple edits
-rustycode run --provider anthropic --model claude-haiku-4-5 \
-  "Fix the typo in the README"
-
-# Use a local model for offline work
-rustycode run --provider ollama "Format this file"</code></pre>
-
-    <h3>Model Selection Guide</h3>
-    <table>
-      <tr><th>Task</th><th>Recommended Model</th><th>Why</th></tr>
-      <tr><td>Quick fixes, simple edits</td><td>Haiku / gpt-4o-mini</td><td>Fast, cheap, good enough</td></tr>
-      <tr><td>Feature development</td><td>Sonnet / gpt-4o</td><td>Best balance of speed and quality</td></tr>
-      <tr><td>Architecture, debugging</td><td>Opus / o3</td><td>Deepest reasoning</td></tr>
-      <tr><td>Offline / sensitive code</td><td>Ollama (local)</td><td>No data leaves your machine</td></tr>
-    </table>
-
-    <h2 id="debugging">Debugging with RustyCode</h2>
-
-    <h3>Paste Error Messages</h3>
-    <pre><code>"I'm getting this error when running `cargo build`:
-
-error[E0599]: no method named `parse` found for struct `String`
-  --> src/parser.rs:42:18
-
-Help me fix it."</code></pre>
-
-    <h3>Ask for Investigation First</h3>
-    <pre><code>"Users are reporting 500 errors on the /api/orders endpoint.
-Look at the handler code and database queries to find the root cause.
-Don't fix it yet &mdash; just tell me what's wrong."</code></pre>
-
-    <h3>Use LSP Tools for Navigation</h3>
-    <pre><code>"Use lsp_references to find all callers of process_payment,
-then show me the call hierarchy with lsp_incoming_calls."</code></pre>
-
-    <h2 id="refactoring">Refactoring Large Codebases</h2>
-
-    <h3>Scope the Refactor</h3>
-    <pre><code>"Extract the authentication logic from src/routes/users.rs into
-a new module src/middleware/auth.rs. Keep the same API surface.
-Don't touch any other files."</code></pre>
-
-    <h3>Use LSP Tools</h3>
-    <p>RustyCode has built-in LSP integration. Ask it to:</p>
-    <ul>
-      <li>Find all references to a symbol before renaming</li>
-      <li>Check call hierarchies to understand blast radius</li>
-      <li>List document symbols to understand file structure</li>
-    </ul>
-
-    <pre><code>"Find all callers of the `process_payment` function across
-the codebase, then rename it to `handle_payment_transaction`.
-Update every call site."</code></pre>
-
-    <h2 id="performance">Performance Tips</h2>
-
-    <h3>Reduce Context Noise</h3>
-    <pre><code># Instead of reading the whole project
-"Focus only on src/auth/ and src/middleware/. Ignore everything else."
-
-# Be explicit about what to skip
-"Don't read test files or generated code. Only look at src/lib/ and src/services/."</code></pre>
-
-    <h3>Use Headless Mode for Automation</h3>
-    <pre><code># Run as part of a CI pipeline
-rustycode run --timeout 120 "Review the staged changes and suggest improvements"
-
-# Batch processing
-for file in src/*.rs; do
-  rustycode run --timeout 60 "Add documentation comments to $file"
-done</code></pre>
-
-    <h2 id="protocols">Using MCP, ACP &amp; A2A</h2>
-
-    <h3>MCP for External Tools</h3>
-    <p>Connect databases, APIs, and services via MCP servers:</p>
-    <pre><code># In .rustycode/config.toml
-[[mcp_server]]
-name = "postgres"
-transport = "stdio"
-command = "npx"
-args = ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/mydb"]</code></pre>
-    <p>Once configured, RustyCode can query your database directly. See <a href="skills-mcp-tools.html#mcp">Skills &amp; MCP</a> for full setup.</p>
-
-    <h3>ACP for IDE Integration</h3>
-    <pre><code># Start the ACP server for IDE connection
-rustycode serve</code></pre>
-
-    <h3>A2A for Multi-Agent Coordination</h3>
-    <pre><code># Enable A2A in config
-[a2a]
-enabled = true
-port = 8080</code></pre>
-
-    <h2 id="common-issues">Common Issues &amp; Solutions</h2>
-
-    <h3>"Edit not found" errors</h3>
-    <p>If RustyCode can't find the exact text to edit, it automatically tries three matching strategies: exact match, line-ending-normalized match, and trimmed match. If it still fails:</p>
-    <pre><code>"Read src/main.rs lines 30-50 first, then apply the edit to the
-function starting with 'fn handle_request'."</code></pre>
-
-    <h3>Timeout in autonomous mode</h3>
-    <p>Increase the wall-clock timeout:</p>
-    <pre><code>rustycode run --timeout 600 "Implement the full API"</code></pre>
-
-    <h3>Wrong file edited</h3>
-    <p>Use git to undo and be more specific:</p>
-    <pre><code>git checkout -- src/wrong_file.rs
-
-# Then be explicit
-"Edit ONLY src/services/user_service.rs. Do NOT modify any other files."</code></pre>
-
-    <h3>API rate limiting</h3>
-    <p>If you hit rate limits during long autonomous sessions:</p>
-    <ul>
-      <li>Use <code>MIN_TOOL_CALLS_TO_STOP = 5</code> (default) to avoid excessive API calls</li>
-      <li>Reduce <code>MAX_TOOL_TURNS</code> to 15</li>
-      <li>Switch to a provider with higher rate limits</li>
-    </ul>
-
-    <h3>MCP server not connecting</h3>
-    <ul>
-      <li>Ensure Node.js is installed (<code>node --version</code>)</li>
-      <li>Check the command and args in your config</li>
-      <li>Try running the MCP server command manually</li>
-      <li>Check <code>~/.rustycode/logs/</code> for connection errors</li>
-    </ul>
   </div>
 
   <footer>
     &copy; 2026 RustyCode &middot; MIT License &middot; <a href="https://github.com/rustycode-ai/rustycode">GitHub</a>
   </footer>
+
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          const id = entry.target.getAttribute('id');
+          if (entry.intersectionRatio > 0) {
+            document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+            const activeLink = document.querySelector(`.sidebar a[href="#${id}"]`);
+            if (activeLink) activeLink.classList.add('active');
+          }
+        });
+      }, { rootMargin: '0px 0px -60% 0px' });
+      
+      document.querySelectorAll('.docs-content h2').forEach(h2 => {
+        observer.observe(h2);
+      });
+    });
+  </script>
 </body>
 </html>
