@@ -41,22 +41,34 @@
     <h3>Commands</h3>
     <table>
       <tr><th>Command</th><th>Description</th></tr>
+      <tr><td><code>rustycode</code></td><td>Run a task directly (equivalent to <code>rustycode run</code>)</td></tr>
       <tr><td><code>rustycode tui</code></td><td>Start the interactive terminal UI</td></tr>
       <tr><td><code>rustycode run &lt;prompt&gt;</code></td><td>Run a task in headless mode</td></tr>
-      <tr><td><code>rustycode web</code></td><td>Start the web-based interface</td></tr>
-      <tr><td><code>rustycode serve</code></td><td>Start the API server (ACP + A2A)</td></tr>
-      <tr><td><code>rustycode --version</code></td><td>Show version</td></tr>
-      <tr><td><code>rustycode --help</code></td><td>Show help</td></tr>
+      <tr><td><code>rustycode agent new &lt;task&gt;</code></td><td>Start an autonomous agent session</td></tr>
+      <tr><td><code>rustycode harness run</code></td><td>Run the persistent agent harness</td></tr>
+      <tr><td><code>rustycode plan new &lt;task&gt;</code></td><td>Create and execute a plan</td></tr>
+      <tr><td><code>rustycode workflow --description &lt;task&gt;</code></td><td>Generate and run a workflow</td></tr>
+      <tr><td><code>rustycode provider list</code></td><td>List configured LLM providers</td></tr>
+      <tr><td><code>rustycode skills list</code></td><td>List installed skills</td></tr>
+      <tr><td><code>rustycode memory stats</code></td><td>Show memory subsystem statistics</td></tr>
+      <tr><td><code>rustycode wiki search &lt;query&gt;</code></td><td>Search the knowledge wiki</td></tr>
+      <tr><td><code>rustycode web start</code></td><td>Start the web-native interface</td></tr>
+      <tr><td><code>rustycode serve</code></td><td>Serve the web UI and API server</td></tr>
+      <tr><td><code>rustycode update</code></td><td>Self-update to the latest release</td></tr>
+      <tr><td><code>rustycode doctor</code></td><td>Diagnose installation and configuration</td></tr>
     </table>
 
     <h3>Global Flags</h3>
     <table>
       <tr><th>Flag</th><th>Description</th></tr>
-      <tr><td><code>--provider &lt;name&gt;</code></td><td>LLM provider: anthropic, openai, google, bedrock, azure, ollama, cohere, mistral</td></tr>
-      <tr><td><code>--model &lt;name&gt;</code></td><td>Model name (e.g., claude-sonnet-4-6, gpt-4o, gemini-2.5-pro)</td></tr>
-      <tr><td><code>--timeout &lt;secs&gt;</code></td><td>Wall-clock timeout for headless mode</td></tr>
-      <tr><td><code>--config &lt;path&gt;</code></td><td>Path to config file</td></tr>
-      <tr><td><code>--no-default-features</code></td><td>Disable default feature flags (build time)</td></tr>
+      <tr><td><code>--model &lt;name&gt;</code></td><td>Override the configured LLM model</td></tr>
+      <tr><td><code>--effort low|medium|high|xhigh|max</code></td><td>Override the effort level</td></tr>
+      <tr><td><code>--format human|json</code></td><td>Output format (default: human)</td></tr>
+      <tr><td><code>--color always|never|auto</code></td><td>Control colored output</td></tr>
+      <tr><td><code>--yes</code></td><td>Automatically answer yes to prompts</td></tr>
+      <tr><td><code>--verbose</code></td><td>Enable verbose logging</td></tr>
+      <tr><td><code>--debug</code></td><td>Enable debug logging</td></tr>
+      <tr><td><code>--dangerously-skip-permissions</code></td><td>Skip tool permission checks (trusted environments only)</td></tr>
     </table>
 
     <h2 id="tui">Terminal UI</h2>
@@ -86,9 +98,9 @@
     <h2 id="web-ui">Web UI</h2>
     <p>RustyCode includes a React-based web interface:</p>
     <pre><code># Start the web server
-rustycode web
+rustycode web start
 
-# Start with API server mode (ACP + A2A)
+# Start the API server (web UI + ACP + A2A)
 rustycode serve</code></pre>
 
     <h3>Web UI Features</h3>
@@ -243,7 +255,7 @@ terraform.tfstate, *.tfstate.backup</code></pre>
     </table>
 
     <h2 id="benchmark">Benchmark Runner</h2>
-    <p><code>rtk-bench</code> evaluates agent performance on standardized coding tasks:</p>
+    <p><code>rustycode-bench</code> evaluates agent performance on standardized coding tasks:</p>
 
     <pre><code># Run benchmarks natively
 cargo run -p rustycode-bench -- --native --timeout 120
