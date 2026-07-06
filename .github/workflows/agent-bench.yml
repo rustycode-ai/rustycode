@@ -71,7 +71,7 @@ jobs:
             --output json
 
       - name: Upload results
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v4
         with:
           name: bench-results
           path: dev-repo/bench-results.json
