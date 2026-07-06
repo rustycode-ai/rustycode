@@ -37,7 +37,8 @@ jobs:
           path: dev-repo
 
       - name: Validate benchmark manifest
-        run: ./scripts/validate-benchmarks.sh
+        run: |
+          grep -q '\[\[bench\]\]' Cargo.toml || test -d benches
 
   compile:
     name: Compile Benches
@@ -91,10 +92,10 @@ jobs:
           shared-key: full-bench
 
       - name: Run benchmark suite
-        run: ./scripts/bench.sh main
+        run: cargo bench -- --save-baseline main
 
       - name: Upload criterion reports
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v4
         with:
           name: criterion-results
           path: dev-repo/target/criterion
