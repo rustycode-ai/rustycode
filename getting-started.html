@@ -35,6 +35,7 @@
           <li><a href="#tui-basics">TUI Basics</a></li>
           <li><a href="#web-ui">Web UI &amp; Vision</a></li>
           <li><a href="#headless-mode">Headless Mode</a></li>
+          <li><a href="#troubleshooting">Troubleshooting</a></li>
           <li><a href="#next-steps">Next Steps</a></li>
         </ul>
       </div>
@@ -62,15 +63,26 @@
         <h2 id="install">Installation</h2>
 
         <h3>One-Line Install (Recommended)</h3>
-        <p>The easiest way to install RustyCode is using our official shell script or PowerShell script. This downloads the latest release binary for your platform and puts it in your path.</p>
+        <p>The easiest way to install RustyCode is using our official shell script or PowerShell script. This downloads the latest release binary for your platform and puts it in your path. By default binaries are installed to <code>/usr/local/bin</code>; on Windows they go to a system location added to your PATH.</p>
         <pre><code># macOS / Linux
-curl -fsSL https://rustycode-ai.github.io/install.sh | sh
+curl -fsSL https://rustycode-ai.github.io/rustycode/install.sh | sh
 
 # Windows (PowerShell)
-irm https://rustycode-ai.github.io/install.ps1 | iex
+irm https://rustycode-ai.github.io/rustycode/install.ps1 | iex
 
 # Nightly channel (installs the latest commit build)
-curl -fsSL https://rustycode-ai.github.io/install.sh | sh -s -- --nightly</code></pre>
+curl -fsSL https://rustycode-ai.github.io/rustycode/install.sh | sh -s -- --nightly</code></pre>
+        <div class="alert tip">
+          <div class="alert-icon">&#128161;</div>
+          <div class="alert-content">
+            <strong>Install Notes:</strong>
+            <ul>
+              <li>The shell installer may prompt for <code>sudo</code> if <code>/usr/local/bin</code> is not writable. You can change the target directory with <code>--dir ~/bin</code>.</li>
+              <li>On Windows, if PowerShell refuses to run remote scripts, run <code>Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser</code> first.</li>
+              <li>If <code>rustycode --version</code> is not found after install, open a new terminal or add the install directory to your PATH.</li>
+            </ul>
+          </div>
+        </div>
 
         <h3>Download Pre-built Binary</h3>
         <p>Alternatively, fetch assets directly from the <a href="https://github.com/rustycode-ai/rustycode/releases">GitHub Releases Page</a>:</p>
@@ -99,6 +111,27 @@ cargo build --release -p rustycode-cli
 
         <h3>Verify Installation</h3>
         <pre><code>rustycode --version</code></pre>
+
+        <h3>Update RustyCode</h3>
+        <p>Re-run the installer to replace the existing binary with the latest release:</p>
+        <pre><code># macOS / Linux
+curl -fsSL https://rustycode-ai.github.io/rustycode/install.sh | sh
+
+# Windows (PowerShell)
+irm https://rustycode-ai.github.io/rustycode/install.ps1 | iex
+
+# Or use the built-in self-updater
+rustycode update</code></pre>
+
+        <h3>Uninstall</h3>
+        <p>RustyCode does not write files outside its install directory and config folder. To remove it:</p>
+        <pre><code># Remove the binary (macOS / Linux)
+sudo rm /usr/local/bin/rustycode /usr/local/bin/rustycode-*
+
+# Remove configuration and data
+rm -rf ~/.rustycode
+
+# On Windows, remove rustycode.exe from the install directory and delete %USERPROFILE%\.rustycode</code></pre>
 
         <h2 id="configure">Configure API Keys</h2>
         <p>RustyCode reads API keys from environment variables. Export them in your shell session or save them to your profile (e.g., <code>~/.zshrc</code>, <code>~/.bashrc</code>):</p>
@@ -164,7 +197,7 @@ rustycode tui</code></pre>
               <tr><td><code>Ctrl+B</code></td><td>Toggle sessions sidebar</td></tr>
               <tr><td><code>Ctrl+K</code></td><td>Open command palette (quick actions)</td></tr>
               <tr><td><code>Ctrl+F</code></td><td>Search within current conversation messages</td></tr>
-              <li><code>Ctrl+1-9</code></td><td>Switch tabs/sessions directly</td></tr>
+              <tr><td><code>Ctrl+1-9</code></td><td>Switch tabs/sessions directly</td></tr>
             </tbody>
           </table>
         </div>
@@ -193,6 +226,23 @@ rustycode run --provider google --model gemini-2.5-pro "Generate unit tests for 
 
 # Run with a budget timeout (seconds)
 rustycode run --timeout 300 "Refactor the config loader to handle YAML format"</code></pre>
+
+        <h2 id="troubleshooting">Troubleshooting</h2>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Symptom</th><th>Solution</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>rustycode: command not found</code></td><td>Open a new terminal or add the install directory to your PATH.</td></tr>
+              <tr><td>Install script 404</td><td>Make sure the URL is <code>https://rustycode-ai.github.io/rustycode/install.sh</code>, not <code>/install.sh</code>.</td></tr>
+              <tr><td>PowerShell execution error</td><td>Run <code>Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser</code>.</td></tr>
+              <tr><td>No API key error</td><td>Set <code>ANTHROPIC_API_KEY</code>, <code>OPENAI_API_KEY</code>, or switch to Ollama in <code>~/.rustycode/config.toml</code>.</td></tr>
+              <tr><td>TUI looks broken / no colors</td><td>Use a terminal with TrueColor support (e.g., iTerm2, Windows Terminal, Alacritty, Kitty).</td></tr>
+              <tr><td>Build fails from source</td><td>Install <code>protobuf-compiler</code> (Linux) or <code>protobuf</code> via Homebrew (macOS) and run <code>cargo build --release -p rustycode-cli</code>.</td></tr>
+            </tbody>
+          </table>
+        </div>
 
         <h2 id="next-steps">Next Steps</h2>
         <div class="card-grid">
