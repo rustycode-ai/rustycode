@@ -1,6 +1,6 @@
 # RustyCode installer for Windows
-# Usage: irm https://rustycode-ai.github.io/install.ps1 | iex
-#   or:  iex "& { $(irm https://rustycode-ai.github.io/install.ps1) } -Bin rustycode-mcp-computer-use"
+# Usage: irm https://rustycode-ai.github.io/rustycode/install.ps1 | iex
+#   or:  iex "& { $(irm https://rustycode-ai.github.io/rustycode/install.ps1) } -Bin rustycode-mcp-computer-use"
 
 param(
     [switch]$Nightly,
