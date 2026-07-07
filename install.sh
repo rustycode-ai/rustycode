@@ -2,10 +2,10 @@
 # RustyCode installer — downloads the latest release from GitHub and installs binaries.
 #
 # Usage:
-#   curl -fsSL https://rustycode-ai.github.io/install.sh | sh
-#   curl -fsSL https://rustycode-ai.github.io/install.sh | sh -s -- --nightly
-#   curl -fsSL https://rustycode-ai.github.io/install.sh | sh -s -- --dir ~/bin
-#   curl -fsSL https://rustycode-ai.github.io/install.sh | sh -s -- --bin rustycode-bench
+#   curl -fsSL https://rustycode-ai.github.io/rustycode/install.sh | sh
+#   curl -fsSL https://rustycode-ai.github.io/rustycode/install.sh | sh -s -- --nightly
+#   curl -fsSL https://rustycode-ai.github.io/rustycode/install.sh | sh -s -- --dir ~/bin
+#   curl -fsSL https://rustycode-ai.github.io/rustycode/install.sh | sh -s -- --bin rustycode-bench
 
 set -eu
 
