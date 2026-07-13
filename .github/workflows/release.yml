@@ -154,7 +154,7 @@ jobs:
           Compress-Archive -Path ${{ env.BINARY_NAME }}.exe, ${{ env.BINARY2_NAME }}.exe -DestinationPath ${{ github.workspace }}/${{ matrix.artifact }}.zip
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.artifact }}${{ matrix.ext }}
@@ -173,7 +173,7 @@ jobs:
           token: ${{ secrets.PRIVATE_REPO_PAT }}
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 
@@ -191,7 +191,7 @@ jobs:
           fi
 
       - name: Create or update release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.determine-version.outputs.tag }}
           name: "RustyCode ${{ needs.determine-version.outputs.tag }}"
