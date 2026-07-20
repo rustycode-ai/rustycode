@@ -54,21 +54,27 @@ jobs:
       - name: Extract version
         id: version
         run: |
-          VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "ref=${{ steps.resolve.outputs.ref }}" >> "$GITHUB_OUTPUT"
-          if [ "${{ steps.resolve.outputs.release_type }}" = "nightly" ]; then
+          REF="${{ steps.resolve.outputs.ref }}"
+          if [[ "$REF" =~ ^v[0-9] ]]; then
+            TAG="$REF"
+            VERSION="${REF#v}"
+          elif [ "${{ steps.resolve.outputs.release_type }}" = "nightly" ]; then
+            VERSION=$(grep "^version = " Cargo.toml | head -1 | sed "s/version = \"\(.*\)\"/\1/")
             DATE=$(date +%Y%m%d)
             TAG="nightly-${DATE}"
-            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-            echo "is_stable=false" >> "$GITHUB_OUTPUT"
           else
+            VERSION=$(grep "^version = " Cargo.toml | head -1 | sed "s/version = \"\(.*\)\"/\1/")
             TAG="v${VERSION}"
-            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-            echo "is_stable=true" >> "$GITHUB_OUTPUT"
           fi
-          echo "Version: $VERSION  Tag: $TAG  Ref: ${{ steps.resolve.outputs.ref }}"
-
+          IS_STABLE="true"
+          if [ "${{ steps.resolve.outputs.release_type }}" = "nightly" ]; then
+            IS_STABLE="false"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "is_stable=$IS_STABLE" >> "$GITHUB_OUTPUT"
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION  Tag: $TAG  Ref: $REF"
   build:
     name: Build ${{ matrix.target }}
     needs: determine-version
