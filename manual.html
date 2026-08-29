@@ -83,14 +83,29 @@
                 <td>Roll back codebase workspace to a Git hash checkpoint, optionally restoring specific files.</td>
               </tr>
               <tr>
-                <td><code>ensemble</code></td>
-                <td><code>rustycode ensemble &lt;command&gt;</code></td>
-                <td>Execute consensus execution with isolated git worktrees across multiple reasoning agents.</td>
-              </tr>
-              <tr>
                 <td><code>workflow</code></td>
                 <td><code>rustycode workflow &lt;cmd&gt; --description &lt;task&gt;</code></td>
                 <td>Execute static DAG or dynamic Rhai-scripted multi-agent pipelines.</td>
+              </tr>
+              <tr>
+                <td><code>plan</code></td>
+                <td><code>rustycode plan create "&lt;goal&gt;"</code></td>
+                <td>Create, list, show, approve, or reject structured execution plans.</td>
+              </tr>
+              <tr>
+                <td><code>chat</code></td>
+                <td><code>rustycode chat setup telegram</code></td>
+                <td>Configure remote control from chat platforms (see the Chat Control guide).</td>
+              </tr>
+              <tr>
+                <td><code>login</code> / <code>auth-status</code></td>
+                <td><code>rustycode login anthropic</code></td>
+                <td>Authenticate with a provider (OAuth, device flow, or API key) and show auth status.</td>
+              </tr>
+              <tr>
+                <td><code>mcp</code></td>
+                <td><code>rustycode mcp &lt;command&gt;</code></td>
+                <td>Run the MCP server exposing RustyCode tools over stdio.</td>
               </tr>
               <tr>
                 <td><code>agent</code></td>
@@ -170,7 +185,7 @@
             </thead>
             <tbody>
               <tr><td><code>--yes</code></td><td>Bypasses all interactive confirmation gates (forced non-interactive mode).</td></tr>
-              <tr><td><code>--model &lt;name&gt;</code></td><td>Override provider defaults for the primary LLM (e.g. <code>--model claude-opus-4-7</code>).</td></tr>
+              <tr><td><code>--model &lt;name&gt;</code></td><td>Override provider defaults for the primary LLM (e.g. <code>--model claude-opus-5</code>).</td></tr>
               <tr><td><code>--effort low|medium|high|xhigh|max</code></td><td>Specify reasoning token budgets or effort modes on supported models.</td></tr>
               <tr><td><code>--format human|json</code></td><td>Stdout structure format (default: <code>human</code>). Use <code>json</code> for machine pipes.</td></tr>
               <tr><td><code>--color always|never|auto</code></td><td>Configure ANSI color rendering in stdout logs.</td></tr>
