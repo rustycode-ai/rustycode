@@ -139,10 +139,10 @@ rm -rf ~/.rustycode
         <pre><code># Anthropic Claude (recommended model: claude-sonnet-4-6)
 export ANTHROPIC_API_KEY="sk-ant-your-key-here"
 
-# OpenAI (recommended model: gpt-4o or o3)
+# OpenAI (recommended model: gpt-5.6)
 export OPENAI_API_KEY="sk-your-key-here"
 
-# Google Gemini (recommended model: gemini-2.5-pro)
+# Google Gemini (recommended model: gemini-3-pro)
 export GOOGLE_API_KEY="AIzaSyYourKeyHere"</code></pre>
 
         <div class="alert tip">
@@ -224,8 +224,8 @@ rustycode run "Fix the syntax warnings in src/auth.rs"
 # Override model and provider for a specific run
 rustycode run --provider google --model gemini-2.5-pro "Generate unit tests for src/utils.rs"
 
-# Run with a budget timeout (seconds)
-rustycode run --timeout 300 "Refactor the config loader to handle YAML format"</code></pre>
+# Run with a turn budget (max LLM-tool turns; default 25)
+rustycode run --max-turns 25 "Refactor the config loader to handle YAML format"</code></pre>
 
         <h2 id="troubleshooting">Troubleshooting</h2>
         <div class="table-wrapper">
