@@ -150,16 +150,9 @@ auto_approve_commands = [
   "git status", "git log", "git diff", "cargo check", "cargo clippy"
 ]
 
-# ── Orchestration Tuning ───────────────────────────────────
-[orchestration]
-# Maximum iterations the autonomous agent loop can run (default: 3)
-max_iterations = 3
-# Maximum tool turns per prompt iteration (default: 25)
-max_tool_turns = 25
-# Wall-clock timeout before forcing stop (default: 900 seconds)
-wall_clock_timeout_secs = 900
-# Minimum tool invocations before concluding a task (default: 5)
-min_tool_calls_to_stop = 5</code></pre>
+# Execution budgets are not TOML keys — they come from loop-tier
+# defaults and the environment variables listed under
+# "Orchestration & Budgets" below.</code></pre>
 
         <h2 id="providers">LLM Providers</h2>
 
@@ -167,7 +160,7 @@ min_tool_calls_to_stop = 5</code></pre>
         <p>Recommended for its coding capability. Set <code>ANTHROPIC_API_KEY</code>. Recommended models:</p>
         <ul>
           <li><strong>claude-sonnet-4-6</strong>: Balanced model for feature development and editing.</li>
-          <li><strong>claude-opus-4-7</strong>: High-effort model for architecture and diagnostics.</li>
+          <li><strong>claude-opus-5</strong>: High-effort model for architecture and diagnostics.</li>
           <li><strong>claude-haiku-4-5</strong>: Fast and cost-efficient option for simple, single-file patches.</li>
         </ul>
 
@@ -198,32 +191,32 @@ env = { GITHUB_PERSONAL_ACCESS_TOKEN = "ghp_..." }</code></pre>
         </ul>
 
         <h2 id="orchestration">Orchestration &amp; Budgets</h2>
-        <p>Prevent runaway loops and coordinate agent workloads. Configurable options:</p>
+        <p>Prevent runaway loops and coordinate agent workloads. Budgets are set by loop tier and overridden with environment variables (not TOML keys):</p>
         <div class="table-wrapper">
           <table>
             <thead>
-              <tr><th>Setting</th><th>Default</th><th>Description</th></tr>
+              <tr><th>Override</th><th>Default</th><th>Description</th></tr>
             </thead>
             <tbody>
               <tr>
-                <td><code>max_iterations</code></td>
-                <td><code>3</code></td>
-                <td>Determines how many full reasoning attempts (planning, acting, verifying) the agent can perform.</td>
+                <td><code>RUSTYCODE_MAX_TURNS</code></td>
+                <td><code>25</code> (Tier 3)</td>
+                <td>Maximum LLM&#8596;tool turns per run. Tier defaults scale with task complexity: 5 (Tier 1), 10 (Tier 2), 25 (Tier 3+). Also settable per-run with <code>rustycode run --max-turns &lt;n&gt;</code>.</td>
               </tr>
               <tr>
-                <td><code>max_tool_turns</code></td>
-                <td><code>25</code></td>
-                <td>Limits total tool execution loops per task run to prevent endless recursion.</td>
+                <td><code>RUSTYCODE_AGENT_TIMEOUT_SECS</code></td>
+                <td><code>900</code> (Tier 3)</td>
+                <td>Hard wall-clock timeout. Forces the agent to shut down and output results. Tier defaults: 60s (Tier 1), 120s (Tier 2), 900s (Tier 3+).</td>
               </tr>
               <tr>
-                <td><code>wall_clock_timeout_secs</code></td>
-                <td><code>900</code></td>
-                <td>Hard wall-clock timeout. Forces the agent to shut down and output results.</td>
+                <td><code>RUSTYCODE_MAX_OUTPUT_TOKENS</code></td>
+                <td><code>32768</code></td>
+                <td>Caps the model's output token budget per response.</td>
               </tr>
               <tr>
-                <td><code>min_tool_calls_to_stop</code></td>
-                <td><code>5</code></td>
-                <td>Ensures the agent doesn't quit immediately without performing sufficient validation.</td>
+                <td><code>RUSTYCODE_EFFORT_OVERRIDE</code></td>
+                <td>model default</td>
+                <td>Reasoning effort (<code>low|medium|high|xhigh|max</code>) on supported models.</td>
               </tr>
             </tbody>
           </table>
@@ -251,6 +244,16 @@ env = { GITHUB_PERSONAL_ACCESS_TOKEN = "ghp_..." }</code></pre>
                 <td><code>RUSTYCODE_EFFORT_OVERRIDE</code></td>
                 <td>Reasoning effort limit</td>
                 <td><code>export RUSTYCODE_EFFORT_OVERRIDE="medium"</code></td>
+              </tr>
+              <tr>
+                <td><code>RUSTYCODE_MAX_TURNS</code></td>
+                <td>Max LLM&#8596;tool turns</td>
+                <td><code>export RUSTYCODE_MAX_TURNS="25"</code></td>
+              </tr>
+              <tr>
+                <td><code>RUSTYCODE_AGENT_TIMEOUT_SECS</code></td>
+                <td>Wall-clock timeout</td>
+                <td><code>export RUSTYCODE_AGENT_TIMEOUT_SECS="900"</code></td>
               </tr>
               <tr>
                 <td><code>RUSTYCODE_SKIP_PERMISSIONS</code></td>
