@@ -68,7 +68,7 @@ Ignore tests, configuration files, and other routes."</code></pre>
 
         <ol>
           <li><strong>Set a Cheap Default:</strong> Configure your default provider/model to a faster, cost-efficient model (e.g. <code>claude-haiku-4-5</code>, <code>gpt-4o-mini</code>, or <code>deepseek-coder-v2</code>).</li>
-          <li><strong>Consult the Advisor:</strong> Use the <code>/advisor &lt;question&gt;</code> slash command in the TUI. This makes a one-shot query to your configured senior model (e.g. <code>claude-sonnet-4-6</code> or <code>claude-opus-4-7</code>) for high-level guidance without cluttering your chat history.</li>
+          <li><strong>Consult the Advisor:</strong> Use the <code>/advisor &lt;question&gt;</code> slash command in the TUI. This makes a one-shot query to your configured senior model (e.g. <code>claude-sonnet-4-6</code> or <code>claude-opus-5</code>) for high-level guidance without cluttering your chat history.</li>
           <li><strong>Apply Advice Locally:</strong> The junior model takes the senior advisor's guidance and handles the actual tool execution (editing files, running compilers).</li>
         </ol>
 
@@ -80,15 +80,15 @@ Ignore tests, configuration files, and other routes."</code></pre>
           </div>
         </div>
 
-        <h2 id="teamwork-patterns">Multi-Agent Teams (Ensemble Mode)</h2>
+        <h2 id="teamwork-patterns">Multi-Agent Teams (Team Mode)</h2>
         <p>For complex features, coordinate a team of specialized subagents working in parallel:</p>
 
         <h3>1. Preview the Team Structure</h3>
         <p>Type <code>/teamwork-preview &lt;task&gt;</code> in the TUI. The orchestrator analyzes the task complexity and details the team role mapping (e.g., Code Researcher, DB Debugger, Test Writer) before launching them.</p>
 
-        <h3>2. Run in Ensemble Mode</h3>
+        <h3>2. Run in Team Mode</h3>
         <pre><code># Run parallel teams using git worktree isolation
-rustycode run --mode ensemble "Refactor the invoice calculation system"</code></pre>
+rustycode run --mode team "Refactor the invoice calculation system"</code></pre>
         <p>This spawns multiple agents in parallel. Each agent works in an isolated Git worktree to avoid conflicts. Changes are merged only after passing validation and quality gates.</p>
 
         <h2 id="project-context">Project Context (CLAUDE.md)</h2>
