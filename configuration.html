@@ -43,7 +43,7 @@
         <p>RustyCode is configured using TOML files and environment variables. This reference explains how to structure your configurations globally and locally.</p>
 
         <h2 id="config-locations">Config Locations</h2>
-        <p>RustyCode reads configuration files sequentially, applying project-level overrides on top of user-level defaults:</p>
+        <p>RustyCode reads configuration files sequentially, applying project-level overrides on top of user-level defaults. Each directory accepts <code>config.toml</code>, <code>config.json</code>, or <code>config.jsonc</code> (JSON with comments; later files win within the same directory):</p>
         <div class="table-wrapper">
           <table>
             <thead>
@@ -52,21 +52,31 @@
             <tbody>
               <tr>
                 <td>1 (Base)</td>
-                <td><code>~/.rustycode/config.toml</code></td>
+                <td><code>~/.rustycode/config.{toml,json,jsonc}</code></td>
                 <td>Global configurations. Put API keys and personal defaults here.</td>
               </tr>
               <tr>
                 <td>2</td>
-                <td><code>.rustycode/config.toml</code></td>
-                <td>Project-level overrides. Put project models and custom tools here.</td>
+                <td><code>~/.config/rustycode/config.{toml,json,jsonc}</code></td>
+                <td>XDG global configuration. Overrides the legacy home directory.</td>
               </tr>
               <tr>
                 <td>3</td>
+                <td><code>.rustycode-workspace/</code> (walking up parents)</td>
+                <td>Shared workspace layer for multi-repo projects, anchored by the marker directory.</td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td><code>.rustycode/config.{toml,json,jsonc}</code> in the project</td>
+                <td>Project-level overrides. Put project models and custom tools here.</td>
+              </tr>
+              <tr>
+                <td>5</td>
                 <td><code>CLAUDE.md</code></td>
                 <td>Workspace instructions. Read automatically to guide code style and paths.</td>
               </tr>
               <tr>
-                <td>4 (Highest)</td>
+                <td>6 (Highest)</td>
                 <td>Environment Variables</td>
                 <td>Keys prefixed with <code>RUSTYCODE_</code> override config file settings at runtime.</td>
               </tr>
@@ -75,80 +85,56 @@
         </div>
 
         <h2 id="full-toml">Full TOML Sample</h2>
-        <p>Here is a complete, fully featured <code>config.toml</code> showcasing all available tables:</p>
+        <p>Here is a complete <code>config.toml</code> showcasing the available tables. The active provider and model are top-level keys; per-provider settings live under <code>[providers.&lt;name&gt;]</code>:</p>
         <pre><code># ~/.rustycode/config.toml
 
-# ── Provider Settings ──────────────────────────────────────
-[provider]
-# Default active provider
-default = "anthropic"
+# ── Core Settings ──────────────────────────────────────────
+provider = "anthropic"          # active provider name
+model = "claude-sonnet-4-6"     # active model
+# temperature = 0.0
+# max_tokens = 8192
+# timeout_seconds = 120
 
 # ── Anthropic Claude ───────────────────────────────────────
-[provider.anthropic]
-api_key_env = "ANTHROPIC_API_KEY"
-model = "claude-sonnet-4-6"
-max_tokens = 8192
-temperature = 0.0
+[providers.anthropic]
+# api_key = "sk-ant-..."       # or export ANTHROPIC_API_KEY
+# base_url = "https://api.anthropic.com"
+# models = ["claude-sonnet-4-6", "claude-opus-5", "claude-haiku-4-5"]
 
 # ── OpenAI ─────────────────────────────────────────────────
-[provider.openai]
-api_key_env = "OPENAI_API_KEY"
-model = "gpt-4o"
-max_tokens = 4096
-temperature = 0.0
+[providers.openai]
+# api_key = "sk-..."           # or export OPENAI_API_KEY
+# models = ["gpt-4o"]
 
 # ── Google Gemini ──────────────────────────────────────────
-[provider.google]
-api_key_env = "GOOGLE_API_KEY"
-model = "gemini-2.5-pro"
-max_tokens = 8192
-
-# ── Google Cloud Vertex AI ─────────────────────────────────
-[provider.vertex]
-project_id = "your-gcp-project"
-location = "us-central1"
-model = "gemini-2.5-pro"
-
-# ── Amazon Bedrock ─────────────────────────────────────────
-[provider.bedrock]
-model = "anthropic.claude-sonnet-4-20250514"
-region = "us-east-1"
-
-# ── Azure OpenAI ───────────────────────────────────────────
-[provider.azure]
-api_key_env = "AZURE_OPENAI_API_KEY"
-base_url = "https://your-resource.openai.azure.com"
-deployment = "gpt-4o"
-api_version = "2024-08-01"
+[providers.gemini]
+# api_key = "..."              # or export GOOGLE_API_KEY
 
 # ── Ollama (Local) ─────────────────────────────────────────
-[provider.ollama]
+[providers.ollama]
 base_url = "http://localhost:11434"
-model = "deepseek-coder-v2"
 
-# ── MCP Server Hookups ─────────────────────────────────────
-[[mcp_server]]
-name = "postgres"
-transport = "stdio"
+# ── MCP Servers ────────────────────────────────────────────
+# A keyed map under `advanced.mcp_servers_map`. Transport is
+# auto-detected: `command` → stdio, `url` → http.
+[advanced.mcp_servers_map.postgres]
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/mydb"]
+# env = { PGUSER = "postgres" }
 
-# ── Agent-to-Agent (A2A) ───────────────────────────────────
-[a2a]
-enabled = false
-port = 8080
+[advanced.mcp_servers_map.remote-api]
+url = "https://mcp.example.com/mcp"
 
-# ── Security & Tool Permissions ─────────────────────────────
-[permissions]
-# Sensitive file extensions and directories blocked from agent access
-protected_paths = [
-  ".env", "*.pem", "*.key", "id_rsa", "credentials.json", "terraform.tfstate"
-]
-# Commands the agent can execute without user approval
-auto_approve_commands = [
-  "ls", "cat", "head", "tail", "wc", "find", "grep",
-  "git status", "git log", "git diff", "cargo check", "cargo clippy"
-]
+# ── Directories ────────────────────────────────────────────
+# data_dir = "~/.rustycode/data"
+# memory_dir = "~/.rustycode/memory"
+# skills_dir = "~/.rustycode/skills"
+# lsp_servers = ["rust-analyzer"]
+
+# Other registered provider names: vertex, azure, bedrock,
+# openrouter, zhipu, mistral, cohere, together, perplexity,
+# nvidia, huggingface, kimi-*, alibaba-*, lmstudio, copilot,
+# litert-lm, opencode — select with the top-level `provider` key.
 
 # Execution budgets are not TOML keys — they come from loop-tier
 # defaults and the environment variables listed under
@@ -165,29 +151,26 @@ auto_approve_commands = [
         </ul>
 
         <h3>Google Cloud Vertex AI</h3>
-        <p>Utilize corporate Gemini models hosted via Google Cloud Vertex. Ensure the local environment has active credentials via <code>gcloud auth application-default login</code>, then set:</p>
-        <pre><code>[provider.vertex]
-project_id = "my-gcp-project-123"
-location = "us-central1"
+        <p>Utilize corporate Gemini models hosted via Google Cloud Vertex. Ensure the local environment has active credentials via <code>gcloud auth application-default login</code>, then activate the provider with the top-level keys:</p>
+        <pre><code>provider = "vertex"
 model = "gemini-2.5-pro"</code></pre>
 
         <h3>Ollama</h3>
-        <p>Configure a custom model registry endpoint. Set <code>base_url</code> to your local port (default <code>http://localhost:11434</code>) and choose your downloaded model (e.g. <code>deepseek-coder-v2</code> or <code>codellama</code>).</p>
+        <p>Point <code>[providers.ollama]</code> <code>base_url</code> to your local port (default <code>http://localhost:11434</code>), set the top-level <code>provider = "ollama"</code>, and pick a downloaded model with the top-level <code>model</code> key (e.g. <code>qwen2.5-coder</code> or <code>deepseek-coder-v2</code>).</p>
 
         <h2 id="mcp-config">MCP Configurations</h2>
-        <p>Define third-party MCP servers under the <code>[[mcp_server]]</code> array. Define environment variables in an optional <code>env</code> table block:</p>
-        <pre><code>[[mcp_server]]
-name = "github"
-transport = "stdio"
+        <p>Define third-party MCP servers as a keyed map under <code>[advanced.mcp_servers_map.&lt;name&gt;]</code>. The transport is auto-detected from the fields you provide (<code>command</code> &rarr; stdio, <code>url</code> &rarr; http/sse); environment variables go in an <code>env</code> table:</p>
+        <pre><code>[advanced.mcp_servers_map.github]
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-github"]
 env = { GITHUB_PERSONAL_ACCESS_TOKEN = "ghp_..." }</code></pre>
 
         <h2 id="permissions">Permissions &amp; Paths</h2>
-        <p>Protect sensitive system configs and user directories using security tables:</p>
+        <p>File and command safety is built in rather than user-configured:</p>
         <ul>
-          <li><strong>protected_paths:</strong> Glob paths matches. If the agent attempts to read, write, or grep files matching these patterns, the security manager throws a validation error and aborts the operation.</li>
-          <li><strong>auto_approve_commands:</strong> Standard commands the agent runs automatically. Any shell command not in this list prompts the user with an explicit TUI/Web confirmation dialog before execution.</li>
+          <li><strong>Blocked files:</strong> A built-in validation layer refuses tool reads/writes to sensitive files by default — <code>.env*</code> variants, <code>*.pem</code>/<code>*.key</code>/<code>*.p12</code>, <code>credentials.json</code>, <code>id_rsa</code>, <code>.netrc</code>, <code>.npmrc</code>, wallet/database files, and binary executables. Secrets are also stripped from logs via <code>sanitize_for_log()</code>.</li>
+          <li><strong>Command approval:</strong> Read-only commands are auto-approved by a classifier; anything else (edits, shell side effects) prompts an explicit TUI/Web approval dialog before execution.</li>
+          <li><strong>Escape hatch:</strong> <code>--dangerously-skip-permissions</code> or <code>RUSTYCODE_SKIP_PERMISSIONS=true</code> disables the checks — only for sandboxed containers and CI.</li>
         </ul>
 
         <h2 id="orchestration">Orchestration &amp; Budgets</h2>
@@ -259,11 +242,6 @@ env = { GITHUB_PERSONAL_ACCESS_TOKEN = "ghp_..." }</code></pre>
                 <td><code>RUSTYCODE_SKIP_PERMISSIONS</code></td>
                 <td>Skips security checks</td>
                 <td><code>export RUSTYCODE_SKIP_PERMISSIONS="true"</code></td>
-              </tr>
-              <tr>
-                <td><code>RUSTYCODE_CONFIG</code></td>
-                <td>Custom config file path</td>
-                <td><code>export RUSTYCODE_CONFIG="/tmp/config.toml"</code></td>
               </tr>
             </tbody>
           </table>
