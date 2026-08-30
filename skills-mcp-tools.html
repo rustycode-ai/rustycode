@@ -67,7 +67,7 @@
           </div>
           <div class="feature-card">
             <h3>Custom Tools</h3>
-            <p>Rust-native tools written by implementing the <code>ToolExecutor</code> trait in the workspace registry.</p>
+            <p>Rust-native tools written by implementing the <code>Tool</code> trait in the workspace registry.</p>
           </div>
         </div>
 
@@ -95,7 +95,7 @@ triggers:
   - refactor
   - rename symbol
   - extract function
-tags:
+categories:
   - rust
   - refactor
 ---
@@ -186,16 +186,16 @@ rustycode acp start</code></pre>
         </ul>
 
         <h2 id="custom-tools">Creating Custom Tools</h2>
-        <p>Create native tools by implementing the <code>ToolExecutor</code> trait from the <code>rustycode-tools-api</code> crate. Register your struct with the tool registry:</p>
+        <p>Create native tools by implementing the <code>Tool</code> trait from the <code>rustycode-tools-api</code> crate. Register your struct with the tool registry:</p>
 
         <pre><code>// crates/rustycode-tools/src/providers/my_custom_tool.rs
 use anyhow::Result;
-use rustycode_tools_api::{ToolExecutor, ToolResult, ToolContext};
+use rustycode_tools_api::{Tool, ToolContext, ToolOutput};
 use serde_json::{json, Value};
 
 pub struct PortScannerTool;
 
-impl ToolExecutor for PortScannerTool {
+impl Tool for PortScannerTool {
     fn name(&amp;self) -> &amp;str {
         "scan_ports"
     }
@@ -204,7 +204,7 @@ impl ToolExecutor for PortScannerTool {
         "Check if specific ports are open on the local host"
     }
 
-    fn parameters(&amp;self) -> Value {
+    fn parameters_schema(&amp;self) -> Value {
         json!({
             "type": "object",
             "properties": {
@@ -215,18 +215,21 @@ impl ToolExecutor for PortScannerTool {
         })
     }
 
-    async fn execute(&amp;self, ctx: &amp;ToolContext) -> Result&lt;ToolResult&gt; {
-        let host = ctx.param_str("host")?;
-        let ports: Vec&lt;u16&gt; = ctx.param_as("ports")?;
-        
+    fn execute(&amp;self, params: Value, _ctx: &amp;ToolContext) -> Result&lt;ToolOutput&gt; {
+        let host = params["host"].as_str().unwrap_or("127.0.0.1").to_string();
+        let ports: Vec&lt;u16&gt; = params["ports"]
+            .as_array()
+            .map(|a| a.iter().filter_map(|v| v.as_u64().and_then(|n| u16::try_from(n).ok())).collect())
+            .unwrap_or_default();
+
         let mut results = Vec::new();
         for port in ports {
             let address = format!("{}:{}", host, port);
-            let is_open = tokio::net::TcpStream::connect(&amp;address).await.is_ok();
+            let is_open = std::net::TcpStream::connect(&amp;address).is_ok();
             results.push(format!("Port {}: {}", port, if is_open { "OPEN" } else { "CLOSED" }));
         }
 
-        Ok(ToolResult::text(results.join("\n")))
+        Ok(ToolOutput::text(results.join("\n")))
     }
 }</code></pre>
 
