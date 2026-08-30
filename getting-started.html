@@ -162,11 +162,10 @@ ollama serve
 ollama pull deepseek-coder-v2
 
 # Configure Ollama in ~/.rustycode/config.toml:
-# [provider]
-# default = "ollama"
-# [provider.ollama]
-# base_url = "http://localhost:11434"
-# model = "deepseek-coder-v2"</code></pre>
+# provider = "ollama"
+# model = "deepseek-coder-v2"
+# [providers.ollama]
+# base_url = "http://localhost:11434"</code></pre>
 
         <h2 id="first-run">Your First Run</h2>
         <p>Open a terminal, navigate to your codebase directory, and boot the framework:</p>
@@ -197,7 +196,7 @@ rustycode tui</code></pre>
               <tr><td><code>Ctrl+B</code></td><td>Toggle sessions sidebar</td></tr>
               <tr><td><code>Ctrl+K</code></td><td>Open command palette (quick actions)</td></tr>
               <tr><td><code>Ctrl+F</code></td><td>Search within current conversation messages</td></tr>
-              <tr><td><code>Ctrl+1-9</code></td><td>Switch tabs/sessions directly</td></tr>
+              <tr><td><code>Alt+F</code></td><td>Cycle reasoning effort level (low &rarr; medium &rarr; high)</td></tr>
             </tbody>
           </table>
         </div>
@@ -221,8 +220,8 @@ rustycode serve</code></pre>
         <pre><code># Run a quick fix
 rustycode run "Fix the syntax warnings in src/auth.rs"
 
-# Override model and provider for a specific run
-rustycode run --provider google --model gemini-2.5-pro "Generate unit tests for src/utils.rs"
+# Override the model for a specific run
+rustycode run --model gemini-3-pro "Generate unit tests for src/utils.rs"
 
 # Run with a turn budget (max LLM-tool turns; default 25)
 rustycode run --max-turns 25 "Refactor the config loader to handle YAML format"</code></pre>
