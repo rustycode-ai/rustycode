@@ -83,8 +83,8 @@ Ignore tests, configuration files, and other routes."</code></pre>
         <h2 id="teamwork-patterns">Multi-Agent Teams (Team Mode)</h2>
         <p>For complex features, coordinate a team of specialized subagents working in parallel:</p>
 
-        <h3>1. Preview the Team Structure</h3>
-        <p>Type <code>/teamwork-preview &lt;task&gt;</code> in the TUI. The orchestrator analyzes the task complexity and details the team role mapping (e.g., Code Researcher, DB Debugger, Test Writer) before launching them.</p>
+        <h3>1. Launch the Team</h3>
+        <p>Type <code>/team &lt;task&gt;</code> in the TUI. The orchestrator analyzes the task, maps out specialized roles (e.g., Code Researcher, Test Writer, Reviewer), and launches them in parallel. Use <code>/ensemble &lt;task&gt;</code> to run multiple teams on the same task and compare their answers.</p>
 
         <h3>2. Run in Team Mode</h3>
         <pre><code># Run parallel teams using git worktree isolation
