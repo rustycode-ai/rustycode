@@ -172,6 +172,36 @@
                 <td><code>rustycode update [--nightly]</code></td>
                 <td>Self-update the local binary to the latest release or nightly build.</td>
               </tr>
+              <tr>
+                <td><code>tools</code></td>
+                <td><code>rustycode tools list</code></td>
+                <td>List all registered tools, or invoke one directly with <code>tools call &lt;name&gt; --params '{...}'</code>.</td>
+              </tr>
+              <tr>
+                <td><code>sessions</code></td>
+                <td><code>rustycode sessions list</code></td>
+                <td>Manage past sessions: list, show, archive, restore, or purge old ones.</td>
+              </tr>
+              <tr>
+                <td><code>events</code></td>
+                <td><code>rustycode events watch</code></td>
+                <td>Watch the internal event bus stream in real time with pattern filtering.</td>
+              </tr>
+              <tr>
+                <td><code>context</code></td>
+                <td><code>rustycode context "&lt;prompt&gt;"</code></td>
+                <td>Plan the context budget for a prompt: which layers fit and their token share.</td>
+              </tr>
+              <tr>
+                <td><code>ast</code></td>
+                <td><code>rustycode ast run "&lt;task&gt;"</code></td>
+                <td>Run a task through the AST pipeline (CLASSIFY &rarr; RESEARCH &rarr; SKELETON &rarr; EXPAND &rarr; EXECUTE &rarr; VERIFY).</td>
+              </tr>
+              <tr>
+                <td><code>outline</code></td>
+                <td><code>rustycode outline &lt;file&gt;</code></td>
+                <td>Explore code structure of a file (experimental).</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -209,9 +239,9 @@
               <tr><td><code>/advisor &lt;query&gt;</code></td><td>Consult the senior model advisor about an issue without committing it to the main context history.</td></tr>
               <tr><td><code>/workflow &lt;goal&gt;</code></td><td>Boot the dynamic workflow runner to generate and coordinate parallel task steps.</td></tr>
               <tr><td><code>/goal &lt;task&gt;</code></td><td>Run a thorough autonomous session that persists until the goal is validated.</td></tr>
-              <tr><td><code>/grill-me</code></td><td>Start an interactive interview mode to clarify code options and align on a plan.</td></tr>
-              <tr><td><code>/teamwork-preview</code></td><td>Analyze the repository and preview how a team of specialized subagents would coordinate.</td></tr>
-              <tr><td><code>/learn</code></td><td>Instruct the agent to persist the current code fix/convention to the learning store.</td></tr>
+              <tr><td><code>/team &lt;task&gt;</code></td><td>Run a multi-agent team (researcher, implementer, reviewer) in parallel with git worktree isolation.</td></tr>
+              <tr><td><code>/compact</code> / <code>/cc</code></td><td>Summarize and compact the conversation to free context without losing key decisions.</td></tr>
+              <tr><td><code>/undo</code> / <code>/u</code></td><td>Revert the agent's most recent file change.</td></tr>
               <tr><td><code>/clear</code></td><td>Reset the current conversation, clear file caches, and release workspace guards.</td></tr>
               <tr><td><code>/load &lt;path&gt;</code></td><td>Load a specific file or past conversation transcript into the active context.</td></tr>
             </tbody>
