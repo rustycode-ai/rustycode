@@ -99,8 +99,8 @@ jobs:
 
       - name: Run tests (Linux)
         if: runner.os == 'Linux'
-        run: cargo test ${{ matrix.test_args }} -- --nocapture
+        run: cargo test --no-fail-fast ${{ matrix.test_args }} -- --nocapture
 
       - name: Run tests (macOS / Windows)
         if: runner.os != 'Linux'
-        run: cargo test ${{ matrix.test_args }}
+        run: cargo test --no-fail-fast ${{ matrix.test_args }}
