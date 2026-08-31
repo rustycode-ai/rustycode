@@ -55,20 +55,21 @@ jobs:
           workspaces: dev-repo
           shared-key: agent-bench
 
-      - name: Build CLI
-        run: cargo build -p rustycode-cli --release --locked
+      - name: Build bench runner
+        run: cargo build -p rustycode-bench --release --locked
 
       - name: Run benchmark
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          ./target/release/rustycode bench run \
-            --dataset ${{ inputs.dataset }} \
+          ./target/release/rustycode-bench run \
+            "${{ inputs.dataset }}" \
             --agent ${{ inputs.agent }} \
             --model ${{ inputs.model }} \
             --env native \
             --timeout ${{ inputs.timeout }} \
-            --output json
+            --output json \
+            --report bench-results.json
 
       - name: Upload results
         uses: actions/upload-artifact@v4
