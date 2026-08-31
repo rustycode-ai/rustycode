@@ -36,12 +36,14 @@ jobs:
         include:
           - os: ubuntu-latest
             # Linux runners have Docker: run the full suite incl. bench.
-            test_args: --workspace --all-targets --locked
+            # tauri is excluded everywhere: zero tests, drags GTK/WebKit
+            # system deps that the rest of the workspace never needs.
+            test_args: --workspace --all-targets --locked --exclude rustycode-tauri
           - os: macos-latest
             # bench/swebench assume a Linux/Docker environment.
-            test_args: --workspace --all-targets --locked --exclude rustycode-bench
+            test_args: --workspace --all-targets --locked --exclude rustycode-bench --exclude rustycode-tauri
           - os: windows-latest
-            test_args: --workspace --all-targets --locked --exclude rustycode-bench
+            test_args: --workspace --all-targets --locked --exclude rustycode-bench --exclude rustycode-tauri
 
     steps:
       - name: Checkout dev repo
