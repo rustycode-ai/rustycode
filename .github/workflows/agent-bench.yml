@@ -72,7 +72,7 @@ jobs:
             --report bench-results.json
 
       - name: Upload results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bench-results
           path: dev-repo/bench-results.json
