@@ -121,7 +121,7 @@ jobs:
           cargo bench --bench tui_performance -- --save-baseline main --sample-size 10
 
       - name: Upload criterion reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: criterion-results
           path: dev-repo/target/criterion
