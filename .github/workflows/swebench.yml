@@ -76,7 +76,7 @@ jobs:
             wcslib-dev libcfitsio-dev liberfa-dev libxml2-dev libxslt1-dev libdbus-1-dev
 
       - name: Setup Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
